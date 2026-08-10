@@ -179,15 +179,30 @@ stages' documents).
 
 ## Output 1 — `PROJECT_CONTEXT.md`
 
+**Write this file to be read repeatedly.** It is loaded at the start of every later stage run —
+many times across a build — so **state each fact once and cross-reference; never re-narrate it.**
+
+- **Say it once, in one home section.** A decision, quirk, or open question lives in exactly one
+  place; everywhere else names it (e.g. "strict parity — see C3", "the weak seeded credential —
+  see §7"). Do not restate the same fact across §1, §5, §6, and an obligation.
+- **§4 obligations are the exception — keep them fully detailed.** They are the hot path every
+  stage reads by ID, and their detail deliberately stops later stages re-deriving rules. Never
+  thin them to save space. (An obligation states *what to do*; the matching §7 entry states
+  *what's still undecided* — complementary, not duplicates.)
+- **§5 is a terse provenance ledger, not prose** — one line per answer plus its provenance,
+  pointing to where any fuller detail lives.
+- **§1 is lean orientation**, not a synopsis of the whole file.
+- Prefer tables and one-line bullets to paragraphs — except the §3/§4 reasoning a later stage
+  would otherwise re-derive, which you state once, there.
+
 ```markdown
 # Project Context: <AppName>
 
-## 1. Summary
-- One paragraph: what is being modernized and why, at a glance.
-- **Business driver** and any deadline pressure (Q1) — the speed-vs-thoroughness tradeoff
-  later stages should make.
-- **Parity stance** (Q3): strict behavioral parity, or improvements permitted — and what is
-  explicitly off-limits to change.
+## 1. Summary  *(lean orientation — one line each; don't expand defaults into paragraphs)*
+- One paragraph: what is being modernized, to what, and the single hard part — at a glance.
+- **Business driver** / deadline pressure (Q1) — the speed-vs-thoroughness tradeoff, in one line.
+- **Parity stance** (Q3): strict parity or improvements-permitted, plus anything off-limits — one
+  line; the detail lives in the parity constraint (§4), not here.
 
 ## 2. Stacks
 - **Current stack:** languages, frameworks, UI tech, runtime/versions, data store,
@@ -229,20 +244,28 @@ actionable downstream:
   live; every later stage reads them by ID rather than re-deriving them.
 
 ## 5. Intake Questionnaire (resolved)
-- Every question with its final answer and **provenance**: human-supplied, `ASSUMPTION:
-  (default applied)`, or `ASSUMPTION:` (inferred from the legacy app).
+A **provenance ledger** — one row per question, terse. Do **not** restate detail already in
+§1–§10; cross-reference it instead.
+
+| Q | Answer (one line) | Provenance |
+|---|-------------------|------------|
+| 1 | <the decision in a single line; where fuller, point to its home, e.g. "Reuse SQLite — see C1"> | human-supplied / `ASSUMPTION: (default applied)` / `ASSUMPTION:` (inferred) |
+
 - Note the `INTAKE.md` this was resolved from.
-- **This is a record, not an input.** It exists so a reader can see what was decided and by
-  whom. To change an answer, the human edits `INTAKE.md` and reruns this stage.
+- **This is a record, not an input.** To change an answer, the human edits `INTAKE.md` and
+  reruns this stage.
 
 ## 6. Non-Functional / Quality Requirements (initial)
 - Performance, scalability, availability, security posture, accessibility, i18n,
-  observability, data-residency — as far as known now. (Requirements Stage deepens these;
-  this section seeds them so they aren't forgotten.)
+  observability, data-residency — as far as known now, **one line each**. (Requirements Stage
+  deepens these; this section only seeds them.)
+- Where an item is already an obligation (§4) or an open question (§7), **name it and
+  cross-reference** — don't re-tell it here.
 
 ## 7. Open Questions
 - Anything unresolved that isn't a hard-stop but should be answered before it compounds.
-  Prefix `OPEN QUESTION:`.
+  Prefix `OPEN QUESTION:`. **This is the single home for each open question** — other sections
+  point here by name rather than restating it.
 
 ## 8. Integrations & External Systems
 | System | Direction | Contract | Disposition |
@@ -413,6 +436,9 @@ actually changed.
   human to confirm or override — not left to be discovered in the document.
 - [ ] Neither `INTAKE.md` nor `0_INTAKE_TEMPLATE.md` was written to — the intake is an input.
   §5 of `PROJECT_CONTEXT.md` holds the resolved answers with their provenance.
+- [ ] The document states each fact once: §5 is a terse provenance ledger, each recurring
+  quirk/open question lives once (in §7 or its §4 obligation) and is cross-referenced elsewhere,
+  and §1 is lean — while §4 obligations stay fully detailed.
 
 ---
 
