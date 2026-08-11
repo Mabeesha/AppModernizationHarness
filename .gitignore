@@ -6,3 +6,6 @@ obj/
 
 #claude
 .claude/
+
+#output artifacts
+modernized_app*
