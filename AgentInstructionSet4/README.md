@@ -181,7 +181,11 @@ questions compound downstream.
 
 ### Stage 2 — Design  · `2_DESIGN_INSTRUCTIONS.md`
 Produces the HLD (architecture + rationale) and LLD (exact contracts), designing *within* the
-target stack and constraints.
+target stack and constraints. Where the target has a UI, the LLD also defines a **design
+language** (§3b) — tokens, layout patterns, and a component inventory. If you supplied a UI
+sample (intake Q23), that language is extracted from it; if you didn't, idiomatic defaults are
+chosen and written down anyway. Either way it's what stops phase 7's screens from looking
+unlike phase 3's, since each phase is built in a separate run.
 **Your job after:** validate the big decisions (layering, API style, auth path, data handling)
 and clear the open questions. Changing a decision now costs a doc edit; changing it mid-build
 costs rework.
@@ -507,6 +511,7 @@ the baseline moved.)*
 | Constraints | Fixed C1/C2/C3 restated in every doc | **Project-supplied, by ID, with per-stage obligations** defined once in `PROJECT_CONTEXT.md`; stage files carry no constraint-specific rules |
 | Ad-hoc chat (outside a stage) | Ungoverned — rules only loaded when a stage was invoked | **`AGENTS.md`** carries invariants + a routing rule; out-of-band edits still get logged |
 | Cutover & coexistence | Not addressed (big-bang assumed) | **Load-bearing questions**; strangler-fig / parallel-run shape the design and phase slicing |
+| UI appearance | Unspecified — each phase invented its own styling | Optional **UI sample** (Q23) → a **design language** in LLD §3b, stood up before feature screens and checked by Review |
 | Integrations | Discovered ad hoc during extraction | Declared up front with **fixed vs. negotiable contracts** (`§8`) |
 | Parity stance | Implicit | **Explicit**: strict parity (bugs preserved + flagged) vs. improvements allowed |
 | CI/CD | Not addressed | **Explicit boundary** (respect / generate / none) |

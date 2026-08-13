@@ -332,6 +332,12 @@ phase `done` again at hand-off.
    tests pass, and acceptance criteria are met.
 6. **Write tests. Update docs. Update state.** Every run leaves all three current.
 7. **Idiomatic, clean code** for the target stack; honor the code-style constraint mechanically.
+   **For UI work, build from the design language in LLD §3b** — use the shared components and
+   tokens the frontend-scaffold phase established; never hand-roll a one-off style, colour, or
+   spacing value on a screen. If §3b lacks a component you need, add it to the shared set and
+   note it, rather than styling it locally: a local style is invisible to every later phase and
+   is exactly how the UI drifts. The design language governs **appearance only** — screens,
+   fields, validation, and flows still come from the requirements and the LLD.
 8. **Stay in scope.** Build the current phase/edit — not future phases' features. Surface
    gold-plating temptations instead of building them.
 9. **Plan edits are bookkeeping, not redesign.** You may update the plan (statuses via

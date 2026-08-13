@@ -70,6 +70,12 @@ what's wrong, why it matters, and the requirement/design/constraint it violates.
   with the shape the LLD specifies. Such a mismatch is a **Blocker** — it is invisible to each
   side's own unit tests.
 - Confirm the phase's own **exit criteria** genuinely hold (don't take the `done` mark on faith).
+- **UI consistency**, where the target has one: screens must be built from the shared components
+  and tokens in **LLD §3b**. Flag any screen carrying one-off colours, spacing, or hand-rolled
+  controls — that is drift, and it compounds across phases even though each screen looks fine
+  alone. Where a UI reference was supplied, check the result matches its visual language.
+  Conversely, check the UI reference was **not** used to change behavior: extra fields, altered
+  flows, or new screens that the requirements don't call for are divergences, not improvements.
 
 ### 2. Unit / automated tests
 - Do tests exist for the behavior built in scope? Do they actually **run and pass**?

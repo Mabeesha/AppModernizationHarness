@@ -34,6 +34,10 @@ defaults. Answer these and you're done:
 Fill in more if you know it. Leave the rest blank — the agent applies defaults and **tells you
 exactly which ones it answered for you**.
 
+**Got a sample UI?** Answer Q23 with a path to some HTML/CSS, a mockup, or your design system.
+The design stage turns it into a design language every phase builds from — which is what keeps
+later screens looking like earlier ones.
+
 ## 3. Run four stages, once each
 
 One prompt each, in order. Read the output before moving on.

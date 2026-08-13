@@ -195,5 +195,37 @@ Plus any audit-trail, data-retention, or data-residency obligations.
 
 ---
 
+## H. User Interface
+
+**23. Is there a UI reference for the target — a sample page, mockup, or design system?**
+Give its path (e.g. `./ui-sample/`) if you have one. A small HTML/CSS sample is ideal; so is a
+component library you already standardize on, or screenshots.
+
+**How it will be used — say which, because the two differ sharply:**
+- **Reference** *(recommended, and the default)* — the design extracts a visual language from
+  it (colors, type scale, spacing, radii, elevation, layout and component patterns) and builds
+  with the **target stack's own components, themed to match**. Idiomatic and accessible.
+- **Literal** — reproduce the sample's markup and CSS as-is. Only sensible when the sample is
+  already written in the target framework; otherwise it means fighting that framework, with
+  brittle overrides and lost keyboard/accessibility behavior.
+
+**A good sample covers roughly 80% of a CRUD app's surface:** the app shell (nav, header, page
+frame), a table/list view, a form including required markers and validation errors, buttons in
+every state, and one modal.
+
+**Also state:** must it be **responsive**? Is **dark mode** required? Any **i18n/RTL** need?
+
+> **Boundary — this governs appearance only.** A UI reference never changes *behavior*.
+> Screens, fields, validation, and flows still come from the requirements. If the sample
+> implies a different flow than the legacy app, that is an `OPEN QUESTION:`, not a licence to
+> redesign — especially under strict parity (Q3).
+
+*Default: no reference supplied. The design picks idiomatic defaults for the target stack and
+records them as the design language anyway, so screens stay consistent across phases.*
+
+**Answer:**
+
+---
+
 *Project-specific questions can be appended here. Mark any question the team wants to force an
 answer to as load-bearing.*

@@ -159,6 +159,18 @@ matches exactly.
                                         errors, authz required)
 ## 2. Data Model & Mapping             (entity ↔ table/column, exact names; types; keys)
 ## 3. Component / Module Structure      (frontend components & routes; backend modules)
+## 3b. Design Language                  (see §Designing the UI — required whenever the target
+                                        has a UI, with or without a supplied reference)
+   - **Tokens:** color roles (surface, text, primary, danger, border), type scale, spacing
+     scale, radii, elevation/shadow, focus ring.
+   - **Layout patterns:** app shell (nav/header/page frame), list-or-table view, form layout,
+     empty/loading/error states.
+   - **Component inventory:** for each — buttons, inputs, selects, tables, dialogs,
+     notifications — the target-framework primitive used, and its states (default, hover,
+     focus, disabled, invalid, loading).
+   - **Mapping table:** sample pattern → target-framework primitive → the theming needed to
+     match. This is what keeps later phases from re-inventing styling.
+   - **Responsive / dark mode / i18n-RTL:** what is required, per `PROJECT_CONTEXT §2`.
 ## 4. Validation Rules                  (field- and rule-level, tied to FR IDs)
 ## 5. Auth Seam                         (interface, identity/claims contract, stub behavior)
 ## 6. Error & Response Conventions
@@ -172,6 +184,42 @@ matches exactly.
   requirements record them — don't normalize or "improve" them.
 - Prefix unresolved items `OPEN QUESTION:`, inferred ones `ASSUMPTION:`.
 - Diagrams in Mermaid, fenced as ```mermaid, with captions.
+
+---
+
+## Designing the UI
+
+If the target has a user interface, the LLD must define a **design language** (§3b) — not just
+components and routes. Screens are built across several phases in **separate agent runs**; with
+no shared visual contract, each run re-invents spacing, buttons, tables and forms, and the
+product drifts visually as it grows. §3b is that contract.
+
+**If a UI reference is supplied** (`PROJECT_CONTEXT §2`, Q23) — a sample page, mockup, or
+design system — use it per the mode the context records:
+
+- **Reference (the normal case):** extract the visual language *from* the sample — tokens,
+  layout patterns, component appearance and states — then specify the UI using the **target
+  stack's own components, themed to match**. Do not transcribe the sample's markup or CSS.
+  Forcing raw HTML/CSS into a component framework produces brittle overrides and discards the
+  keyboard and accessibility behavior its primitives provide.
+- **Literal:** reproduce the sample's markup and styles as given. Only appropriate when the
+  sample is already written in the target framework; say so explicitly in the HLD if you
+  believe it is the wrong call, rather than quietly switching modes.
+
+**If no reference is supplied,** still write §3b: choose idiomatic defaults for the target
+stack and record them as the design language. A written-down default is what makes phase 7's
+screens match phase 3's.
+
+> **Boundary: the reference governs appearance, never behavior.** Screens, fields, validation,
+> and flows come from the requirements. Where a sample implies a different flow, richer
+> functionality, or extra screens, record an `OPEN QUESTION:` — do not absorb it. Under a
+> strict-parity stance (`PROJECT_CONTEXT §1`) absorbing it is a defect, and Review will flag
+> the result as a divergence.
+
+Where the sample is silent — responsive breakpoints, dark mode, RTL, an unstyled component you
+need — mark `OPEN QUESTION:` rather than inventing. Where accessibility is a stated NFR
+priority and the sample's own markup is inaccessible, **the framework's accessible primitive
+wins**; note the deviation and why.
 
 ---
 

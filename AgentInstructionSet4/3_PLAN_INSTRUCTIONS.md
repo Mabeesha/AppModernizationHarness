@@ -154,6 +154,14 @@ Where the legacy app remains a **live writer to the same data store**, every pha
 touches data must be planned and tested with a second concurrent writer in mind — say so in
 the phase's test guide rather than assuming exclusive access.
 
+**The design system comes before feature screens.** Where the target has a UI, the phase that
+scaffolds the frontend must also stand up the **design language from LLD §3b** — theme/tokens
+and the shared components (buttons, inputs, tables, dialogs, the app shell) — as tasks in that
+same phase, **before any phase builds feature screens**. Screens are built across several
+phases in separate runs; if the shared components don't exist when the first screens land, each
+later phase invents its own styling and the product drifts visually. Retrofitting a design
+system across finished screens costs far more than ordering it correctly once.
+
 Put the **riskiest, most foundational work earliest** (data mapping validation, auth seam,
 the trickiest business rule); defer polish (reports, exports, i18n, edge screens). Aim for
 **3–7 phases** (honor any count/strategy set in `PROJECT_CONTEXT`), adapting to app size.
@@ -278,6 +286,9 @@ ones. Increment `stages.plan.rerunCount` and add a `changeLog` entry noting the 
       for strangler fig, reconciliation harness early for a parallel run.
 - [ ] Once both frontend and backend exist, each phase's test guide explains how to start them
       together (ports, order, env).
+- [ ] Where the target has a UI: the frontend-scaffold phase stands up the design language
+      (LLD §3b) — theme/tokens plus shared components — **before** any phase builds feature
+      screens.
 - [ ] Where the legacy app stays a live writer, data-touching phases are planned and tested
       for concurrent access.
 - [ ] **Exit criteria are mechanical/falsifiable** for every phase (the agent gate has teeth).

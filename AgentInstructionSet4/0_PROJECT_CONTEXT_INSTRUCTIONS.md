@@ -118,6 +118,16 @@ target may have none of these; a DB-reuse migration will have the first):
   groups/claims) regardless.
 - **Code style / quality gate** — e.g. "Backend follows the Google Java Style Guide,
   enforced by a formatter in the build." Name the guide and the enforcement mechanism.
+- **UI reference / design language** — where a sample UI, mockup, or design system is supplied
+  (Q23). Record its path and whether it is a **reference** (extract a visual language, build
+  with the target stack's components themed to match) or **literal** (reproduce the markup).
+  Obligations should require: *Design* — extract tokens, layout patterns, and a component
+  inventory into the LLD, and map each sample pattern to a target-framework primitive; *Plan* —
+  stand up the theme and shared components **before** any feature screens; *Implement* — build
+  screens from those shared components, never one-off styles; *Review* — flag any screen that
+  re-invents styling. **Scope it to appearance only** — behavior still comes from the
+  requirements. Note that even with *no* sample supplied this constraint is worth declaring,
+  because screens are built across several phases in separate runs and drift otherwise.
 - **Compliance / security / data-residency** — any regulatory or org rule the build must
   not violate.
 - **CI/CD boundary** — what the pipeline must do (see Step 3).
@@ -211,6 +221,9 @@ many times across a build — so **state each fact once and cross-reference; nev
   libraries, anything mandated. This is the authoritative statement of "what we build in".
 - **Licensing / component constraints** (Q6): paid legacy components needing replacement,
   and any license restrictions on the target.
+- **UI reference** (Q23): the sample/mockup/design-system path if supplied, and whether it is
+  used as a **reference** or **literally**; plus responsive, dark-mode, and i18n/RTL
+  expectations. Appearance only — never a licence to change behavior.
 
 ## 3. Delivery, Cutover & Environments
 - **CI/CD:** current pipeline (platform + what it does); target expectation — Respect
