@@ -128,4 +128,5 @@ def load_builtin_checks() -> None:
         consistency,
         conflicts,
         hygiene,
+        style,
     )

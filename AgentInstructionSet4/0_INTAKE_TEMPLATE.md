@@ -62,10 +62,12 @@ redesigned.
 **Answer:**
 
 **9. Will the legacy application keep running against the same data store?**  ⚠️ **LOAD-BEARING**
-During the build, at cutover, indefinitely, or not at all. A concurrent legacy writer is a far
-stronger constraint than merely inheriting a schema: no schema evolution at all, shared
-sequence/identity ranges, locking and transaction-isolation concerns, and both systems must
-tolerate each other's writes.
+During the build, at cutover, indefinitely, or not at all.
+
+A concurrent legacy writer constrains the design far harder than merely inheriting a schema.
+It forbids schema evolution entirely. It forces shared sequence and identity ranges, and it
+raises locking and transaction-isolation concerns. Both systems must tolerate each other's
+writes.
 *Only you can answer this — it isn't inferable from the code.*
 
 **Answer:**
@@ -139,9 +141,10 @@ Name all three explicitly — they are often, but not always, the same place:
   `state.json` are written. Keep these in git if you can: reconciliation diffs them to detect
   what changed between runs, and degrades to change-log-only without it.
 - **Target code repository** — where the build branches, commits, and opens PRs. **A single
-  repo holds the whole target** (frontend and backend together). **Say so explicitly if this
-  is the same repo that holds the legacy source** — the agent must know whether it's adding a
-  new tree alongside a frozen legacy one. Legacy files stay read-only either way.
+  repo holds the whole target**, frontend and backend together.
+  **Say so explicitly if this is the same repo that holds the legacy source.** The agent needs
+  to know whether it is adding a new tree beside a frozen legacy one. Legacy files stay
+  read-only either way.
 
 Plus conventions: branch naming, which branch PRs target, commit message conventions, required
 reviewers.

@@ -52,7 +52,8 @@ Legacy app: ./legacy/. App: MyApp. Write output to ./out/.
 Follow `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md`. Context + state in ./out/.
 Legacy app: ./legacy/. Write output to ./out/.
 ```
-→ Three requirements docs. **Answer every `OPEN QUESTION:`.**
+→ Three requirements docs, with requirements written as EARS statements (`When X, the system
+shall Y.`) — one behavior each, ID'd and cited. **Answer every `OPEN QUESTION:`.**
 
 ```
 Follow `2_DESIGN_INSTRUCTIONS.md`. Everything in ./out/.
@@ -106,6 +107,9 @@ review its own work.
   and they propagate everywhere.
 - **Keep `./out/` and `state.json` in git.** The agent diffs them to work out what changed
   between runs.
+- **Don't hand-edit a requirement out of EARS form.** `DOCUMENT_STYLE.md` is the writing
+  standard every stage reads, and Stage 5 audits against it. Keep the `shall`, the ID, and the
+  `path:line` citation.
 
 ---
 

@@ -31,10 +31,14 @@ Verify:
 uv run run.py --list-checks
 ```
 
-You should see 25 checks: **18 `implemented`** (deterministic, shipping) and
+You should see 30 checks: **23 `implemented`** (deterministic, shipping) and
 **7 `stub`** (registered but awaiting the judge harness — C2, C4, D2, E1, E2,
 E3, F1). E3 is additionally marked experimental and stays out of any run unless
 `--include-experimental` is passed.
+
+**Group G needs `--docs`.** G1–G4 grade generated documents rather than the
+instruction set, so they skip unless you point at a pipeline output directory.
+G5 reads the set itself and always runs.
 
 ---
 
@@ -68,6 +72,7 @@ Open the `report.md` path for the readable version.
 | Check one set, everything deterministic | `uv run run.py --set ../AgentInstructionSet4 --det-only` |
 | Just token budgets | `uv run run.py --set ../AgentInstructionSet4 --checks A` |
 | Complete the stage-budget table | `uv run run.py --set ../AgentInstructionSet4 --checks A --docs ../instruction_output` |
+| Grade generated documents for style + EARS | `uv run run.py --set ../AgentInstructionSet4 --checks G --docs ../modernized_app/out` |
 | Run one group | `uv run run.py --set ../AgentInstructionSet4 --checks B` |
 | Run specific checks | `uv run run.py --set ../AgentInstructionSet4 --checks B1 B3 F2` |
 | See findings the baseline hides | `uv run run.py --set ../AgentInstructionSet4 --det-only --baseline /dev/null` |

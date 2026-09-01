@@ -62,7 +62,9 @@ stop.** Then the developer tests, the Review stage may audit, and the next run b
 4. **Reference — the design documents** (HLD + LLD). The LLD is the authoritative contract.
 5. **Reference — the three requirements files** — intent, business rules, exact values.
 6. **Reference — `PROJECT_CONTEXT.md`** — target stack, constraints by ID, CI/CD mode.
-7. **The codebase built so far** — the working baseline: extend it, keep it green.
+7. **Reference — `DOCUMENT_STYLE.md`** — how you write `HOW_TO_TEST_<phaseId>.md` and any
+   document edit this stage is authorized to make.
+8. **The codebase built so far** — the working baseline: extend it, keep it green.
 
 When sources conflict, apply the authority ladder: a **constraint in `PROJECT_CONTEXT §4`
 always wins** — if honoring it breaks a design contract, that is a blocker, not a choice. For
@@ -200,11 +202,22 @@ test guide where the change surface warrants.
    `HOW_TO_TEST_<phaseId>.md` in the documents location (e.g. `HOW_TO_TEST_P-3.md`) so the
    developer can test this increment **without opening the plan**. Derive it from the plan's
    developer test guide — which stays the source of truth — and keep the two consistent
-   (regenerate this file whenever reconciliation changes the guide). It contains: the phase's
-   goal and **what is now testable**; prerequisites and the **exact commands to build and run
-   the app**; **numbered test steps**, each pairing an action with its expected result; and a
-   closing note telling the developer to report the failing step by number if something doesn't
-   match (which feeds a `P-N failed — <symptom>` reopen). Keep it short.
+   (regenerate this file whenever reconciliation changes the guide). It contains:
+   - The phase's goal, and **what is now testable**.
+   - Prerequisites, and the **exact commands to build and run the app**.
+   - **Numbered test steps**, each pairing one action with its expected result.
+   - A closing note telling the developer to report the failing step by number if something
+     doesn't match. That feeds a `P-N failed — <symptom>` reopen.
+
+   Keep it short, and write it per
+   `DOCUMENT_STYLE.md §2`: numbered steps, one action and one expected result per step, plain
+   sentences, exact commands. The developer reads this while the app is half-running; it is
+   the least forgiving audience in the pipeline.
+
+   **When you edit a requirements or design document** — only the small, bounded edits your
+   contradiction check authorizes — match the document's existing style. Requirement
+   statements stay in EARS form per `DOCUMENT_STYLE.md §4`, keep their IDs, and keep their
+   `path:line` citations.
 4. **Update `state.json`:**
    - Set the phase `status: "done"` — **not** `accepted`. That mark requires the developer to
      have tested it and to say so explicitly; you write it only on that instruction (see
@@ -331,9 +344,10 @@ phase `done` again at hand-off.
 5. **Verify every task before moving on.** A task isn't done until build compiles, relevant
    tests pass, and acceptance criteria are met.
 6. **Write tests. Update docs. Update state.** Every run leaves all three current.
-7. **Idiomatic, clean code** for the target stack; honor the code-style constraint mechanically.
-   **For UI work, build from the design language in LLD §3b** — use the shared components and
-   tokens the frontend-scaffold phase established; never hand-roll a one-off style, colour, or
+7. **Idiomatic, clean code** for the target stack. Honor the code-style constraint
+   mechanically.
+   **For UI work, build from the design language in LLD §3b.** Use the shared components and
+   tokens the frontend-scaffold phase established. Never hand-roll a one-off style, colour, or
    spacing value on a screen. If §3b lacks a component you need, add it to the shared set and
    note it, rather than styling it locally: a local style is invisible to every later phase and
    is exactly how the UI drifts. The design language governs **appearance only** — screens,
@@ -345,10 +359,11 @@ phase `done` again at hand-off.
    invent scope — that's the developer's / design agent's call.
 10. **No secrets in source.**
 11. **Don't touch the source app or the existing database schema.** Read-only on the legacy
-    side; non-destructive on the DB. **This holds even when the legacy source shares a
-    repository with the target code** (`context.locations.sharedWithLegacy`) — you may branch
-    and commit in that repo, but legacy files are never modified, moved, or deleted, and no
-    commit of yours may touch them. Build the new tree beside it.
+    side, non-destructive on the DB.
+    **This holds even when the legacy source shares a repository with the target code**
+    (`context.locations.sharedWithLegacy`). You may branch and commit in that repo, but legacy
+    files are never modified, moved, or deleted, and no commit of yours may touch them. Build
+    the new tree beside it.
 12. **Never self-authorize a large redo or branch.** Recommend; let the developer decide.
 
 ---
@@ -359,15 +374,17 @@ Stop and report (rather than improvising) if:
 
 - The plan/design/requirements are contradictory, ambiguous on a material point, or missing
   something a task needs — including developer changes (Step 0) that conflict with the design.
-- A change request is a **requirement or design change** larger than a small, unambiguous edit —
-  present the impact and the three options (change-on-top / branch / redo) and let the developer
-  choose; recommend rerunning the Design or Requirements stage where their edits belong.
+- A change request is a **requirement or design change** larger than a small, unambiguous
+  edit. Present the impact and the three options — change-on-top, branch, redo — and let the
+  developer choose. Recommend rerunning the Design or Requirements stage where their edits
+  belong.
 - Honoring a constraint (`PROJECT_CONTEXT §4`) would break a design contract — the constraint
   wins; this needs a human/design decision.
-- You cannot satisfy a constraint's *Implement* obligation with what you have — the fixed thing
-  it protects can't be changed and the missing input isn't yours to invent (e.g. a reused
-  schema that doesn't match the mapping; deferred auth specifics; unavailable connection
-  config). Do what the obligation says for the blocked case if it specifies one; otherwise
+- You cannot satisfy a constraint's *Implement* obligation with what you have. The fixed thing
+  it protects cannot be changed, and the missing input is not yours to invent. Examples: a
+  reused schema that doesn't match the mapping, deferred auth specifics, unavailable
+  connection config. Do what the obligation says for the blocked case if it specifies one;
+  otherwise
   report and wait.
 - The predecessor phase is `done` but not `accepted` and you weren't told to proceed anyway.
 - An external dependency, credential, or access is unavailable.

@@ -25,6 +25,7 @@ you find, classify, and hand back a verdict. Fixes go through the Implement stag
    a `changeLog[]` entry so the Implement stage picks it up.
 2. **The three requirements documents** — the "what/why" bar.
 3. **The design documents** (HLD + LLD) — the contract bar.
+3b. **`DOCUMENT_STYLE.md`** — the writing standard those documents are held to (area 5).
 4. **`PROJECT_CONTEXT.md`** — constraints (by ID), target stack, NFRs, CI/CD mode.
 5. **`PLAN_<AppName>.md`** — the phase(s) in scope and their exit criteria.
 6. **The implemented codebase** — what you actually audit. Run its build and tests.
@@ -53,7 +54,7 @@ An explicit path in the prompt always **overrides** discovery for that input.
 
 ## What to Check
 
-Cover all four areas. For each finding, record: **area, severity, location (`path:line`),
+Cover all five areas. For each finding, record: **area, severity, location (`path:line`),
 what's wrong, why it matters, and the requirement/design/constraint it violates.**
 
 ### 1. Requirements vs. implemented solution *(coverage)*
@@ -83,10 +84,11 @@ what's wrong, why it matters, and the requirement/design/constraint it violates.
 - Flag missing tests, weak assertions, and tests that pass vacuously.
 
 ### 3. Security vulnerabilities
-- Check for the usual classes relevant to the stack: injection (SQL/command/template), broken
-  authn/authz (is the authorization model from the design actually enforced, not just declared?),
-  secrets in source or logs, unsafe deserialization, missing input validation, sensitive-data
-  exposure, insecure defaults, vulnerable dependencies.
+- Check the usual classes for the stack: injection (SQL, command, template); broken
+  authentication and authorization; secrets in source or logs; unsafe deserialization; missing
+  input validation; sensitive-data exposure; insecure defaults; vulnerable dependencies.
+  On authorization, ask whether the model from the design is actually enforced, not just
+  declared.
 - Where a security-relevant constraint applies, verify it is honored **in practice**, not merely
   present — e.g. an auth seam that still leaves a bypass open fails its obligation.
 
@@ -103,6 +105,43 @@ what's wrong, why it matters, and the requirement/design/constraint it violates.
 - Where the legacy app remains a **live writer** to the same data store, check the code
   actually tolerates concurrent access (transaction scope, optimistic locking, identity/
   sequence handling) rather than assuming exclusive ownership.
+
+### 5. Document quality *(the requirements and design documents themselves)*
+
+The pipeline's documents are the bar everything else is judged against, so a defect in them
+propagates into every later stage. Check them against `DOCUMENT_STYLE.md`.
+
+**Scope this to avoid repeating yourself.** On a **phase or edit review**, check only the
+requirement and design sections that target implements, plus anything changed since the last
+review. On a **whole-build review**, check all of them.
+
+Report against `DOCUMENT_STYLE.md §5 Self-Check`:
+
+- **EARS conformance** in the sections `DOCUMENT_STYLE.md §4.4` marks as EARS. Each normative
+  statement is one sentence, matches one of the five patterns, has exactly one `shall`, and
+  carries an ID and a `path:line` citation. Flag `should`/`may`/`might`/`will`/`can` inside a
+  normative statement — a requirement nobody can fail is not a requirement.
+- **Two behaviors in one statement.** These are the ones that get half-implemented, because
+  the statement passes when either half works.
+- **Missing evidence.** A normative statement with no citation cannot be verified by anyone,
+  including you.
+- **Altered literals.** An error message, label, or column name that does not match the legacy
+  source character for character.
+- **Style.** Filler, restated headings, duplicated prose across sections, synonym rotation for
+  one concept, paragraphs where a table belongs.
+
+**Severity here is not uniform** — judge by what breaks downstream:
+
+| What you found | Severity |
+|---|---|
+| A requirement was dropped, or a literal string was altered or paraphrased | **Blocker** — the build will be wrong, and under strict parity it already is |
+| A normative statement lost its `path:line` citation, or a traceability row is missing | **Major** — nothing downstream can verify it |
+| A statement is unmeasurable, ambiguous, or bundles two behaviors | **Major** — it will be half-built |
+| `should`/`may` where `shall` is required, or a pattern deviation that still reads unambiguously | **Minor** |
+| Filler, duplication, wordiness, a missed table | **Minor** |
+
+Do not manufacture style findings. A document that reads clearly and traces correctly passes
+this area even if you would have phrased things differently. Taste is not a finding.
 
 Also verify **constraint compliance** across the board: for each `C#` in `PROJECT_CONTEXT §4`,
 check its **Review** obligation (or, absent one, that its *Implement* obligation actually holds
@@ -138,6 +177,13 @@ context mode.
   run reconciles and fixes. If a finding is actually a **design flaw** (the implementation
   faithfully built a wrong design), say so explicitly and recommend rerunning the **Design**
   stage rather than patching in Implement.
+
+**Route document-quality findings to the stage that owns the document, not to Implement.** A
+requirements defect is fixed by rerunning **Stage 1** with your finding as its Additional
+Instructions; a design defect by rerunning **Stage 2**. Name the stage in the finding's fix
+direction. Still log the `changeLog[]` entry, so the next Implement run knows its baseline is
+about to move — but do not ask Implement to rewrite a requirements document. Style-only Minors
+ride along and are fixed on that stage's next rerun; they never gate.
 
 **Blockers gate; Majors ride along.** Record `blockerCount` accurately, because the two
 severities have different consequences:
@@ -192,7 +238,7 @@ filenames unique and ordered — two reviews of the same target never collide:
 ## Findings
 | # | Area | Severity | Location | Finding | Violates | Fix direction |
 |---|------|----------|----------|---------|----------|---------------|
-- Coverage / Tests / Security / Performance findings, most severe first.
+- Coverage / Tests / Security / Performance / Document quality findings, most severe first.
 ## Coverage Check
 - Requirements/design elements expected in this target: covered / missing / partial.
 ## Constraint Compliance
@@ -222,14 +268,16 @@ those. You only append to `state.json` and write the report.
 
 ## Definition of Done
 
-- [ ] All four areas checked (coverage, tests, security, static performance) plus constraint
-      compliance for every `C#`.
+- [ ] All five areas checked (coverage, tests, security, static performance, document
+      quality) plus constraint compliance for every `C#`.
 - [ ] Build and tests actually run; results reported.
 - [ ] Every finding cites `path:line`, a severity, and what it violates.
 - [ ] Verdict decided (PASS / CHANGES REQUESTED) on the Blocker/Major rule.
 - [ ] `reviews[]` appended and the target's `reviewStatus` set in `state.json`; each
       Blocker/Major finding appended to `changeLog[]` for the Implement stage.
 - [ ] Design-level flaws (vs. implementation defects) called out and routed to the Design stage.
+- [ ] Document-quality findings routed to the owning stage (1 for requirements, 2 for design),
+      not to Implement.
 - [ ] Review report written; no code/design/requirements modified.
 
 ---

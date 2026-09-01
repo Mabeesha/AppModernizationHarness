@@ -246,11 +246,16 @@ def a4_growth(ctx: Context) -> CheckResult:
 
     def git(*args: str) -> tuple[int, str]:
         try:
+            # encoding/errors are explicit on purpose: text=True alone decodes with
+            # the platform locale, which is cp1252 on Windows. A single em-dash in a
+            # tracked file then raises inside subprocess's reader thread, stdout comes
+            # back None, and the check dies with an unrelated AttributeError.
             p = subprocess.run(
                 ["git", "-C", str(ctx.repo_root), *args],
                 capture_output=True, text=True, timeout=30,
+                encoding="utf-8", errors="replace",
             )
-            return p.returncode, p.stdout
+            return p.returncode, p.stdout or ""
         except (OSError, subprocess.SubprocessError):
             return 1, ""
 

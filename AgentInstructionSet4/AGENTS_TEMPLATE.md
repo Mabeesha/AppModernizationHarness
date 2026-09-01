@@ -75,9 +75,10 @@ branch, a PR, and a review status. Anything you can do to a phase you can do to 
 
 **Three guards on acceptance** — it is the one mark that certifies a human tested something:
 
-1. **It must be its own instruction, naming the item.** If they ask for the next phase while the
-   current one is only `done`, **do not offer to accept it as part of that request** — their
-   goal in that moment is the next phase, which makes "yes" reflexive. Stop and route them back:
+1. **It must be its own instruction, naming the item.** If they ask for the next phase while
+   the current one is only `done`, **do not offer to accept it as part of that request**.
+   Their goal in that moment is the next phase, which makes "yes" reflexive. Stop and route
+   them back:
    > "P-2 is `done` but not accepted — I can't start P-3 until it is. If you tested it and it
    > passed, say *accept P-2* and I'll merge the PR, record it, and start P-3."
 2. **Never accept several at once.** "Accept everything so far" means nothing was tested —
@@ -115,12 +116,16 @@ inventing the rule. A constraint with no obligation for your stage does not affe
 
 ---
 
-## Notation
+## Notation & Writing
 
 - `ASSUMPTION:` — anything inferred rather than observed or decided by a human.
 - `OPEN QUESTION:` — anything unresolved. Never resolve one by guessing.
 - Cite evidence as `path:line` (clickable), e.g. `src/data/UserRepository.cs:110`.
 - Diagrams in Mermaid, fenced as ```mermaid, with a caption.
+- **Every pipeline document follows `DOCUMENT_STYLE.md`** — plain English, structure over
+  prose, and EARS for requirement statements. It applies to any document you touch, including
+  edits made outside a formal stage run. Never rewrite a requirement statement out of EARS
+  form, drop its `path:line` citation, or paraphrase a literal string while editing near it.
 
 ---
 

@@ -28,6 +28,11 @@ from typing import Callable
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
+# A tiny, fully EARS-conforming requirements document. The control pass asserts
+# group G stays silent on it, so every G finding below is attributable to the
+# injected defect rather than to the fixture's own prose.
+DOCS_FIXTURE = HERE / "fixtures" / "docs"
+
 from evalkit.runner import run_tier1  # noqa: E402
 
 Mutator = Callable[[Path], bool]
@@ -38,6 +43,10 @@ class Case:
     check: str
     description: str
     mutate: Mutator
+    # Group G's output checks grade generated documents, not the instruction set.
+    # These cases mutate a copy of tests/fixtures/docs instead, and the check runs
+    # with that directory passed as --docs.
+    docs: bool = False
 
 
 def _sub(path: Path, old: str, new: str, count: int = 1) -> bool:
@@ -150,6 +159,47 @@ def m_f3(root: Path) -> bool:
                 "cp AgentInstructionSet4/AGENTS_TEMPLATE_MISSING.md")
 
 
+def m_g1(root: Path) -> bool:
+    # Strip the pattern opener: the statement still reads fine to a human and
+    # still says `shall`, which is exactly why a machine has to catch it.
+    return _sub(root / "FUNCTIONAL_REQUIREMENTS_Fixture.md",
+                "**FR-2.1** When the user submits a surname filter, Fixture shall return",
+                "**FR-2.1** Fixture returns")
+
+
+def m_g2(root: Path) -> bool:
+    return _sub(root / "FUNCTIONAL_REQUIREMENTS_Fixture.md",
+                "Fixture shall clear the password field",
+                "Fixture should clear the password field")
+
+
+def m_g3(root: Path) -> bool:
+    return _append(root / "FUNCTIONAL_REQUIREMENTS_Fixture.md",
+                   "\n## 4. Notes\n\nIt is important to note that the search screen was "
+                   "designed in order to facilitate a seamless experience, and it should be "
+                   "noted that the team chose to leverage the existing grid control rather "
+                   "than utilize a new one, with respect to the timeline that was agreed at "
+                   "the outset of the project by every party involved.\n")
+
+
+def m_g4(root: Path) -> bool:
+    return _sub(root / "FUNCTIONAL_REQUIREMENTS_Fixture.md",
+                "  (`Program.cs:22`)",
+                "")
+
+
+def m_g5(root: Path) -> bool:
+    # A document-producing stage that no longer loads the writing standard.
+    path = root / "1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md"
+    if not path.exists():
+        return False
+    text = path.read_text(encoding="utf-8")
+    if "DOCUMENT_STYLE.md" not in text:
+        return False
+    path.write_text(text.replace("DOCUMENT_STYLE.md", "the house style"), encoding="utf-8")
+    return True
+
+
 CASES: list[Case] = [
     Case("B1", "§ reference to a section that does not exist", m_b1),
     Case("B2", "renamed instruction file leaves a dangling reference", m_b2),
@@ -165,6 +215,11 @@ CASES: list[Case] = [
     Case("E4", "obligation key removed, leaving a stage unbindable", m_e4),
     Case("F2", "TODO marker left in prose", m_f2),
     Case("F3", "worked example points at a missing file", m_f3),
+    Case("G1", "requirement statement drops its EARS pattern", m_g1, docs=True),
+    Case("G2", "`should` used where EARS requires `shall`", m_g2, docs=True),
+    Case("G3", "filler-laden 45-word sentence added", m_g3, docs=True),
+    Case("G4", "requirement statement loses its path:line citation", m_g4, docs=True),
+    Case("G5", "a document-producing stage stops referencing the style standard", m_g5),
 ]
 
 
@@ -175,7 +230,15 @@ def run_case(case: Case, source: Path, repo_root: Path) -> tuple[str, str]:
         work_set = work_repo / source.name
         shutil.copytree(source, work_set)
 
-        if not case.mutate(work_set):
+        work_docs: Path | None = None
+        if case.docs:
+            if not DOCS_FIXTURE.is_dir():
+                return "MUTATION FAILED", f"missing docs fixture at {DOCS_FIXTURE}"
+            work_docs = work_repo / "docs"
+            shutil.copytree(DOCS_FIXTURE, work_docs)
+
+        target = work_docs if case.docs else work_set
+        if not case.mutate(target):
             return "MUTATION FAILED", "injected edit did not apply — repair the case"
 
         outcome = run_tier1(
@@ -183,6 +246,7 @@ def run_case(case: Case, source: Path, repo_root: Path) -> tuple[str, str]:
             repo_root=work_repo,
             selectors=[case.check],
             det_only=True,
+            docs_dir=work_docs,
             cache_dir=None,
         )
         hits = [f for f in outcome.findings if f.check == case.check]
@@ -219,9 +283,24 @@ def main(argv: list[str] | None = None) -> int:
 
     # A control run: the unmodified set must NOT produce the injected findings.
     print("\n  control (unmodified set):")
-    outcome = run_tier1(set_dir=source, repo_root=repo_root, det_only=True, cache_dir=None)
+    outcome = run_tier1(
+        set_dir=source,
+        repo_root=repo_root,
+        det_only=True,
+        docs_dir=DOCS_FIXTURE if DOCS_FIXTURE.is_dir() else None,
+        cache_dir=None,
+    )
     blockers = [f for f in outcome.findings if f.severity.value == "blocker"]
     print(f"         -> {len(outcome.findings)} finding(s), {len(blockers)} blocker(s)")
+
+    # The docs fixture is written to conform, so any group G finding on it means a
+    # check fires on clean input — the failure mode that makes a whole group noise.
+    g_noise = [f for f in outcome.findings if f.check.startswith("G")]
+    if g_noise:
+        print(f"         -> FAIL: {len(g_noise)} group-G finding(s) on the conforming fixture:")
+        for f in g_noise[:5]:
+            print(f"            {f.check} {f.summary}")
+        failures += 1
 
     print()
     if failures:

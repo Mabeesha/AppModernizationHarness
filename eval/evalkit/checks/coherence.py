@@ -23,6 +23,9 @@ EXOGENOUS = {
     "AGENTS_TEMPLATE.md",
     "0_INTAKE_TEMPLATE.md",
     "README.md",
+    # A standing reference every stage reads and none produces — the writing standard,
+    # not a pipeline artifact handed from one stage to the next.
+    "DOCUMENT_STYLE.md",
 }
 
 # Canonical artifact key -> the reference forms that mean the same thing.

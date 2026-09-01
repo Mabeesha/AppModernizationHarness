@@ -8,9 +8,9 @@ produce a **phased, incremental implementation plan** for the target stack fixed
 
 This is not a flat task list. It divides the build into **ordered phases**, where:
 
-- **Phase 1 is a small but *runnable and testable* version of the solution** — a thin
-  end-to-end slice, or one self-contained component a developer can exercise locally
-  (e.g. a minimal backend with a handful of endpoints, testable through its API explorer).
+- **Phase 1 is a small but *runnable and testable* version of the solution.** A thin
+  end-to-end slice, or one self-contained component a developer can exercise locally — say a
+  minimal backend with a handful of endpoints, testable through its API explorer.
 - **Each subsequent phase evolves the previous one** and **also ends runnable and locally
   testable**.
 - **The final phase completes the full solution** as the design specifies.
@@ -32,8 +32,9 @@ in `state.json`, not in prose**.
 2. **`PROJECT_CONTEXT.md`** — target stack, constraints (by ID), CI/CD mode.
 3. **Secondary — the three requirements files** — to judge core vs. peripheral (shapes phase
    order) and keep traceability (requirement IDs flow to phases).
-4. **`state.json`** — you **populate `phases[]`** here and set `stages.plan.status`.
-5. **Rarely — the legacy codebase** — only if the design points to it for a detail.
+4. **`DOCUMENT_STYLE.md`** — how the plan is written. Binding.
+5. **`state.json`** — you **populate `phases[]`** here and set `stages.plan.status`.
+6. **Rarely — the legacy codebase** — only if the design points to it for a detail.
 
 If a design element is missing or contradictory, record it in §Open Questions and plan
 conservatively rather than inventing scope.
@@ -60,10 +61,10 @@ this stage produces to `context.locations.documents`; code goes to `context.loca
 
 ## Constraints (carried forward, by ID)
 
-Read `PROJECT_CONTEXT.md §4` and shape phases that respect **each** constraint, following
-its stated **Plan obligation** — which typically fixes *when* something must happen (e.g. an
-early validation step, or standing up a quality gate in the scaffold phase) — and add exit
-criteria that confirm it. Don't re-derive constraint rules here; the obligations are the
+Read `PROJECT_CONTEXT.md §4` and shape phases that respect **each** constraint, following its
+stated **Plan obligation**. A Plan obligation typically fixes *when* something must happen —
+an early validation step, or a quality gate stood up in the scaffold phase. Add exit criteria
+that confirm it. Don't re-derive constraint rules here; the obligations are the
 source. A constraint with no *Plan* obligation simply doesn't shape the phasing.
 
 CI/CD follows `PROJECT_CONTEXT §3`: **generate** → include a phase (or tasks) that stand up
@@ -150,14 +151,14 @@ Decide how to slice, record the rationale in §1. Two archetypes (mix as appropr
   criteria expressed as *output equivalence with the legacy system*, not just "the endpoint
   responds".
 
-Where the legacy app remains a **live writer to the same data store**, every phase that
-touches data must be planned and tested with a second concurrent writer in mind — say so in
-the phase's test guide rather than assuming exclusive access.
+Where the legacy app remains a **live writer to the same data store**, plan and test every
+data-touching phase with a second concurrent writer in mind. Say so in the phase's test guide
+rather than assuming exclusive access.
 
 **The design system comes before feature screens.** Where the target has a UI, the phase that
-scaffolds the frontend must also stand up the **design language from LLD §3b** — theme/tokens
-and the shared components (buttons, inputs, tables, dialogs, the app shell) — as tasks in that
-same phase, **before any phase builds feature screens**. Screens are built across several
+scaffolds the frontend must also stand up the **design language from LLD §3b**: the theme and
+tokens, plus the shared components — buttons, inputs, tables, dialogs, the app shell. Make
+them tasks in that same phase, **before any phase builds feature screens**. Screens are built across several
 phases in separate runs; if the shared components don't exist when the first screens land, each
 later phase invents its own styling and the product drifts visually. Retrofitting a design
 system across finished screens costs far more than ordering it correctly once.
@@ -166,10 +167,14 @@ Put the **riskiest, most foundational work earliest** (data mapping validation, 
 the trickiest business rule); defer polish (reports, exports, i18n, edge screens). Aim for
 **3–7 phases** (honor any count/strategy set in `PROJECT_CONTEXT`), adapting to app size.
 
-A sensible default shape (adapt, don't copy blindly): (1) walking skeleton — scaffold +
-quality gate + data-store connection + entity validation + first endpoints; (2) auth + core
-backend; (3) frontend foundation + primary screens against the real API; (4..N) feature
-build-out; (final) completion & hardening + non-functional verification.
+A sensible default shape — adapt it, don't copy it blindly:
+
+1. Walking skeleton: scaffold, quality gate, data-store connection, entity validation, and the
+   first endpoints.
+2. Auth and the core backend.
+3. Frontend foundation, plus the primary screens against the real API.
+4. Through N: feature build-out.
+5. Final: completion, hardening, and non-functional verification.
 
 ## Step 3 — Write the Plan & Populate state.json
 
@@ -255,6 +260,10 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 ```
 
 ### Conventions
+- Writing follows `DOCUMENT_STYLE.md`. The plan is read under time pressure by a developer
+  mid-build, so it is the document that gains most from short sentences and tables. Phase
+  goals, test-guide steps, and exit criteria are instructions to follow, not prose to parse.
+  EARS does not apply here: phases and tasks are sequencing, not requirement statements.
 - Phase IDs `P-1`, `P-2`, …; task IDs `P-N.T-M` — stable, referenced in dependencies,
   traceability, and `state.json`.
 - Where a constraint's obligation fixes naming or values, reproduce them exactly as the design
@@ -296,6 +305,8 @@ ones. Increment `stages.plan.rerunCount` and add a `changeLog` entry noting the 
 - [ ] `state.json phases[]` is populated, every field initialized per the schema (all
       `pending`; `branchedFrom`, `branch`, `prUrl`, `acceptedUtc` null; `reviewStatus: "none"`).
 - [ ] Risks and open questions listed, not silently resolved.
+- [ ] `DOCUMENT_STYLE.md §5 Self-Check` run over the plan; test-guide steps read as
+      instructions a developer can follow without re-reading them.
 - [ ] `stages.plan.status` set to `complete`.
 - [ ] A coding agent could execute any single phase from the plan + design docs alone.
 

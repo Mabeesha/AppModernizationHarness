@@ -27,8 +27,10 @@ The HLD explains *why and what*; the LLD nails *exactly what*. Together they are
 
 1. **`PROJECT_CONTEXT.md`** — target stack, constraints (by ID), CI/CD mode. Authoritative.
 2. **The three requirements documents** (Stage 1) — what to build and why.
-3. **`state.json`** — read `context`; update `stages.design.status`.
-4. **Rarely — the legacy app** — only to disambiguate a detail the requirements defer to it
+3. **`DOCUMENT_STYLE.md`** — how the HLD and LLD are written. Binding. See §How to Write
+   These Documents.
+4. **`state.json`** — read `context`; update `stages.design.status`.
+5. **Rarely — the legacy app** — only to disambiguate a detail the requirements defer to it
    (e.g. the exact schema when a DB-reuse constraint applies). Do not port its structure.
 
 When sources conflict, apply the authority ladder: a **constraint in `PROJECT_CONTEXT §4`
@@ -55,6 +57,26 @@ this stage produces to `context.locations.documents`; code goes to `context.loca
 
 ---
 
+## How to Write These Documents
+
+**`DOCUMENT_STYLE.md` governs the writing.** Read it before you write. What it means here:
+
+- **Plain English and structure** (§2, §3). Short sentences, one idea each. Tables for API
+  contracts, mappings, component inventories, and traceability. One term per concept, matching
+  the term the requirements already use. No preamble, no recap.
+- **Prose is for rationale.** The HLD's job is to explain decisions, so §3 Key Decisions is
+  where prose earns its place. Everywhere else, prefer a table.
+- **EARS for LLD §4 Validation Rules** (`DOCUMENT_STYLE.md §4`). Validation rules are
+  normative statements, so each is one EARS sentence with exactly one `shall`, an ID, and the
+  FR it implements. The rest of the HLD and LLD is plain prose and tables — decisions and
+  contracts, not requirement statements.
+- **Brevity never removes contract detail.** `DOCUMENT_STYLE.md §1` applies with full force
+  to the LLD: exact endpoint paths, field names, types, status codes, literal config keys, and
+  traceability rows all stay, however long the document gets. An LLD is only useful when it is
+  precise enough to build against without guessing.
+
+---
+
 ## Designing Within the Constraints
 
 For **each constraint** in `PROJECT_CONTEXT.md §4`, the design must show how it is honored,
@@ -71,9 +93,12 @@ quality gate runs; **respect** → note the interface the app must present to th
 pipeline; **none** → local build/test only.
 
 **Cutover is architecture, not rollout.** `PROJECT_CONTEXT §3` names the strategy; design its
-mechanics in HLD §9: a **strangler fig** needs a routing facade and a story for shared
-session/auth state across both systems; a **parallel run** needs a reconciliation harness and
-a defined comparison boundary; **big-bang** needs neither. If the legacy app remains a live
+mechanics in HLD §9:
+
+- **Strangler fig** — a routing facade, plus a story for shared session and auth state across
+  both systems.
+- **Parallel run** — a reconciliation harness, and a defined comparison boundary.
+- **Big-bang** — neither. If the legacy app remains a live
 writer to the same data store, the data design must address concurrency explicitly — treat it
 as a first-class design problem, not an operational footnote.
 
@@ -114,12 +139,18 @@ open questions and add any you find.
 
 ## Step 2 — Architect (HLD)
 
-Decide the system shape for the target stack and record it with rationale. Cover: overall
-architecture and layering; major components and responsibilities; the data layer approach
-(and DB-reuse handling if applicable); the auth approach (per the chosen path); API/interaction
-style; cross-cutting concerns (validation, error handling, configuration, logging/
-observability, i18n if required); how each constraint is satisfied; and the non-functional
-requirements from the Technical doc and how the architecture meets them.
+Decide the system shape for the target stack and record it with rationale. Cover:
+
+- Overall architecture and layering.
+- Major components and their responsibilities.
+- The data layer approach, including DB-reuse handling where it applies.
+- The auth approach, per the chosen path.
+- API and interaction style.
+- Cross-cutting concerns: validation, error handling, configuration, logging and
+  observability, and i18n where required.
+- How each constraint is satisfied.
+- The non-functional requirements from the Technical document, and how the architecture meets
+  each one.
 
 ## Step 3 — Specify (LLD)
 
@@ -171,7 +202,8 @@ matches exactly.
    - **Mapping table:** sample pattern → target-framework primitive → the theming needed to
      match. This is what keeps later phases from re-inventing styling.
    - **Responsive / dark mode / i18n-RTL:** what is required, per `PROJECT_CONTEXT §2`.
-## 4. Validation Rules                  (field- and rule-level, tied to FR IDs)
+## 4. Validation Rules                  **EARS** (field- and rule-level, one statement
+                                        each, tied to FR IDs — DOCUMENT_STYLE §4)
 ## 5. Auth Seam                         (interface, identity/claims contract, stub behavior)
 ## 6. Error & Response Conventions
 ## 7. Configuration Keys                (names & shapes — no secrets)
@@ -179,6 +211,7 @@ matches exactly.
 ```
 
 ### Conventions
+- Writing follows `DOCUMENT_STYLE.md`; §4 of the LLD follows its EARS rules.
 - Decision IDs `DD-#`; keep stable and reference them from the plan.
 - Where a constraint's obligation fixes naming or values, reproduce them **exactly** as the
   requirements record them — don't normalize or "improve" them.
@@ -227,10 +260,12 @@ wins**; note the deviation and why.
 
 If the human is unhappy with the design, they rerun with **Additional Instructions** (below)
 — e.g. "use a modular monolith, not microservices", "the API should be REST not GraphQL",
-"reconsider the auth seam". On rerun: load the existing HLD/LLD, apply the changes in place,
-increment `stages.design.rerunCount`, and if the plan/implementation already consumed the
-old design, **add a `changeLog` entry** in `state.json` describing what changed and which
-downstream artifacts (plan, built phases) are now stale — so they get reconciled or replanned.
+"reconsider the auth seam". On rerun: load the existing HLD and LLD, apply the changes in place, and increment
+`stages.design.rerunCount`.
+
+If the plan or the implementation already consumed the old design, **add a `changeLog` entry**
+in `state.json`. Say what changed, and name which downstream artifacts — the plan, which built
+phases — are now stale, so they get reconciled or replanned.
 
 ---
 
@@ -245,6 +280,8 @@ downstream artifacts (plan, built phases) are now stale — so they get reconcil
 - [ ] Non-functional requirements are each addressed in the HLD.
 - [ ] Full traceability both directions (requirement ↔ design element).
 - [ ] Open questions surfaced, not silently resolved; assumptions marked.
+- [ ] LLD §4 validation rules are written as EARS statements, one behavior each, tied to FR IDs.
+- [ ] `DOCUMENT_STYLE.md §5 Self-Check` run over both documents; no contract detail lost to it.
 - [ ] `stages.design.status` set to `complete` in `state.json`.
 
 ---

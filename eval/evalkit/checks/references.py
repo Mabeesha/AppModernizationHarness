@@ -54,6 +54,9 @@ RUNTIME_ARTIFACT_PATTERNS = [
     re.compile(r"^(BUSINESS|FUNCTIONAL|TECHNICAL)_REQUIREMENTS_.*\.md$"),
     re.compile(r"^(HIGH|LOW)_LEVEL_DESIGN_.*\.md$"),
     re.compile(r"^REVIEW_.*\.md$"),
+    # Stage 4 writes one per phase (HOW_TO_TEST_P-3.md). Generated at runtime like
+    # the rest, so its absence from the set is not a dangling reference.
+    re.compile(r"^HOW_TO_TEST_.*\.md$"),
 ]
 
 

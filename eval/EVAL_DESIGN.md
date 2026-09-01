@@ -135,9 +135,13 @@ file content, and are re-extracted only when the hash changes.
 
 ## 5. Tier 1 — Static Analysis
 
-25 checks in six groups. Status is one of **built** (deterministic, shipping),
+30 checks in seven groups. Status is one of **built** (deterministic, shipping),
 **stub** (registered, reports as not-implemented, needs Phase 3/4), or
 **experimental** (off unless `--include-experimental`).
+
+Groups A–F grade the instruction set. **Group G grades the documents the set
+produces** (§5.G), so it is the one group whose subject is output rather than
+instructions.
 
 Run `uv run run.py --list-checks` for the live registry.
 
@@ -296,6 +300,54 @@ live.
 F3 complements B2 by scanning *inside* fences and blockquotes, which B2 skips.
 The worked examples are what users copy verbatim, so a stale path there fails on
 first contact.
+
+### 5.G Document Style & EARS Conformance
+
+| ID | Check | Status | Failure looks like |
+|---|---|---|---|
+| **G1** | EARS conformance | built | `FR-3.2 The screen handles bad input gracefully.` — no pattern, no `shall`, nothing testable |
+| **G2** | Weak modality in requirement statements | built | `should` / `may` / `must` where EARS fixes on `shall` |
+| **G3** | Readability of generated documents | built | Filler phrases; a 56-word sentence |
+| **G4** | Evidence survives on requirement statements | built | A requirement with no `path:line` citation |
+| **G5** | Style standard wired into the stages | built | A document-producing stage that never loads `DOCUMENT_STYLE.md` |
+
+**Group G is the only group that grades the pipeline's output**, not its
+instructions. G1–G4 read the generated documents supplied via `--docs` and skip
+cleanly when none are given; G5 reads the set itself, so it gates in CI on every
+run. A set shipping no `DOCUMENT_STYLE.md` skips the group rather than failing
+it — Sets 1–3 predate the standard, and reporting each of their requirements as
+non-conforming would be volume, not signal.
+
+**G4 is the guard on G3, and that is the point of the pair.** Told only to be
+concise, a model prunes citations first: they read as clutter and cost the most
+characters. A document that got shorter by dropping its evidence is worse, not
+tighter, so G4 is MAJOR where G3 is MINOR. The same asymmetry is written into
+`DOCUMENT_STYLE.md §1`, which lists what brevity may never remove before it says
+anything about cutting.
+
+**Where EARS is not required, G1 does not look.** Scope follows
+`DOCUMENT_STYLE.md §4.4`: business rules, functional requirements, validation
+rules, and measurable NFRs. Purpose statements, architecture, and plans are prose
+by design. The check finds its subjects structurally — a bold requirement id
+opening a bullet or a table row — and the id prefixes it accepts (`BR`, `FR`,
+`NFR`, `V`/`VR`) deliberately exclude `TR-#`, `DD-#`, and `UC-#`, which label
+descriptive and decision content.
+
+**Two false-positive classes were found by the control pass and fixed, not
+baselined:**
+
+- *Feature-index rows.* `| **FR-1** | Sign in | S-1 |` is navigation keyed by a
+  requirement id. Rows whose longest cell is under five words are skipped.
+- *Directly named systems.* `EmployeeSearch shall store passwords only as a hash`
+  is a well-formed ubiquitous statement. Requiring a literal `The` would have
+  pushed authors back to the vague "The system", so both forms are accepted — but
+  a comma before `shall` is still rejected, since that means a condition was
+  opened and never closed.
+
+`tests/fixtures/docs/` holds a small, deliberately conforming requirements
+document. Group G must stay silent on it in the control pass; the fault-injection
+harness asserts that explicitly, because a check that fires on clean input makes
+its whole group noise.
 
 ---
 
@@ -633,6 +685,7 @@ baselined is a check quietly disabled:
 | **1** | Parser, findings/report plumbing, group B, C1/C3/C5, E4, F2/F3 | **done** |
 | **2** | Group A token counting (A1–A4), tiktoken backend | **done** |
 | **2b** | D1/D3/D4, fault-injection harness, baseline mechanism | **done** |
+| **2c** | Group G (G1–G5), docs fixture, `DOCUMENT_STYLE.md` conformance | **done** |
 | **3** | Rule extraction, judge harness, caching, batching | next |
 | **4** | E1/E2, D2, C2/C4, F1 — conflict detection, the original motivation | blocked on 3 |
 | **5** | Tier 2 deterministic metrics (§6.3) | blocked on fixture intake |

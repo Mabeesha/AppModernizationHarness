@@ -70,11 +70,13 @@ Record the fully-resolved questionnaire in `PROJECT_CONTEXT.md §5`, marking eac
 provenance (human-supplied / default applied / inferred).
 
 **Surface what you defaulted.** In your hand-off report, list every question you answered by
-**default or inference** — question number, the value you used, and the constraint or stage it
-shapes — under a heading like *"Answered without you — confirm or override."* A defaulted
-answer is a decision the human never made, and it silently propagates into constraints and
-every downstream stage. Never bury these in the document alone. Point them at their
-`INTAKE.md` as the place to correct any of them.
+**default or inference**, under a heading like *"Answered without you — confirm or override."*
+For each one give the question number, the value you used, and the constraint or stage it
+shapes.
+
+A defaulted answer is a decision the human never made, and it propagates silently into
+constraints and every downstream stage. Never bury these in the document alone. Point the
+human at their `INTAKE.md` as the place to correct any of them.
 
 ## Step 2 — Derive the Constraint Set
 
@@ -121,13 +123,17 @@ target may have none of these; a DB-reuse migration will have the first):
 - **UI reference / design language** — where a sample UI, mockup, or design system is supplied
   (Q23). Record its path and whether it is a **reference** (extract a visual language, build
   with the target stack's components themed to match) or **literal** (reproduce the markup).
-  Obligations should require: *Design* — extract tokens, layout patterns, and a component
-  inventory into the LLD, and map each sample pattern to a target-framework primitive; *Plan* —
-  stand up the theme and shared components **before** any feature screens; *Implement* — build
-  screens from those shared components, never one-off styles; *Review* — flag any screen that
-  re-invents styling. **Scope it to appearance only** — behavior still comes from the
-  requirements. Note that even with *no* sample supplied this constraint is worth declaring,
-  because screens are built across several phases in separate runs and drift otherwise.
+  Obligations should require:
+  - *Design* — extract tokens, layout patterns, and a component inventory into the LLD, and
+    map each sample pattern to a target-framework primitive.
+  - *Plan* — stand up the theme and shared components **before** any feature screens.
+  - *Implement* — build screens from those shared components, never one-off styles.
+  - *Review* — flag any screen that re-invents styling.
+
+  **Scope it to appearance only.** Behavior still comes from the requirements.
+
+  Declare this constraint even when no sample is supplied. Screens are built across several
+  phases in separate runs, and they drift without it.
 - **Compliance / security / data-residency** — any regulatory or org rule the build must
   not violate.
 - **CI/CD boundary** — what the pipeline must do (see Step 3).
@@ -191,6 +197,10 @@ stages' documents).
 
 **Write this file to be read repeatedly.** It is loaded at the start of every later stage run —
 many times across a build — so **state each fact once and cross-reference; never re-narrate it.**
+
+`DOCUMENT_STYLE.md` governs how this document is written; the rules below are the
+`PROJECT_CONTEXT.md`-specific additions to it. EARS does not apply here — this document
+records decisions and obligations, not requirement statements.
 
 - **Say it once, in one home section.** A decision, quirk, or open question lives in exactly one
   place; everywhere else names it (e.g. "strict parity — see C3", "the weak seeded credential —
@@ -419,13 +429,15 @@ The normal way to revise intake is: the human **edits their `INTAKE.md`** and re
 stage. They may also rerun with **Additional Instructions** (see below) for changes that
 aren't questionnaire answers.
 
-On rerun: **re-read `INTAKE.md`** as the current answers (not §5 of the previous
-`PROJECT_CONTEXT.md`, which is a record of the *last* run), load the existing
-`PROJECT_CONTEXT.md` and `state.json`, apply the changes, **increment
-`stages.context.rerunCount`**, and — if a constraint changed after later stages ran — **add a
-`changeLog` entry** describing the change and which downstream docs it invalidates, so the
-affected stages get rerun. Diff the new answers against §5 of the previous run and report what
-actually changed.
+On rerun:
+
+1. **Re-read `INTAKE.md`** as the current answers. Not §5 of the previous
+   `PROJECT_CONTEXT.md` — that is a record of the *last* run.
+2. Load the existing `PROJECT_CONTEXT.md` and `state.json`, and apply the changes.
+3. **Increment `stages.context.rerunCount`.**
+4. If a constraint changed after later stages ran, **add a `changeLog` entry**. Say what
+   changed and which downstream documents it invalidates, so the affected stages get rerun.
+5. Diff the new answers against §5 of the previous run, and report what actually changed.
 
 ---
 
@@ -452,6 +464,8 @@ actually changed.
 - [ ] The document states each fact once: §5 is a terse provenance ledger, each recurring
   quirk/open question lives once (in §7 or its §4 obligation) and is cross-referenced elsewhere,
   and §1 is lean — while §4 obligations stay fully detailed.
+- [ ] `DOCUMENT_STYLE.md §5 Self-Check` run over `PROJECT_CONTEXT.md`; no obligation detail
+  lost to it.
 
 ---
 

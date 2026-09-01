@@ -23,6 +23,7 @@ Filenames are numbered by stage, so the folder listing reads as the running orde
 | File | Stage | What you do with it |
 |---|---|---|
 | `AGENTS_TEMPLATE.md` | *always* | **Copy to your project root as `AGENTS.md`.** Not a stage — it loads in every session |
+| `DOCUMENT_STYLE.md` | *always* | The writing standard every stage's documents follow. You don't run it; the stages read it |
 | `0_INTAKE_TEMPLATE.md` | — | **Start here.** Copy to `INTAKE.md` in your project and fill it in |
 | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | 0 | Resolves your intake → `PROJECT_CONTEXT.md` + `state.json` |
 | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | 1 | Legacy app → three requirements docs |
@@ -112,6 +113,46 @@ Keep it in git. Its history is how the Implement stage detects what changed betw
 
 ---
 
+## `DOCUMENT_STYLE.md` — one writing standard, read by every stage
+
+The pipeline's output is documents a human has to read and act on. Left unspecified, an agent
+writes essays: long sentences, restated headings, the same fact in four places. Set 4 fixes
+the standard in one file that every stage points at, instead of restating style rules five
+times and letting them drift.
+
+It settles three things:
+
+- **Plain English and structure over prose.** Short sentences, one idea each. Tables wherever
+  content has repeating fields. One term per concept, for the whole pipeline. No preamble, no
+  recap.
+- **Requirement statements use EARS** (Easy Approach to Requirements Syntax) — five fixed
+  patterns, one `shall` per statement, one behavior per statement. Applied only where it helps:
+  business rules, functional requirements, validation rules, and measurable NFRs. Purpose,
+  scope, architecture, and plans stay plain prose, because EARS makes those worse. §4.4 of the
+  file is the exact scope table.
+- **What brevity may never remove.** Citations, IDs, traceability, literal strings, ordering,
+  and the `ASSUMPTION:`/`OPEN QUESTION:` markers. This is §1 of the file, and it comes first
+  deliberately: told only "be concise", an agent prunes exactly the things Review depends on.
+
+**Why EARS pays for itself here:** each statement becomes one testable unit with an ID. The
+traceability chain the whole set runs on — requirement → design element → phase → test →
+review finding — then joins up mechanically instead of by judgment.
+
+It also makes half-built requirements visible. "Shall do A and B" is the statement that passes
+when only A works.
+
+**On voice:** Stage 1 reads the legacy app, but the documents it writes are the specification
+for the *replacement* — Stages 2–4 build from them and Stage 5 judges against them. So
+requirements are written in the `shall` voice with the legacy source cited as evidence. The
+sections that genuinely describe the old system as built stay in descriptive present tense.
+
+Stage 5 audits documents against this standard as its **fifth review area**, with severity
+tied to consequence: a dropped requirement or an altered literal string is a Blocker; a lost
+citation is a Major; wordiness is a Minor. Those findings route back to the stage that *owns*
+the document — Stage 1 or Stage 2 — not to the Implement stage.
+
+---
+
 ## Constraints — the heart of Set 4's generality
 
 There is no hardcoded "reuse the DB / use AD / Google Java Style" anymore. In Stage 0 **you
@@ -175,7 +216,8 @@ and every downstream stage. Confirm or override them, then check the stacks and 
 ### Stage 1 — Requirements  · `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md`
 Produces the three requirements docs (business / functional / technical) from the legacy app,
 with depth steered by your constraints (exact data model if DB-reuse; full authz model if an
-auth constraint; NFRs expanded from the context).
+auth constraint; NFRs expanded from the context). Requirement statements come out in **EARS**
+form per `DOCUMENT_STYLE.md` — each one testable, ID'd, and cited.
 **Your job after:** skim all three; answer every `OPEN QUESTION:`/`ASSUMPTION:` — unresolved
 questions compound downstream.
 
@@ -297,11 +339,13 @@ the contract that both Implement and Review judge everything against.
 ## Reruns (any stage)
 
 Every stage document ends with an **Additional Instructions** block. If you're unhappy with an
-output, relaunch that stage's agent with your change requests appended there — e.g. *"Design:
-use a modular monolith, not microservices"* or *"Plan: make P-1 smaller and pull reporting
-earlier."* The agent amends the existing artifacts in place (rather than regenerating from
-scratch), bumps that stage's `rerunCount`, and — if later stages already consumed the old
-output — logs a `changeLog` entry so the downstream work gets reconciled or replanned.
+output, relaunch that stage's agent with your change requests appended there. For example:
+*"Design: use a modular monolith, not microservices"*, or *"Plan: make P-1 smaller and pull
+reporting earlier."*
+
+The agent amends the existing artifacts in place rather than regenerating from scratch, and
+bumps that stage's `rerunCount`. If later stages already consumed the old output, it logs a
+`changeLog` entry so the downstream work gets reconciled or replanned.
 
 ---
 
@@ -483,6 +527,7 @@ After the final phase is accepted:
 
 | Artifact | Created by | You edit? | Agent edits? |
 |---|---|---|---|
+| `DOCUMENT_STYLE.md` | the method | no — it's part of the set | **never** |
 | `AGENTS.md` (your copy) | you, from the template | **add** project specifics only — never remove the invariants or the recording protocol | **never** |
 | `0_INTAKE_TEMPLATE.md` | the method | no — copy it | **never** |
 | `INTAKE.md` (your copy) | **you** | **yes — this is where answers live** | **never** (input only) |
@@ -523,3 +568,5 @@ the baseline moved.)*
 | Git workflow | "keep it in git" | **Mandated: branch + small commits + PR with descriptive body** |
 | QA / Review | None | **Independent Stage 5** feeding findings back into the loop |
 | Reruns | Plan/Implement footers | **Uniform Additional-Instructions rerun on every stage** |
+| Document readability | Unspecified — each stage's prose style was whatever the model defaulted to | **`DOCUMENT_STYLE.md`**: plain English, structure over prose, and a stated list of what brevity may never cut |
+| Requirement phrasing | Free-form narrative | **EARS patterns** in the sections where they help, each statement testable and cited; audited as Review area 5 |
