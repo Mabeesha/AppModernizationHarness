@@ -45,7 +45,8 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    conventional filenames (`PROJECT_CONTEXT.md` and the `<AppName>`-suffixed
    requirements/design/plan docs this stage consumes).
 3. **The legacy source and target code repository** — from `context.locations.legacySource` and
-   `context.locations.targetRepo` (you audit the built code in the target repo).
+   `context.locations.targetRepo`, plus `context.locations.targetRepoFrontend` where
+   `context.repo.layout` is `split` (you audit the built code in the target repo(s)).
 
 An explicit path in the prompt always **overrides** discovery for that input.
 
@@ -70,6 +71,14 @@ what's wrong, why it matters, and the requirement/design/constraint it violates.
   with the shape the LLD specifies. Such a mismatch is a **Blocker** — it is invisible to each
   side's own unit tests.
 - Confirm the phase's own **exit criteria** genuinely hold (don't take the `done` mark on faith).
+- Check **deployability against `PROJECT_CONTEXT §3` and HLD §9**, since nothing else does:
+  code sits in the source tree LLD §3a specifies rather than a layout invented mid-build; the
+  API base URL and other environment-specific values come from configuration, not hard-coded
+  hosts; the CORS/session handling matches the recorded runtime topology instead of being
+  widened to make local development work; and under `single-artifact` the build actually
+  produces the combined artifact and it serves both parts. A build that only runs under the
+  dev-server proxy, when the design says same-origin in production, is a **Blocker** — it
+  passes every local test and fails on first deployment.
 - **UI consistency**, where the target has one: screens must be built from the shared components
   and tokens in **LLD §3b**. Flag any screen carrying one-off colours, spacing, or hand-rolled
   controls — that is drift, and it compounds across phases even though each screen looks fine

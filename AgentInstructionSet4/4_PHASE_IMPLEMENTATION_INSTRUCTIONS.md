@@ -82,7 +82,8 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    conventional filenames (`PROJECT_CONTEXT.md` and the `<AppName>`-suffixed
    requirements/design/plan docs this stage consumes).
 3. **The legacy source and target code repository**, where this stage needs them — from
-   `context.locations.legacySource` and `context.locations.targetRepo`.
+   `context.locations.legacySource` and `context.locations.targetRepo` (plus
+   `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
 
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.
@@ -269,10 +270,24 @@ the context doesn't specify.
   because the next phase branches from a base that must contain it. That is the only case;
   never merge on your own initiative.
 
-**The target is a single repository** holding the whole application (frontend and backend
-together). One branch and one PR per unit of work — never split a phase across repos. If the
-developer later separates the code into multiple repos, that is their decision and outside
-this pipeline; do not plan or prepare for it.
+**Repository layout is given by `PROJECT_CONTEXT §3` (`context.repo.layout`), never your
+call** — build to what it says and don't re-open it:
+
+- **`single`** — frontend and backend in one repo: one branch and one PR per unit of work.
+- **`split`** — separate repos: branch every repo the work touches under the *same* branch
+  name, and open a PR per repo whose body cross-references the others. The unit of work is
+  still one phase, and it is not finished until every repo's PR is open and its parts run
+  together per the test guide.
+
+**Where files go is given too.** Create code under the source tree in **LLD §3a**
+(`context.repo.frontendRoot` / `backendRoot` where those are set). If the tree you need isn't
+described there, stop and report it as a design gap — don't pick a directory layout mid-phase,
+because later phases and later runs will pick a different one.
+
+Whether the parts ship together or independently is settled the same way
+(`context.repo.release`); honor it — under `independent`, keep each part deployable on its own
+and respect the API-compatibility rule the LLD sets. If the developer wants either answer
+changed, that is a Stage 0 rerun, not a decision you make mid-build.
 
 ### Starting From the Right Base
 
@@ -280,7 +295,8 @@ Phases are built in sequence, so **each phase's branch must start from a base th
 contains every accepted predecessor**. The developer merges each phase's PR as part of
 accepting it — but verify rather than assume:
 
-1. Determine the base branch (`context.repo.prTarget`, default the repository's default branch).
+1. Determine the base branch (`context.repo.prTarget`, default the repository's default branch)
+   — **per repo** under a `split` layout; each repo is checked and branched on its own.
 2. **Confirm the predecessor's work is present in it by content, not by name** — check that
    files/symbols the previous phase delivered actually exist on the base, or that its merge
    commit is an ancestor. Branch names and PR state are unreliable here: squash-merge and
@@ -293,7 +309,8 @@ accepting it — but verify rather than assume:
    unmerged branch unless they explicitly tell you to stack the work.
 
 Record the branch you created and the PR you opened in the phase's `state.json` entry
-(`branch`, `prUrl`) so the next run and the developer can find them later.
+(`branch`, `prUrl`) so the next run and the developer can find them later. Under a `split`
+layout, record every PR you opened — one per repo — not just the first.
 
 ### Recording Developer Decisions
 
@@ -343,7 +360,13 @@ phase `done` again at hand-off.
 9. **Plan edits are bookkeeping, not redesign.** You may update the plan (statuses via
    state.json, reconciliation tasks, stale test-guide steps). You may not change the design or
    invent scope — that's the developer's / design agent's call.
-10. **No secrets in source.**
+10. **No secrets in source**, and **no hard-coded origins**. The API base URL, allowed CORS
+    origins, and anything else that differs between local and the deployment target come from
+    the configuration keys in **LLD §7**. Honor the runtime topology in `PROJECT_CONTEXT §3`:
+    under `same-origin`, don't introduce a second origin or a CORS shim to make something work;
+    under `separate-origins`, use the designed CORS policy and session mechanism rather than
+    widening it. Building against the wrong topology passes locally and fails on deployment —
+    if the phase seems to require the other one, stop and report.
 11. **Don't touch the source app or the existing database schema.** Read-only on the legacy
     side; non-destructive on the DB. **This holds even when the legacy source shares a
     repository with the target code** (`context.locations.sharedWithLegacy`) — you may branch
@@ -391,6 +414,9 @@ items as `OPEN QUESTION:` and assumptions as `ASSUMPTION:`.
 - [ ] Every constraint's *Implement* obligation (per `PROJECT_CONTEXT §4`) holds in the
       running app; no secrets in source.
 - [ ] Contracts built this run match the LLD exactly and are exercised by tests.
+- [ ] Code sits in the source tree LLD §3a specifies; no directory layout invented this run.
+- [ ] No hard-coded origins or environment-specific hosts — the runtime topology in
+      `PROJECT_CONTEXT §3` is honored through LLD §7 config keys.
 - [ ] Base branch verified to contain the predecessor's work **before** any code was written;
       no Blocker from the predecessor's review left open.
 - [ ] **Branch created, small commits made and pushed, tests + docs + `state.json` updated, PR

@@ -51,7 +51,8 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    conventional filenames (`PROJECT_CONTEXT.md` and the `<AppName>`-suffixed
    requirements/design/plan docs this stage consumes).
 3. **The legacy source and target code repository**, where this stage needs them — from
-   `context.locations.legacySource` and `context.locations.targetRepo`.
+   `context.locations.legacySource` and `context.locations.targetRepo` (plus
+   `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
 
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.
@@ -68,7 +69,16 @@ source. A constraint with no *Plan* obligation simply doesn't shape the phasing.
 
 CI/CD follows `PROJECT_CONTEXT §3`: **generate** → include a phase (or tasks) that stand up
 the pipeline; **respect** → keep every phase buildable/testable by the existing pipeline;
-**none** → local only.
+**none** → local only. Under **split** repos and `generate`, say whether the pipeline is one
+per repo or a single coordinating one.
+
+**Scaffolding follows the design, not your judgment.** The scaffold phase creates the source
+tree exactly as **LLD §3a** lays it out (frontend root, backend root, build files) and wires
+the API base URL and any origin-dependent values through the **configuration keys in LLD §7** —
+never a hard-coded host. Where `context.deployment.units` is `single-artifact`, some phase must
+own producing that combined artifact (the frontend build output packaged into the backend's
+artifact) and its exit criteria must confirm the packaged app serves both parts; don't leave it
+implicit in "it runs locally".
 
 ---
 
@@ -78,7 +88,10 @@ the pipeline; **respect** → keep every phase buildable/testable by the existin
    the browser, a job that runs. Never end a phase on "code exists but nothing can be tried".
    Backend-only or stubbed-frontend phases are fine if the test guide says so. Once both
    frontend and backend exist, "runnable" means they run **together** — the test guide must
-   say how to start each part (ports, order, env), not assume one `run` command exists.
+   say how to start each part (ports, order, env) **as HLD §9's local dev arrangement
+   describes**, not assume one `run` command exists. Where that arrangement needs a dev-server
+   proxy or CORS settings to work, the phase that first makes the frontend call the backend
+   owns standing it up; say so rather than leaving it to be discovered at test time.
 2. **Phase 1 is deliberately small** — the smallest thing that proves the riskiest plumbing
    (typically: scaffold + data-store connection + entity validation + one or two endpoints).
    Everything else waits.
@@ -285,7 +298,12 @@ ones. Increment `stages.plan.rerunCount` and add a `changeLog` entry noting the 
 - [ ] The phase strategy is consistent with the **cutover strategy** — routing facade early
       for strangler fig, reconciliation harness early for a parallel run.
 - [ ] Once both frontend and backend exist, each phase's test guide explains how to start them
-      together (ports, order, env).
+      together (ports, order, env), matching the local dev arrangement in HLD §9.
+- [ ] The scaffold phase creates the source tree from **LLD §3a** and wires the API base URL
+      through **LLD §7** config, not a hard-coded host.
+- [ ] Under `single-artifact`, one phase owns producing the combined deployable and proves it
+      in its exit criteria; under `separate-origins`, the phase that first calls across origins
+      owns the CORS/proxy setup.
 - [ ] Where the target has a UI: the frontend-scaffold phase stands up the design language
       (LLD §3b) — theme/tokens plus shared components — **before** any phase builds feature
       screens.
