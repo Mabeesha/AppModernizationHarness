@@ -343,6 +343,13 @@ agent each one, even when they're the same place:
 If the legacy source sits inside the repo you're building in (common for a POC), **say so** —
 the agent then adds the new tree alongside it and still refuses to touch legacy files.
 
+**Two structural answers Stage 0 owns.** Q16 also asks whether frontend and backend live in
+**one repo or two**, and whether they are **shipped together or released independently**. Both
+are settled once, in Stage 0; Design, Plan, and Implement read them and never re-decide.
+Unanswered, they default to one repo shipped as one unit — and the default is reported back to
+you like any other. Changing either later means rerunning Stage 0 and redoing the design that
+was built on it.
+
 ### Example A — A .NET → Angular + Spring Boot migration that reuses the database
 
 **Stage 0 — Project Context.** First copy the template and fill it in:
@@ -378,12 +385,19 @@ Filled-in extract (leave anything you don't know blank — it defaults and gets 
 **12. Cutover strategy?**  ⚠️ LOAD-BEARING
 **Answer:** Big-bang.
 
+**13. Deployment target, deployable units, and runtime topology?**
+**Answer:** Container on an internal Kubernetes cluster. One artifact — the
+Angular build is packaged into the Spring Boot image. Same origin in every
+environment; locally the Angular dev server proxies /api to Spring Boot on 8080.
+
 **14. Environments & test data.**
 **Answer:** Local dev only; a restored copy of prod data is available locally.
 
-**16. Locations, and repository conventions.**
+**16. Locations, repository layout, and conventions.**
 **Answer:** Legacy source ./legacy/ (read-only, lives in this same repo);
 documents ./out/; target code this repo, new tree beside the legacy one.
+Single repo — Angular and Spring Boot together, shipped as one unit,
+in sibling ./frontend/ and ./backend/ roots.
 
 **19. Code style / quality gates the target must enforce?**
 **Answer:** Google Java Style Guide, enforced by google-java-format in Maven.

@@ -48,7 +48,8 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    conventional filenames (`PROJECT_CONTEXT.md` and the `<AppName>`-suffixed
    requirements/design/plan docs this stage consumes).
 3. **The legacy source and target code repository**, where this stage needs them — from
-   `context.locations.legacySource` and `context.locations.targetRepo`.
+   `context.locations.legacySource` and `context.locations.targetRepo` (plus
+   `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
 
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.
@@ -80,10 +81,47 @@ as a first-class design problem, not an operational footnote.
 **Integrations** with a **fixed** contract (`PROJECT_CONTEXT §8`) are binding: the target
 conforms exactly. Specify each in the LLD as precisely as an internal API.
 
-**The target lives in a single repository** (frontend and backend together). Design for that:
-they build, version, and ship as one unit, so the internal API between them needs no
-cross-version compatibility story. Note in HLD §9 how the parts are built and run together
-locally.
+**Repository layout and release model are given, not chosen.** Read them from
+`PROJECT_CONTEXT §3` (`context.repo.layout`, `context.repo.release`) and design to what they
+say — this stage never decides or overrides them. If either is missing or unclear, raise it in
+§Open Questions rather than assuming one. What each answer obliges:
+
+- **Shipped together** (one versioned unit): the internal API between frontend and backend
+  needs no cross-version compatibility story — say that explicitly rather than leaving it open.
+- **Released independently:** the LLD must give the internal API an explicit versioning scheme
+  and a backward-compatibility rule, and the HLD must say how a version skew between the
+  deployed parts is tolerated.
+- **Separate repos:** state in the LLD what contract crosses the repo boundary and how it is
+  shared (published client, generated types, spec file), and which repo owns it.
+
+**Fix the source tree, once, here.** Read `context.repo.frontendRoot` / `backendRoot`. Where
+they are set, use them verbatim. Where they are `null`, choose a layout idiomatic for the
+target stack and record it in **LLD §3a** as a concrete directory tree — the root of each
+part, the build file(s) that define it, and where shared/generated artifacts land. Stages 3
+and 4 build to that tree and never invent a second one, so an unstated tree is a real defect,
+not a cosmetic one.
+
+**Deployment is designed, not assumed.** `PROJECT_CONTEXT §3` gives the deployment target,
+the deployable units (`context.deployment.units`) and the runtime topology
+(`context.deployment.topology`); design their mechanics in **HLD §9** rather than restating
+the labels:
+
+- **Deployable units** — name each artifact the build produces (jar/war, container image,
+  static bundle), what goes into it, and which process serves the frontend bundle under
+  `single-artifact`.
+- **`same-origin`** — say which process serves the static assets, under what path, and how
+  client-side routing deep links are handled (SPA fallback) so a refresh on a nested route
+  doesn't 404.
+- **`separate-origins`** — the CORS policy (allowed origins, methods, credentials), the
+  **configurable API base URL** as a config key in LLD §7 (never a hard-coded host), and
+  whether the session travels as a cookie (`SameSite`/domain implications) or a bearer token.
+- **Local dev** — how the parts are built and run together locally, whatever the layout,
+  including the dev-server proxy where one stands in for same-origin. State the ports.
+- **Config & secrets** — how the deployment target supplies them (env vars, mounted config,
+  secret store), plus health/readiness endpoints and any statelessness the target requires.
+
+If the built app would need something the recorded topology forbids — CORS under
+`same-origin`, say — raise it in §Open Questions; do not quietly redesign the topology.
 
 ---
 
@@ -144,6 +182,13 @@ matches exactly.
 ## 8. Constraint Satisfaction          (one subsection per C# → how it's honored)
 ## 9. Delivery, Cutover & Coexistence  (per PROJECT_CONTEXT §3)
    - CI/CD per the context mode; deployment target.
+   - **Deployable units** — each artifact the build produces, what it contains, and which
+     process serves the frontend bundle.
+   - **Runtime topology** — same-origin (who serves the static assets, under what path, SPA
+     deep-link fallback) or separate-origins (CORS policy, API base URL as config, cookie vs.
+     bearer token). Plus the local dev arrangement and its ports.
+   - **Config, secrets, health checks** — how the deployment target supplies configuration and
+     secrets, and what the app must expose (health/readiness) or avoid (in-process state).
    - The cutover mechanics: routing facade for strangler fig, reconciliation harness for a
      parallel run, or a straight switch for big-bang.
    - If the legacy app stays a live writer on the same data store: isolation levels, locking,
@@ -159,6 +204,12 @@ matches exactly.
                                         errors, authz required)
 ## 2. Data Model & Mapping             (entity ↔ table/column, exact names; types; keys)
 ## 3. Component / Module Structure      (frontend components & routes; backend modules)
+## 3a. Source Tree                       (the concrete directory tree: the frontend root, the
+                                        backend root, build files, and where generated or
+                                        shared artifacts land — verbatim from
+                                        `context.repo.frontendRoot`/`backendRoot` where those
+                                        are set, chosen here where they are null. Every later
+                                        stage builds to this tree.)
 ## 3b. Design Language                  (see §Designing the UI — required whenever the target
                                         has a UI, with or without a supplied reference)
    - **Tokens:** color roles (surface, text, primary, danger, border), type scale, spacing
@@ -174,7 +225,10 @@ matches exactly.
 ## 4. Validation Rules                  (field- and rule-level, tied to FR IDs)
 ## 5. Auth Seam                         (interface, identity/claims contract, stub behavior)
 ## 6. Error & Response Conventions
-## 7. Configuration Keys                (names & shapes — no secrets)
+## 7. Configuration Keys                (names & shapes — no secrets; must include the API
+                                        base URL the frontend uses, the CORS allowed origins
+                                        under `separate-origins`, and every value that differs
+                                        between local and the deployment target)
 ## 8. Traceability                      (design element → requirement ID)
 ```
 
@@ -236,7 +290,20 @@ downstream artifacts (plan, built phases) are now stale — so they get reconcil
 
 ## Definition of Done
 
-- [ ] `PROJECT_CONTEXT.md` honored; target stack, constraints, CI/CD not re-decided.
+- [ ] `PROJECT_CONTEXT.md` honored; target stack, constraints, CI/CD, **repository layout,
+      release model, deployable units, and runtime topology** not re-decided.
+- [ ] The internal frontend–backend API matches the release model in `PROJECT_CONTEXT §3`:
+      versioned and backward-compatible under `independent`, explicitly exempt under
+      `together`.
+- [ ] **LLD §3a states the concrete source tree** — frontend root, backend root, build files —
+      matching `context.repo.frontendRoot`/`backendRoot` where set, chosen here where null.
+- [ ] **HLD §9 designs the deployment**: each deployable artifact; how the frontend is served
+      and reached under the recorded topology (static-asset serving + SPA fallback for
+      `same-origin`; CORS policy + configurable API base URL + cookie-vs-token for
+      `separate-origins`); the local dev arrangement and ports; config/secrets delivery and
+      health checks for the deployment target.
+- [ ] The API base URL and any origin-dependent values appear as **configuration keys in LLD
+      §7**, never as hard-coded hosts.
 - [ ] Every requirement (BR/FR/technical) and every constraint is covered by a design element.
 - [ ] HLD carries rationale for each significant decision; LLD contracts are exact and
       buildable.

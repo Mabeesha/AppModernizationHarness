@@ -163,8 +163,24 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
 **Deployment & environments**
 
 - Deployment target (on-prem VM / container / Kubernetes / cloud / serverless / app server).
+- **Deployable units — decided here, once.** What actually ships: `single-artifact` (one
+  artifact holds both parts, e.g. the backend serves the built frontend bundle) or
+  `separate-artifacts` (an API process plus a static bundle on a web server/CDN). Record it in
+  `context.deployment.units`. It is not the same question as repository layout or release
+  model: one repo can ship two artifacts, and two repos can ship one. *Default: single
+  artifact.*
+- **Runtime topology — decided here, once.** How the frontend reaches the backend in a
+  deployed environment: `same-origin` (one host/port) or `separate-origins` (different
+  hosts/ports). Record it in `context.deployment.topology`, and the local dev arrangement in
+  `context.deployment.localDev` where it differs (typically a dev-server proxy). This answer
+  is load-bearing for design: `separate-origins` obliges a CORS policy, a configurable API
+  base URL, and an explicit cookie-vs-token decision; `same-origin` obliges a statement of
+  which process serves the static bundle and under what path. *Default: same origin, served by
+  the backend, with a dev-server proxy locally.*
 - Environments available, and whether a data store with representative data is reachable for
   local testing. If not, note it — phases that need one will block.
+- **How configuration and secrets reach the app** per environment (env vars, mounted config,
+  a secret store). Stage 2 designs to this and Stage 4 must not hard-code around it.
 
 **Locations & repository conventions**
 
@@ -173,9 +189,25 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
   the **target code repository** (where Stage 4 branches, commits, and opens PRs). State
   explicitly if the target repo is the same one holding the legacy source — the agent must
   know whether it is adding a new tree beside a frozen legacy one.
-- **The target is always a single repository** — frontend and backend live together in it.
-  Splitting them later is the developer's call and outside this pipeline's scope; no stage
-  plans for a multi-repo target.
+- **Repository layout — decided here, once.** State whether frontend and backend live in a
+  **single repo** or in **separate repos**, and give every target path involved. Record it in
+  `context.repo.layout` (and, when split, the second path in `context.locations`). Later
+  stages read this decision and never re-open it. *Default when unanswered: single repo.*
+- **Where each part's tree sits.** Record the root directory of the frontend and of the
+  backend in `context.repo.frontendRoot` / `context.repo.backendRoot`, relative to their repo.
+  If the developer stated them, they are fixed here; if not, leave them `null` and say plainly
+  in §3 that **Stage 2 fixes the source tree in the LLD and every later stage builds to it** —
+  what must not happen is each phase inventing its own. *Default when unanswered: `null`,
+  decided by Design.*
+- **Release model — decided here, once.** State whether the two are **shipped together** as
+  one versioned unit or **released independently**, in `context.repo.release`. It is
+  architecture, not rollout: independent release obliges Stage 2 to design a versioned,
+  backward-compatible internal API and Stage 4 to keep the parts separately deployable;
+  shipped-together frees both from that. Record it even when the layout is a single repo —
+  one repo can still ship two independently deployed artifacts. *Default: shipped together.*
+- Where either answer is defaulted rather than given, mark it `ASSUMPTION:` and surface it in
+  the hand-off report like any other default — both are expensive to change once Stage 2 has
+  designed against them.
 - Branch naming, PR target branch, commit conventions, required reviewers. Stage 4 mandates
   branch + small commits + PR; this is where it learns the house rules.
 
@@ -233,10 +265,22 @@ many times across a build — so **state each fact once and cross-reference; nev
 - **Legacy coexistence:** whether the legacy app keeps writing to the same data store, for
   how long, and the resulting concurrency expectations.
 - **Deployment target:** where the target runs.
+- **Deployable units:** one artifact holding both parts, or separate artifacts — and which
+  process serves the frontend bundle.
+- **Runtime topology:** same origin or separate origins, plus the local dev arrangement.
+  **This is the pipeline's one statement of it** — the CORS / API-base-URL / cookie-vs-token
+  obligations follow from it, and no later stage re-decides it.
+- **Config & secrets delivery:** how each environment supplies them.
 - **Environments & test data:** what exists, and whether a representative data store is
   reachable for local testing.
 - **Locations:** legacy source (read-only) / documents / target code repository — stated
   separately, noting explicitly where any of them are the same place.
+- **Repository layout:** single repo (frontend and backend together) or separate repos, with
+  every target path. **This is the pipeline's one statement of it** — later stages build to it.
+- **Source tree roots:** the frontend root and the backend root within their repo — or, if not
+  given, an explicit note that Stage 2 fixes them in the LLD and later stages build to that.
+- **Release model:** shipped together as one versioned unit, or released independently — plus
+  the API-compatibility obligation that follows from the answer.
 - **Repository conventions:** branch naming, PR target, commit conventions, reviewers.
 
 ## 4. Constraints (non-negotiable)
@@ -326,13 +370,24 @@ empty:
     "cutover": { "strategy": "big-bang | strangler | parallel-run", "notes": "" },
     "legacyCoexistence": { "sharedDataStore": true, "duration": "build | cutover | indefinite | none" },
     "deploymentTarget": "<short string>",
+    "deployment": {
+      "units": "single-artifact | separate-artifacts",
+      "topology": "same-origin | separate-origins",
+      "servedBy": "<which process serves the frontend bundle, or null when separate-origins>",
+      "localDev": "<how the parts are run together locally — e.g. dev-server proxy>",
+      "configDelivery": "<how config/secrets reach the app per environment>"
+    },
     "locations": {
       "legacySource": "<path — read-only>",
       "documents": "<path>",
-      "targetRepo": "<path — single repo holding the whole target>",
+      "targetRepo": "<path — the target repo; when layout is \"split\", the backend/primary one>",
+      "targetRepoFrontend": "<path — only when layout is \"split\"; else null>",
       "sharedWithLegacy": false
     },
-    "repo": { "branchNaming": "", "prTarget": "", "conventions": "" },
+    "repo": { "layout": "single | split", "release": "together | independent",
+              "frontendRoot": "<path within its repo, or null — then Design fixes it>",
+              "backendRoot": "<path within its repo, or null — then Design fixes it>",
+              "branchNaming": "", "prTarget": "", "conventions": "" },
     "constraints": [
       { "id": "C1", "title": "", "statement": "", "source": "human | derived",
         "obligations": { "requirements": "", "design": "", "plan": "", "implement": "", "review": "" } }
@@ -354,6 +409,20 @@ empty:
 
 Field notes (the later stages depend on these; keep them exact):
 
+- **`repo.layout` / `repo.release`** — the repository-layout and release-model decisions,
+  made **only in this stage**. Stages 2–4 read them to shape the internal API contract and the
+  branch/PR flow; none of them decide or override. Changing either is a rerun of this stage
+  plus a `changeLog` entry naming the downstream docs it invalidates.
+- **`repo.frontendRoot` / `repo.backendRoot`** — where each part's tree lives inside its repo.
+  Set here when the developer states them; otherwise `null`, and **Stage 2 fixes them in the
+  LLD source-tree section**, after which Stages 3–4 build to that and nothing invents a
+  second layout.
+- **`deployment.units` / `deployment.topology`** — the deployable-unit and runtime-topology
+  decisions, also made **only in this stage**. They are distinct from `repo.layout` and
+  `repo.release`: layout is where source lives, release is versioning cadence, and these two
+  are what ships and how the parts talk at runtime. Stage 2 designs the CORS/base-URL/session
+  consequences, Stage 3 phases the test guide around them, Stage 4 must not hard-code past
+  them, and Stage 5 checks the built app matches. Changing either is a rerun of this stage.
 - **`stages.<name>.status`** — `pending` → `in progress` → `complete`. `rerunCount`
   increments each time a stage is rerun with additional instructions.
 - **`phases[]`** — created by the Plan stage. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done|accepted", "branchedFrom": "<phase id or null>", "branch": "<or null>", "prUrl": "<or null>", "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated", "notes": "" }`.
@@ -436,6 +505,16 @@ actually changed.
   **cutover strategy**, and auth (where the app is access-controlled).
 - [ ] Current stack and target stack are stated authoritatively.
 - [ ] The CI/CD mode is one of respect / generate / none, with specifics.
+- [ ] Repository layout (single / split) and release model (together / independent) are both
+  stated, with every target path — in `PROJECT_CONTEXT.md §3` and in `state.json`
+  (`context.repo.layout`, `context.repo.release`). No later stage decides these.
+- [ ] Deployable units (single-artifact / separate-artifacts) and runtime topology
+  (same-origin / separate-origins) are both stated in §3 and in `state.json`
+  (`context.deployment.*`), along with the local dev arrangement and how config/secrets are
+  supplied. No later stage decides these either.
+- [ ] The frontend and backend source-tree roots are either recorded
+  (`context.repo.frontendRoot` / `backendRoot`) or explicitly left to Stage 2, stated as such
+  in §3 — never simply unmentioned.
 - [ ] Cutover strategy is recorded, with the structural demands it implies (routing facade /
   reconciliation harness / none) expressed as constraint obligations where they bind.
 - [ ] Legacy coexistence is settled; if a second live writer exists, its concurrency

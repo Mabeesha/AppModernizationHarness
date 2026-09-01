@@ -109,10 +109,21 @@ design and how the plan slices phases:
 
 **Answer:**
 
-**13. Deployment target?**
-On-prem VM / container / Kubernetes / a specific cloud / serverless / app server. Shapes
-configuration, secrets, health checks, and statelessness.
-*Default: the same deployment model the legacy app uses today.*
+**13. Deployment target, deployable units, and runtime topology?**
+Three answers, because they are decided together and each shapes the build:
+- **Target** — on-prem VM / container / Kubernetes / a specific cloud / serverless / app
+  server. Shapes configuration, secrets, health checks, and statelessness.
+- **Deployable units** — what actually ships: **one artifact** holding both parts (e.g. the
+  backend serves the built frontend bundle), or **two artifacts** deployed separately (an API
+  process plus a static bundle on a web server/CDN). This is what Q16's release model looks
+  like concretely, and it is independent of how many repos you have.
+- **Runtime topology** — how the frontend reaches the backend once deployed: **same origin**
+  (one host/port; the backend or a fronting web server serves both) or **separate origins**
+  (different hosts/ports — which obliges CORS, a configurable API base URL, and a decision on
+  cookies vs. bearer tokens). Note the local dev arrangement too where it differs, e.g. a
+  dev-server proxy standing in for same-origin.
+*Default: the same deployment model the legacy app uses today; one deployable unit serving the
+frontend from the backend at the same origin, with a dev-server proxy locally.*
 
 **Answer:**
 
@@ -131,22 +142,37 @@ pipeline files) / **Generate** (a phase wires up pipeline files) / **None**.
 
 **Answer:**
 
-**16. Locations, and repository conventions.**
-Name all three explicitly — they are often, but not always, the same place:
+**16. Locations, repository layout, and conventions.**
+Name all three locations explicitly — they are often, but not always, the same place:
 - **Legacy source** — where the app being modernized lives. **Read-only in every stage**,
   whether or not it shares a repo with anything else. Need not be under version control.
 - **Documents** — where `PROJECT_CONTEXT.md`, the requirements/design/plan docs, and
   `state.json` are written. Keep these in git if you can: reconciliation diffs them to detect
   what changed between runs, and degrades to change-log-only without it.
-- **Target code repository** — where the build branches, commits, and opens PRs. **A single
-  repo holds the whole target** (frontend and backend together). **Say so explicitly if this
-  is the same repo that holds the legacy source** — the agent must know whether it's adding a
-  new tree alongside a frozen legacy one. Legacy files stay read-only either way.
+- **Target code repository** — where the build branches, commits, and opens PRs. **Say so
+  explicitly if this is the same repo that holds the legacy source** — the agent must know
+  whether it's adding a new tree alongside a frozen legacy one. Legacy files stay read-only
+  either way.
+
+Then two structural decisions. **They are settled here and nowhere else** — Design, Plan, and
+Implement read them and never re-open them:
+- **Repository layout** — do frontend and backend live in **one repo** together, or in
+  **separate repos**? If separate, give both paths and say which holds which. Either way,
+  give the **root directory of each part** (e.g. `./frontend` and `./backend`, or the module
+  names in a multi-module build) if you have a preference — otherwise Design fixes the source
+  tree once, in the LLD, and every phase builds to it.
+- **Release model** — are the two **shipped together** as one versioned unit, or **released
+  independently**, each deployable on its own cadence? This is architectural, not operational:
+  independent release obliges the design to give the internal API a versioning and
+  backward-compatibility story; shipped-together frees it from one. Answer it even when the
+  layout is a single repo — one repo can still ship two independently deployed artifacts.
 
 Plus conventions: branch naming, which branch PRs target, commit message conventions, required
 reviewers.
-*Default: documents and target code both in the current working repository; legacy source
-read-only wherever it sits; feature branches per phase; PRs target the default branch.*
+*Default: single repo holding frontend and backend together, shipped as one unit, with the
+two parts in sibling `frontend/` and `backend/` roots; documents and target code both in the
+current working repository; legacy source read-only wherever it sits; feature branches per
+phase; PRs target the default branch.*
 
 **Answer:**
 
