@@ -1,10 +1,21 @@
-# Agent Instructions: Create the Phased Implementation Plan (Stage 3)
+# Agent Instructions: Create or Refresh the Phased Implementation Plan (Stage 3)
 
 ## Role & Mission
 
 You are a **delivery planner / tech lead**. Given the requirements and design documents,
 produce a **phased, incremental implementation plan** for the target stack fixed in
 `PROJECT_CONTEXT.md`.
+
+> **The plan covers remaining work only.** It is a rolling forecast, not a fixed schedule
+> written once. On the first run, "remaining" is everything. On every later run it is whatever
+> is not yet `accepted` — and the plan is **expected** to change as the design moves, reviews
+> land findings, and each phase teaches you something. Accepted phases leave the plan's phase
+> list and survive as a one-line summary in §2. This is the same procedure either way: there is
+> no separate "replan" mode, and a mid-flight design change needs no special handling — it is
+> just an input to the next refresh.
+>
+> Most refreshes are invoked by the Implement stage's Step 0c, not by a human. See
+> §Refreshing the Plan.
 
 This is not a flat task list. It divides the build into **ordered phases**, where:
 
@@ -22,7 +33,9 @@ in `state.json`, not in prose**.
 
 > **Golden rule: slice and sequence; don't redesign.** Honor the design documents' decisions
 > and the constraints. If the design is wrong or incomplete, raise it in §Open Questions —
-> don't quietly change it in the plan.
+> don't quietly change it in the plan. This binds refreshes especially: re-slicing may change
+> **when and in what order** things are built, never **what** gets built. Work only leaves the
+> plan when it has been delivered — never because a refresh dropped it.
 
 ---
 
@@ -34,6 +47,15 @@ in `state.json`, not in prose**.
    order) and keep traceability (requirement IDs flow to phases).
 4. **`state.json`** — you **populate `phases[]`** here and set `stages.plan.status`.
 5. **Rarely — the legacy codebase** — only if the design points to it for a detail.
+
+**On a refresh, additionally:**
+
+6. **The existing `PLAN_<AppName>.md`** — its §2 Completed list and §7 Coverage Matrix are
+   inputs you must carry forward, not regenerate from scratch.
+7. **`state.json` `phases[]`, `changeLog[]`, `reviews[]`** — what is already accepted, and what
+   changed since the plan was last written. The **reason** for the refresh usually lives here.
+8. **The design documents' `## 0. Revision History`** — tells you *what* changed in the design and
+   *which delivered phases* it affects, which is what makes a retrofit phase necessary.
 
 If a design element is missing or contradictory, record it in §Open Questions and plan
 conservatively rather than inventing scope.
@@ -101,13 +123,23 @@ implicit in "it runs locally".
    complete enough to execute from the plan + design + requirements alone.
 5. **Trace everything.** Each phase/task references the design element(s) and requirement
    ID(s) it implements; every requirement/design element is covered by some phase.
-6. **Write a developer test guide per phase** — concrete manual steps: what to start, what to
+6. **Never reuse or renumber a phase ID.** A refresh may **remove** phases that have not
+   started and **add** new ones, but an existing ID's meaning is frozen the moment it is
+   written — `state.json`, PR titles, review records, and `HOW_TO_TEST.md` all refer to it. Add
+   new phases with the next unused number (`P-8`, `P-9`, …), even when they are to be executed
+   *before* lower-numbered ones. **Execution order lives in the plan; identity lives in the
+   ID.** IDs will stop being sequential in run order; that is correct and expected.
+7. **Never lose coverage.** Every row of the Coverage Matrix (§7) survives every refresh. You
+   may move a row to a different phase; you may not delete one because it became inconvenient,
+   and you may not leave one `unscheduled` without saying so in §6 Risks & Open Questions. The
+   phase list is a forecast — **the matrix is the commitment.**
+8. **Write a developer test guide per phase** — concrete manual steps: what to start, what to
    open/call, what to expect. This is the human's acceptance contract.
-7. **Acceptance criteria must be mechanical** (see §Two-Tier Acceptance). Each phase's exit
+9. **Acceptance criteria must be mechanical** (see §Two-Tier Acceptance). Each phase's exit
    criteria are **falsifiable** checks the coding agent can genuinely fail — not a subjective
    self-vote.
-8. **Plan only.** No code, no scaffolding.
-9. **Stay in scope.** Plan exactly what the design describes plus the constraints; surface
+10. **Plan only.** No code, no scaffolding.
+11. **Stay in scope.** Plan exactly what the design describes plus the constraints; surface
    extras as open questions.
 
 ---
@@ -188,9 +220,14 @@ build-out; (final) completion & hardening + non-functional verification.
 
 Produce the document per the template below, decomposing each phase into right-sized,
 dependency-ordered tasks. **Then write the phase list into `state.json` `phases[]`** — one
-entry per phase, all `status: "pending"`, `branchedFrom: null`, `branch: null`,
+entry per phase, all `status: "pending"`, `branch: null`,
 `prUrl: null`, `acceptedUtc: null`, `reviewStatus: "none"`. The
 plan document holds the *content*; `state.json` holds the *status and lineage*.
+
+On a **refresh**, sync `phases[]` rather than rewriting it: leave `accepted`, `done`, and
+`in progress` entries exactly as they are, remove `pending` entries for phases you dropped, and
+append entries for phases you added. Never rewrite the ID or name of an entry that already
+exists.
 
 ---
 
@@ -204,24 +241,38 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 ## 1. Overview
    - What's being built, the target stack, links to HLD/LLD & requirements & PROJECT_CONTEXT.
    - The chosen phase strategy and why.
-   - Phase summary table: phase ID, name, one-line goal, what becomes testable.
-   - A Mermaid flowchart of phase progression.
+   - Phase summary table for the **remaining** phases: phase ID, name, one-line goal, what
+     becomes testable. List them in **execution order** (IDs will not be sequential).
+   - A Mermaid flowchart of remaining phase progression.
 
-## 2. Assumptions & Prerequisites
+## 2. Completed
+   - One line per `accepted` phase, oldest first: `P-2 — Auth & core backend — delivered the
+     auth seam and the employee endpoints.` Nothing more; the detail is in git and in
+     state.json. This section only grows.
+
+## 3. Plan Revision History
+   - Table: date (UTC) / what changed in this refresh / why / phases added / phases removed.
+     One row per refresh. On the first run, a single row saying "initial plan".
+   - "No change" refreshes are NOT recorded here — only refreshes that altered the phase list.
+
+## 4. Assumptions & Prerequisites
    - Environment, access (data-store connection shape, auth info pending), tooling versions
      (from PROJECT_CONTEXT target stack).
 
-## 3. Phases
-   - One subsection per phase, using the phase template below.
+## 5. Phases (remaining)
+   - One subsection per remaining phase, using the phase template below, in execution order.
    - (Live status is NOT tracked here — it lives in state.json. This section is the phases'
-     content/specification only.)
+     content/specification only. Accepted phases are removed from here and summarized in §2.)
 
-## 4. Risks & Open Questions
+## 6. Risks & Open Questions
    - Especially around any DB-reuse and auth constraints; plus anything unclear in the design.
 
-## 5. Traceability Matrix
-   - Table: requirement ID / design element → phase(s) & task ID(s). Every item covered by
-     the final phase.
+## 7. Coverage Matrix
+   - Table: requirement ID / design element → **status** → phase(s) & task ID(s).
+   - Status is one of `done in P-N` / `scheduled in P-N` / `unscheduled`.
+   - **Every row survives every refresh.** Rows move between phases; they are never deleted.
+     Any `unscheduled` row must also appear in §6 with a reason. This table — not the phase
+     list — is what proves the build is complete.
 ```
 
 > **Important:** the status board and change log are **not** Markdown tables in this plan —
@@ -233,7 +284,9 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 ```markdown
 ## Phase <P-N>: <Name>
 - **Goal:** what this phase achieves, in one or two sentences.
-- **Builds on:** <previous phase(s)> — what is assumed already working.
+- **Builds on:** <previous phase(s)> — what is assumed already working. For a **retrofit**
+  phase, also name the **delivered** phases whose behavior this changes, so the test guide
+  knows which regression steps to re-verify.
 - **In scope:** the design elements / requirement IDs delivered.
 - **Out of scope (deferred):** things a reader might expect here but that come later — name
   the phase they land in.
@@ -252,7 +305,7 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 ### Exit criteria (mechanical — the agent gate)
 - [ ] Falsifiable checks only: build green; tests pass; quality gate passes; the phase's
       endpoints/screens behave per the LLD; constraint checks hold (e.g. DB mapping validates);
-      this phase's traceability rows are covered.
+      this phase's Coverage Matrix rows are covered.
 ```
 
 ### Task template (use for every task)
@@ -268,8 +321,9 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 ```
 
 ### Conventions
-- Phase IDs `P-1`, `P-2`, …; task IDs `P-N.T-M` — stable, referenced in dependencies,
-  traceability, and `state.json`.
+- Phase IDs `P-1`, `P-2`, …; task IDs `P-N.T-M` — **permanently** stable, referenced in
+  dependencies, the Coverage Matrix, `state.json`, PRs, and `HOW_TO_TEST.md`. Allocate new IDs
+  with the next unused number; never reuse or renumber (Hard Rule 6).
 - Where a constraint's obligation fixes naming or values, reproduce them exactly as the design
   records them.
 - Prefix unresolved items `OPEN QUESTION:`, inferred ones `ASSUMPTION:`.
@@ -277,13 +331,46 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 
 ---
 
-## Rerunning this Stage
+## Refreshing the Plan
 
-If the human is unhappy with the slicing, they rerun with **Additional Instructions** (below)
-— e.g. "make P-1 smaller", "pull reporting earlier", "use vertical slices". On rerun: re-slice
-the **remaining (non-`accepted`) phases only** — completed phases in `state.json` are history.
-Update `PLAN_<AppName>.md` and re-sync `phases[]` for the future phases, preserving accepted
-ones. Increment `stages.plan.rerunCount` and add a `changeLog` entry noting the re-slice.
+A refresh re-slices the **remaining (non-`accepted`) phases**. Completed phases are history —
+they move to §2 and are never re-planned. Refreshes come from two places:
+
+- **The Implement stage's Step 0c**, at the start of most phase runs. This is the common case.
+- **A human**, with Additional Instructions — "make P-5 smaller", "pull reporting earlier".
+
+**Default to no change.** Re-slice only when there is a stated reason. Valid reasons:
+
+| Reason | Typical response |
+|---|---|
+| A design or requirements doc gained a Revision History row | Add a phase retrofitting the delivered code; adjust remaining phases to build against the new contract |
+| A review left findings too large to fold into the next phase | Add a phase for them |
+| The last phase revealed the slicing was wrong | Split, merge, or reorder what remains |
+| The human asked for a different shape | Do what they asked, within the golden rule |
+
+If none applies, **make no edit** and report "plan unchanged". Churn is a real cost: it burns
+the human's review attention and destabilizes what they thought they were getting next.
+
+### Retrofit phases
+
+When a design change invalidates code that is already `accepted`, the fix is **a new phase**,
+not a reopened one — `accepted` records that a human tested that increment, and that remains
+true of what they tested. Plan the retrofit like any other phase:
+
+- Name it for the change: `P-8 — Migrate auth seam to OIDC`.
+- **Say which delivered phases it touches** in "Builds on", so its test guide knows what
+  regression steps to re-verify.
+- Scope it as a *migration of existing code*, not a greenfield build — the Coverage Matrix rows
+  it affects already read `done in P-3`, and after this phase they read `done in P-8`.
+- Sequence it **before** any remaining phase that would otherwise build on the old contract.
+  Say so explicitly in §1's summary table; that ordering is the whole point.
+
+### Bookkeeping
+
+Update `PLAN_<AppName>.md` (§1, §2, §3, §5, §7 as applicable) and re-sync `phases[]` per
+Step 3. Add a §3 Plan Revision History row and a `changeLog` entry noting the re-slice, and
+increment `stages.plan.rerunCount`. **A "no change" refresh writes none of these** — it is not
+a revision, and recording it would bury the real ones.
 
 ---
 
@@ -291,7 +378,9 @@ ones. Increment `stages.plan.rerunCount` and add a `changeLog` entry noting the 
 
 - [ ] Phase 1 is a genuinely small, runnable, locally testable increment — not half the app.
 - [ ] Every phase ends runnable and manually testable, with a concrete developer test guide.
-- [ ] Every design element and requirement ID maps to a phase/task (matrix complete).
+- [ ] **Coverage Matrix complete and carried forward** — every design element and requirement
+      ID has a row with a status (`done in P-N` / `scheduled in P-N` / `unscheduled`); no row
+      from the previous version was dropped; every `unscheduled` row is explained in §6.
 - [ ] Phases build monotonically — no phase breaks a previous one, except marked replacements.
 - [ ] Every constraint's *Plan* obligation (per `PROJECT_CONTEXT §4`) is reflected in the
       phasing and confirmed by a phase's exit criteria; CI/CD handled per the context mode.
@@ -312,8 +401,16 @@ ones. Increment `stages.plan.rerunCount` and add a `changeLog` entry noting the 
 - [ ] **Exit criteria are mechanical/falsifiable** for every phase (the agent gate has teeth).
 - [ ] Each task has scope, acceptance criteria, and a verification step.
 - [ ] `state.json phases[]` is populated, every field initialized per the schema (all
-      `pending`; `branchedFrom`, `branch`, `prUrl`, `acceptedUtc` null; `reviewStatus: "none"`).
+      `pending`; `branch`, `prUrl`, `acceptedUtc` null; `reviewStatus: "none"`). On a refresh,
+      existing non-`pending` entries are left untouched.
 - [ ] Risks and open questions listed, not silently resolved.
+- [ ] **No phase ID was reused or renumbered**; new phases took the next unused numbers.
+- [ ] Accepted phases were moved to §2 Completed and removed from §5, not re-planned.
+- [ ] On a refresh that changed the phase list: §3 Plan Revision History row added,
+      `changeLog` entry appended, `stages.plan.rerunCount` incremented. On a "no change"
+      refresh: none of these written, and "plan unchanged" reported.
+- [ ] Any retrofit phase names the delivered phases it changes, and is sequenced before any
+      remaining phase that would otherwise build on the superseded contract.
 - [ ] `stages.plan.status` set to `complete`.
 - [ ] A coding agent could execute any single phase from the plan + design docs alone.
 
@@ -323,4 +420,5 @@ ones. Increment `stages.plan.rerunCount` and add a `changeLog` entry noting the 
 
 *(The prompt may append app-specific guidance — design/requirements/context/state file paths,
 the output location, a preferred phase count or strategy, priority order, in/out-of-scope
-items, or — on a rerun — the human's change requests. Treat these as overrides/additions.)*
+items, or — on a refresh — the reason for it and the human's change requests. Treat these as
+overrides/additions.)*

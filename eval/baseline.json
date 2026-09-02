@@ -9,6 +9,6 @@
   "suppressed": {
     "f4b0458edb": "B5 — PROJECT_CONTEXT.md §2 (Stacks) is read as prose by every stage ('target stack per PROJECT_CONTEXT.md') rather than cited as '§2'. Intentional: it is narrative context, not an obligation target.",
     "63683ca1ac": "D3 — AGENTS_TEMPLATE.md is the invariants file. High imperative density is its entire purpose, so being a set-median outlier is by design, not emphasis inflation.",
-    "f1444b9c93": "D4 — README.md:56 is the ASCII pipeline diagram. It is deliberately not a code block and has no meaningful language tag."
+    "45a1851004": "D4 — README.md:57 is the ASCII pipeline diagram. It is deliberately not a code block and has no meaningful language tag."
   }
 }

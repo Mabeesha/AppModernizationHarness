@@ -133,6 +133,11 @@ Use the structures below. Keep IDs stable and cross-reference across the three.
 ### `BUSINESS_REQUIREMENTS_<AppName>.md`
 ```markdown
 # Business Requirements: <AppName>
+## 0. Revision History
+   - Table: **Date (UTC) | What changed | Why | Delivered phases affected**. One row per
+     rerun that changed a requirement; first run gets a single "initial extraction" row.
+   - "Delivered phases affected" (from `state.json phases[]`) is what the Plan stage reads to
+     decide whether a retrofit phase is needed. "none" if nothing built yet.
 ## 1. Purpose & Background
 ## 2. Business Objectives
 ## 3. Scope (in / out — reconcile with PROJECT_CONTEXT scope)
@@ -145,6 +150,11 @@ Use the structures below. Keep IDs stable and cross-reference across the three.
 ### `FUNCTIONAL_REQUIREMENTS_<AppName>.md`
 ```markdown
 # Functional Requirements: <AppName>
+## 0. Revision History
+   - Table: **Date (UTC) | What changed | Why | Delivered phases affected**. One row per
+     rerun that changed a requirement; first run gets a single "initial extraction" row.
+   - "Delivered phases affected" (from `state.json phases[]`) is what the Plan stage reads to
+     decide whether a retrofit phase is needed. "none" if nothing built yet.
 ## 1. Feature Overview                (feature map)
 ## 2. Detailed Features               (FR-# : behavior, inputs, outputs, validation)
 ## 3. Screens / UI Flows              (per screen: purpose, fields, actions, states)
@@ -157,6 +167,11 @@ Use the structures below. Keep IDs stable and cross-reference across the three.
 ### `TECHNICAL_REQUIREMENTS_<AppName>.md`
 ```markdown
 # Technical Requirements: <AppName>
+## 0. Revision History
+   - Table: **Date (UTC) | What changed | Why | Delivered phases affected**. One row per
+     rerun that changed a requirement; first run gets a single "initial extraction" row.
+   - "Delivered phases affected" (from `state.json phases[]`) is what the Plan stage reads to
+     decide whether a retrofit phase is needed. "none" if nothing built yet.
 ## 1. Current Architecture            (as-built, per the current stack)
 ## 2. Data Layer
    ### 2.3 Data Model                 (depth per the applicable constraints' obligations)
@@ -208,6 +223,11 @@ If the human is unhappy with the output, they rerun with **Additional Instructio
 "treat X as out of scope". On rerun: load the existing three documents, apply the requested
 changes in place (don't regenerate from scratch and lose curated content), increment
 `stages.requirements.rerunCount` in `state.json`, and note what changed in your report.
+
+**Add a `## 0. Revision History` row** to every document you changed, naming which **delivered
+phases** it invalidates (read `state.json phases[]`), and add a `changeLog` entry. Do not edit
+the plan or the design yourself: a requirements change normally needs the **Design** stage rerun
+next, and then the Implement stage's Step 0c plans any retrofit. Say that in your report.
 
 ---
 

@@ -62,7 +62,11 @@ Follow `2_DESIGN_INSTRUCTIONS.md`. Everything in ./out/.
 ```
 Follow `3_PLAN_INSTRUCTIONS.md`. Everything in ./out/.
 ```
-→ A phased plan. **Is phase 1 genuinely small?** If not, rerun this stage.
+→ A phased plan for **remaining work**. **Is phase 1 genuinely small?** If not, say so now.
+
+The plan is a rolling forecast, not a fixed schedule: accepted phases drop off it, and the
+remaining ones get re-checked before most build runs. What *doesn't* move is the **Coverage
+Matrix** — every requirement has a row there, and rows are never deleted.
 
 Unhappy with any output? Rerun that stage and say what you want different.
 
@@ -70,19 +74,21 @@ Unhappy with any output? Rerun that stage and say what you want different.
 
 ```
 Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Everything in ./out/.
-This is a phase. Implement the next pending phase. Branch and open a PR.
+Next phase. Branch and open a PR.
 ```
 
 The agent builds it, opens a PR, and **stops**. Then you:
 
-1. **Test it** — follow that phase's test guide in the plan
+1. **Test it** — follow `HOW_TO_TEST.md` (one file, always current: *New in P-N* first, then
+   the accumulated regression checks). The agent tells you which regression lines this phase
+   put at risk.
 2. **Say one of these:**
 
    | | |
    |---|---|
    | It works | **`accept P-1`** — merges the PR, records it, done |
    | It's broken | **`P-1 failed — search returns 500`** — reopens it, keeps the PR |
-   | You want a change | describe it — the agent checks whether it contradicts the design first |
+   | You want a change | describe it — the agent works out whether it's a minor edit or needs a design change first |
 
 3. **Repeat** for the next phase.
 
@@ -96,7 +102,29 @@ review its own work.
 
 ---
 
-## Four things that'll trip you up
+## Changing the design halfway through
+
+You're at P-6 and need to change auth — which was built in P-3. **Two prompts:**
+
+```
+Follow `2_DESIGN_INSTRUCTIONS.md`. Rerun. Change auth from the local stub to OIDC
+against Keycloak, bearer tokens. Everything in ./out/.
+```
+→ Design amended in place, with a note recording that **P-3 and P-5** are now out of date.
+**Be specific about what you want** — the agent will otherwise ask, or assume.
+
+```
+Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase. Everything in ./out/.
+```
+→ It proposes adding **P-8 "migrate auth to OIDC"**, to run *before* P-6. You approve; it
+builds it. P-3 stays accepted and is never reopened — the retrofit is new work.
+
+That's it. The second prompt is the one you always use, so a mid-build design change costs
+exactly one extra prompt.
+
+---
+
+## Five things that'll trip you up
 
 - **Never edit `state.json` by hand.** Just say what happened — "accept P-2", "P-2 failed" —
   and the agent writes it.
@@ -105,7 +133,11 @@ review its own work.
 - **Read the "Answered without you" list** after stage 0. Those are decisions you didn't make,
   and they propagate everywhere.
 - **Keep `./out/` and `state.json` in git.** The agent diffs them to work out what changed
-  between runs.
+  between runs — and git is the only history of superseded design and plan versions, since
+  documents are amended in place rather than copied to new filenames.
+- **Phase numbers stop being sequential.** A retrofit added at P-8 may run before P-6. That's
+  deliberate: IDs are permanent so PRs and reviews keep meaning what they said. Read the plan
+  for the running order.
 
 ---
 
