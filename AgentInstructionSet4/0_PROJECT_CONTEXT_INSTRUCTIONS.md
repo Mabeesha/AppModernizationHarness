@@ -424,8 +424,13 @@ Field notes (the later stages depend on these; keep them exact):
   consequences, Stage 3 phases the test guide around them, Stage 4 must not hard-code past
   them, and Stage 5 checks the built app matches. Changing either is a rerun of this stage.
 - **`stages.<name>.status`** — `pending` → `in progress` → `complete`. `rerunCount`
-  increments each time a stage is rerun with additional instructions.
-- **`phases[]`** — created by the Plan stage. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done|accepted", "branchedFrom": "<phase id or null>", "branch": "<or null>", "prUrl": "<or null>", "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated", "notes": "" }`.
+  increments each time a stage is rerun with additional instructions. For `plan`, it counts
+  **substantive refreshes only** — a Step 0c check that left the phase list unchanged is not a
+  rerun and writes nothing.
+- **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done|accepted", "branch": "<or null>", "prUrl": "<or null>", "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated", "notes": "" }`.
+  - **IDs are permanent.** A refresh may drop `pending` entries and append new ones with the
+    next unused number; it never renumbers or reuses an ID, and never rewrites a non-`pending`
+    entry. IDs therefore stop matching execution order — the plan document holds the order.
   - `branch` / `prUrl` are written by the Implement stage so the work is findable later.
   - `reviewStatus` moves `changes-requested` → **`remediated`** when the Implement stage has
     fixed that review's findings. Nothing else clears it, and the Blocker gate reads it — so a
@@ -433,7 +438,9 @@ Field notes (the later stages depend on these; keep them exact):
     re-review after remediation is what returns it to `pass`.
   - `status: "accepted"` and `acceptedUtc` are written **only on the developer's explicit
     per-phase instruction** ("accept P-2"); an agent records them then, never on its own.
-- **`edits[]`** — post-phase edits, created by the Implement stage. Each: `{ "id": "E-1", "utc": "...", "summary": "...", "afterPhase": "P-2", "status": "pending|in progress|done|accepted", "branch": "<or null>", "prUrl": "<or null>", "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated" }`.
+- **`edits[]`** — **minor** edits, created by the Implement stage: changes that touch no
+  requirement, design contract, or plan scope (a config value, a label, an obvious bug fix).
+  Anything that touches a contract is a doc change followed by a **phase**, not an edit. Each: `{ "id": "E-1", "utc": "...", "summary": "...", "afterPhase": "P-2", "status": "pending|in progress|done|accepted", "branch": "<or null>", "prUrl": "<or null>", "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated" }`.
   An edit is a **reviewable unit in its own right** — it ships code, so it can be a Review
   target exactly like a phase.
 - **`changeLog[]`** — the loop's memory. Each: `{ "id": <int>, "utc": "...", "author": "developer|implement-agent|review-agent", "origin": "developer-prompt|reconcile|review-<Rid>|out-of-band", "summary": "...", "docsTouched": ["requirements|design|plan|context"], "phasesAffected": ["P-3"], "editsAffected": ["E-1"] }`.

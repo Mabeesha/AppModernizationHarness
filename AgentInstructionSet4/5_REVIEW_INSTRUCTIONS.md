@@ -8,7 +8,7 @@ against what the project *asked for*, and report findings the developer can act 
 this as a **separate agent/run** from the one that built the code.
 
 You can be pointed at **one accepted phase** (the common case, run after the developer accepts
-a phase), a **post-phase edit** (`E-1`), or the **whole build** (a milestone or final review). You **do not fix anything** —
+a phase), a **minor edit** (`E-1`), or the **whole build** (a milestone or final review). You **do not fix anything** —
 you find, classify, and hand back a verdict. Fixes go through the Implement stage.
 
 > **Golden rule: verify against the source of truth, don't re-litigate it.** The requirements,
@@ -28,7 +28,7 @@ you find, classify, and hand back a verdict. Fixes go through the Implement stag
 4. **`PROJECT_CONTEXT.md`** — constraints (by ID), target stack, NFRs, CI/CD mode.
 5. **`PLAN_<AppName>.md`** — the phase(s) in scope and their exit criteria.
 6. **The implemented codebase** — what you actually audit. Run its build and tests.
-7. **The review target** — from the prompt: a phase ID (`P-3`), a post-phase edit id (`E-1`),
+7. **The review target** — from the prompt: a phase ID (`P-3`), a minor edit id (`E-1`),
    or `whole-build`. Edits ship code just as phases do, so they are reviewable in their own
    right; review one when the developer asks, or when an edit was large enough to warrant it.
 
@@ -60,7 +60,18 @@ what's wrong, why it matters, and the requirement/design/constraint it violates.
 ### 1. Requirements vs. implemented solution *(coverage)*
 - Cross-check the implementation against the requirements and design **in scope for the target**.
 - **Find missing points** — requirements/design elements that should be implemented by now (per
-  the plan's traceability) but aren't, or are only partially done.
+  the plan's **Coverage Matrix**) but aren't, or are only partially done.
+- **Judge against the right revision of the design.** Read the HLD/LLD `## 0. Revision History`.
+  If a revision postdates the phase you are reviewing, check whether a later phase retrofitted
+  the affected code. If the revision row names this phase as invalidated and no retrofit has
+  landed, that is a **finding** — the code is running against a superseded contract. Do not
+  grade a phase down for a contract that changed after it shipped **and** has a retrofit phase
+  planned; do report it if the retrofit is nowhere in the plan.
+- **On a `whole-build` target, audit the Coverage Matrix itself.** Any row still marked
+  `unscheduled` is a **Blocker** — the plan is a rolling forecast, so an unscheduled row is work
+  that was never delivered and no longer has a phase that would deliver it. Also verify no row
+  present in an earlier version of the matrix has disappeared (`git log` on the plan); a
+  vanished row is work silently dropped by a refresh, and is likewise a Blocker.
 - Find **divergences** — behavior that doesn't match the FR/BR or the LLD contract (wrong
   endpoint shape, missing validation, altered business rule, wrong field mapping).
 - Check the **parity stance** (`PROJECT_CONTEXT §1`): under strict parity, an "improvement"
@@ -204,6 +215,10 @@ filenames unique and ordered — two reviews of the same target never collide:
 - Coverage / Tests / Security / Performance findings, most severe first.
 ## Coverage Check
 - Requirements/design elements expected in this target: covered / missing / partial.
+- The design revision this target was judged against, and whether any later revision
+  supersedes it (and if so, whether a retrofit phase is planned or landed).
+- **`whole-build` only:** Coverage Matrix audit — count of rows by status, every `unscheduled`
+  row listed, and any row that disappeared from an earlier version of the matrix.
 ## Constraint Compliance
 - One line per C#: honored / violated (+ evidence).
 ## Follow-ups (non-gating Minors)
@@ -239,6 +254,10 @@ those. You only append to `state.json` and write the report.
 - [ ] `reviews[]` appended and the target's `reviewStatus` set in `state.json`; each
       Blocker/Major finding appended to `changeLog[]` for the Implement stage.
 - [ ] Design-level flaws (vs. implementation defects) called out and routed to the Design stage.
+- [ ] The design revision the target was judged against was identified, and any superseding
+      revision checked for a landed or planned retrofit phase.
+- [ ] **`whole-build` only:** Coverage Matrix audited — no `unscheduled` rows, and no row
+      dropped since an earlier version of the plan. Either is a Blocker.
 - [ ] Review report written; no code/design/requirements modified.
 
 ---

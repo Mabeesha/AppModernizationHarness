@@ -5,7 +5,7 @@ the prompt. Investigation frequently turns into editing partway through a conver
 gate belongs in front of the edit, not in front of the question.
 
 - **Reading, explaining, diagnosing, running tests** → just do it. No gate, no ceremony.
-- **About to change target application code** → this is a phase or a post-phase edit. Stop and
+- **About to change target application code** → this is a phase or a minor edit. Stop and
   ask:
   > "This changes built code. Run it through `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` — branch,
   > tests, docs, state, PR — or make the change directly?"
@@ -16,15 +16,34 @@ gate belongs in front of the edit, not in front of the question.
   that later stages are judged against; editing them casually breaks that contract.
 
   **Carve-out:** this does not apply when you are executing a stage that owns those edits.
-  Stage 4 is required to update the plan (reconciliation tasks, statuses, stale test-guide
-  steps) and may make small, clearly-bounded requirements/design edits its own contradiction
-  check authorizes; Stages 0–3 and 5 write the documents they own. The rule above governs
-  **ad-hoc requests outside a stage run** — that is where casual edits do the damage.
+  Stage 4 **owns the forward plan** — at Step 0c it may add, remove, reorder, split, and merge
+  the **remaining** phases (with the developer's approval), and it updates statuses, tasks, and
+  test guides. It may not change the design or requirements beyond a purely clarifying fix.
+  Stages 0–3 and 5 write the documents they own. The rule above governs **ad-hoc requests
+  outside a stage run** — that is where casual edits do the damage.
 
 **If they choose "directly", still append a `changeLog[]` entry** in `state.json` (author:
 `developer`, origin: `out-of-band`) naming what changed. Skipping the process is their call;
 skipping the record is not — the next Implement run reconciles against this log, and an
 unrecorded change makes its baseline silently wrong.
+
+---
+
+## How a mid-flight change is handled
+
+A design or requirements change — even one affecting something delivered many phases ago — has
+**one** path, and it needs no special ceremony:
+
+1. **The owning stage amends its document** (normally a Stage 2 rerun for design, Stage 1 for
+   requirements) and adds a `## 0. Revision History` row naming the delivered phases it
+   invalidates.
+2. **The next Stage 4 run's Step 0c re-plans**, proposing a **retrofit phase** for the
+   invalidated code and adjusting the remaining phases. The developer approves it.
+3. **That phase is built and accepted like any other.**
+
+Two things never happen: an `accepted` phase is **never reopened** to absorb a change (that
+attestation stays true of what was tested — the retrofit is new work with its own acceptance),
+and a phase ID is **never reused or renumbered**.
 
 ---
 

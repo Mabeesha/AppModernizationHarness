@@ -172,6 +172,14 @@ matches exactly.
 ### `HIGH_LEVEL_DESIGN_<AppName>.md`
 ```markdown
 # High-Level Design: <AppName>
+## 0. Revision History
+   - Table: **Date (UTC) | What changed | Why | Delivered phases affected**.
+   - One row per rerun that changed a decision. First run: a single "initial design" row.
+   - "Delivered phases affected" is what the Plan stage reads to decide whether a **retrofit
+     phase** is needed — name the phase IDs (from `state.json`) whose built code no longer
+     matches this design, or "none" if nothing is built yet or nothing is invalidated. Getting
+     this wrong means a stale implementation silently survives, so check `state.json` rather
+     than guessing.
 ## 1. Overview & Goals
 ## 2. Target Architecture              (diagram in Mermaid; layers & components)
 ## 3. Key Decisions & Rationale        (DD-# : decision, why, alternatives rejected)
@@ -200,6 +208,9 @@ matches exactly.
 ### `LOW_LEVEL_DESIGN_<AppName>.md`
 ```markdown
 # Low-Level Design: <AppName>
+## 0. Revision History
+   - Same table and rules as the HLD's §0. Contract changes here are the most common trigger
+     for a retrofit phase, so name the affected delivered phases precisely.
 ## 1. API / Interface Contracts        (per endpoint: path, verb, request, response, codes,
                                         errors, authz required)
 ## 2. Data Model & Mapping             (entity ↔ table/column, exact names; types; keys)
@@ -279,12 +290,30 @@ wins**; note the deviation and why.
 
 ## Rerunning this Stage
 
-If the human is unhappy with the design, they rerun with **Additional Instructions** (below)
-— e.g. "use a modular monolith, not microservices", "the API should be REST not GraphQL",
-"reconsider the auth seam". On rerun: load the existing HLD/LLD, apply the changes in place,
-increment `stages.design.rerunCount`, and if the plan/implementation already consumed the
-old design, **add a `changeLog` entry** in `state.json` describing what changed and which
-downstream artifacts (plan, built phases) are now stale — so they get reconciled or replanned.
+Reruns are **normal**, not a sign something went wrong. They are how a design change reaches the
+build — including changes to something delivered many phases ago. The human reruns with
+**Additional Instructions** (below) — e.g. "use a modular monolith, not microservices", "the API
+should be REST not GraphQL", "change auth from the local-table stub to OIDC".
+
+On rerun:
+
+1. **Load the existing HLD/LLD and apply the changes in place.** Filenames never change; there
+   are no timestamped or numbered copies. Git holds the history.
+2. **Add a `## 0. Revision History` row** to every document you changed: what changed, why, and
+   **which delivered phases it invalidates** — read `state.json phases[]` for what is actually
+   built. This row is the handoff to the Plan stage; a missing or vague one means the retrofit
+   never gets planned.
+3. **Increment `stages.design.rerunCount`** and **add a `changeLog` entry** naming what changed
+   and which downstream artifacts (plan, built phases) are now stale.
+4. **Do not edit the plan yourself, and do not touch code.** The next Implement run's Step 0c
+   reads your revision-history row and plans the retrofit phase. Tell the human that in your
+   report: *"run the next phase; Step 0c will propose the re-slice."*
+
+**Ask before assuming on a load-bearing change.** A one-line request like "change the auth
+mechanism" does not determine a design — protocol, IdP, token vs. session, what happens to
+existing credentials, and the effect on already-built endpoints are all still open. Resolve them
+with the human or record each as an explicit `ASSUMPTION:`; do not quietly pick and move on,
+because everything downstream will be built to whatever you choose here.
 
 ---
 

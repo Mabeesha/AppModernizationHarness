@@ -10,7 +10,7 @@ Project Context, and every later stage reads them from there.
 > CI/CD / constraints and forces a decision on load-bearing questions; a **`state.json`** file
 > that holds all machine state (statuses, lineage, change log) so the doc stays readable and
 > branching is tractable; **mechanical (falsifiable) phase acceptance**; an explicit
-> **phase-vs-post-phase-edit** classification with a **contradiction check**; and an
+> **rolling plan** that covers remaining work only and is refreshed before most build runs; and an
 > independent **Stage 5 Review/QA** that feeds findings back into the loop. See
 > §What Changed From Set 3.
 
@@ -27,13 +27,14 @@ Filenames are numbered by stage, so the folder listing reads as the running orde
 | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | 0 | Resolves your intake → `PROJECT_CONTEXT.md` + `state.json` |
 | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | 1 | Legacy app → three requirements docs |
 | `2_DESIGN_INSTRUCTIONS.md` | 2 | Requirements → HLD + LLD |
-| `3_PLAN_INSTRUCTIONS.md` | 3 | Design → phased plan + `state.json phases[]` |
+| `3_PLAN_INSTRUCTIONS.md` | 3 | Design → phased plan (**remaining work only**) + `state.json phases[]` |
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | 4 | **Run once per phase**, in a loop, until done |
 | `5_REVIEW_INSTRUCTIONS.md` | 5 | Independent audit; findings loop back to stage 4 |
 
-Stages 0–3 run **once each, in order**. Stages **4 and 5 alternate in a loop** — implement a
-phase, test it, review it, repeat — so the numbering marks position in the pipeline, not a
-one-way path. Any stage can be **rerun** when you're unhappy with its output.
+Stages 0–2 run **once each, in order** (and are rerun when something changes). Stages **3, 4 and
+5 then run in a loop** — refresh the plan, implement a phase, test it, review it, repeat — so
+the numbering marks position in the pipeline, not a one-way path. **Stage 3 is not a one-shot:**
+the plan covers only remaining work and is re-checked at the start of most Stage 4 runs.
 
 ### Setup — do this once, before Stage 0
 
@@ -66,22 +67,25 @@ catches edits made outside a formal stage run (see §Working Outside a Stage).
  [2] Design ────────────► HIGH_LEVEL_DESIGN_<App>.md   (architecture & decisions)
       │                   LOW_LEVEL_DESIGN_<App>.md     (contracts & specifics)
       ▼
- [3] Planning ──────────► PLAN_<App>.md   (phases P-1…P-N)  +  state.json phases[]
-      │
-      ▼
+ [3] Planning ──────────► PLAN_<App>.md   (remaining phases)  +  state.json phases[]
+      │  ▲
+      │  │ Step 0c refreshes the remaining plan before most phase runs
+      ▼  │
  [4] Phase Implementation ──┐        [5] Review / QA  (independent agent)
       ▲                     │              │
       │  YOU test & accept  │◄─────────────┘  findings → state.json changeLog[]
       │  Review audits      │
-      └─────────────────────┘   … repeat until the final phase is accepted & reviewed
+      └─────────────────────┘   … repeat until the Coverage Matrix is fully delivered
 ```
 
-Stages 0–3 are each **one agent run** producing documents. Stage 4 is a **loop** — one run per
-phase (or per post-phase edit), with you in between. Stage 5 (**Review**) runs independently,
-usually after you accept a phase, and its findings loop back into Stage 4.
+Stages 0–2 are each **one agent run** producing documents. Stage 3 produces the plan and is then
+**re-entered from Stage 4's Step 0c** whenever the remaining phases need re-slicing. Stage 4 is a
+**loop** — one run per phase (or per minor edit), with you in between. Stage 5 (**Review**) runs
+independently, usually after you accept a phase, and its findings loop back into Stage 4.
 
 Every stage supports a **rerun with Additional Instructions** if you're not happy with the
-output — see §Reruns.
+output — see §Reruns. **A design change mid-build is a rerun of Stage 2, not a special
+procedure** — see §Changing the Design Mid-Build.
 
 ---
 
@@ -95,9 +99,11 @@ read and append to it. **You never edit it by hand** — you tell the agent what
 - `context` — stacks, CI/CD mode, and the **constraints** (by ID, e.g. `C1`, `C2`).
 - `stages` — status + `rerunCount` for context/requirements/design/plan.
 - `phases[]` — each phase's `status` (`pending`/`in progress`/`done`/`accepted`),
-  `reviewStatus`, `branchedFrom` (lineage), plus the `branch` and `prUrl` of its work.
-- `edits[]` — post-phase edits (`E-1`, `E-2`…). An edit ships code, so it gets an id, a
-  status, and a branch/PR of its own — and can be reviewed independently, like a phase.
+  `reviewStatus`, plus the `branch` and `prUrl` of its work. **IDs are permanent** — a plan
+  refresh may drop unstarted phases and append new ones, but never renumbers or reuses an ID.
+- `edits[]` — **minor** edits (`E-1`, `E-2`…): changes touching no contract. An edit ships code,
+  so it gets an id, a status, and a branch/PR of its own — and can be reviewed independently,
+  like a phase.
 - `changeLog[]` — **append-only** record of every mid-flight change (developer notes,
   reconciliations, review findings, out-of-band edits). This is what the Implement stage
   reconciles against.
@@ -191,20 +197,44 @@ and clear the open questions. Changing a decision now costs a doc edit; changing
 costs rework.
 
 ### Stage 3 — Plan  · `3_PLAN_INSTRUCTIONS.md`
-Produces `PLAN_<App>.md` (phases P-1…P-N, each runnable & testable, with a developer test guide
-and **mechanical exit criteria**) and populates `state.json phases[]`.
+Produces `PLAN_<App>.md` (each phase runnable & testable, with a developer test guide and
+**mechanical exit criteria**) and populates `state.json phases[]`.
+
+**The plan covers remaining work only** — it's a rolling forecast, not a fixed schedule.
+Accepted phases drop out of the phase list into a one-line §2 Completed entry, and the remaining
+phases are re-checked at the start of most Stage 4 runs. Two rules keep that safe:
+
+- **Phase IDs are never reused or renumbered.** New phases take the next unused number, even
+  when they run *before* lower-numbered ones. IDs will stop being sequential — that's expected.
+  Execution order lives in the plan; identity lives in the ID.
+- **The Coverage Matrix (§7) is the real commitment.** Every requirement and design element has
+  a row with a status (`done in P-N` / `scheduled in P-N` / `unscheduled`). Refreshes may move
+  rows between phases but never delete one. The phase list is a forecast; **the matrix is what
+  proves the build is complete**, and whole-build Review fails on any `unscheduled` row.
+
 **Your job after:** sanity-check the slicing. Is P-1 genuinely small? Are the features you need
-to see early actually early? If not, rerun the planner now — it's cheapest before any code exists.
+to see early actually early? If not, say so now — it's cheapest before any code exists.
 
 ### Stage 4 — Phase Implementation (the loop)  · `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`
-One run builds one phase **or** one post-phase edit. Every run: **classifies** the work,
-**reconciles** changes from `state.json`, runs the **contradiction check**, implements on a
-**branch** with **small commits**, updates **tests + docs + state**, opens a **PR** with a
-descriptive body, marks the phase `done`, and **stops**. It never sets `accepted` (that's you)
-and never rolls into the next phase.
+One run builds one phase **or** one minor edit — and **it classifies which itself**; you don't
+have to declare it. Every run: **classifies** the work, **reconciles** changes from
+`state.json`, **refreshes the forward plan** (Step 0c), implements on a **branch** with **small
+commits**, updates **tests + docs + state**, opens a **PR** with a descriptive body, marks the
+phase `done`, and **stops**. It never sets `accepted` (that's you) and never rolls into the next
+phase.
+
+**Step 0c — the plan refresh.** Before building, it checks whether the remaining phases are
+still right. Default is **no change** ("plan unchanged — building P-6"). When something did
+change — a design revision, a review finding, a lesson from the last phase — it **proposes** a
+re-slice and **waits for your approval**. It never re-slices silently: a plan that shifts while
+your attention is on testing is how scope moves unnoticed.
+
+**Minor edits (`E-n`) are now genuinely minor** — a config value, a label, an obvious bug fix;
+anything touching **no** requirement, design contract, or plan scope. Anything that *does* touch
+a contract is a document change followed by a phase (below), never an edit.
 
 ### Stage 5 — Review / QA  · `5_REVIEW_INSTRUCTIONS.md`
-An **independent** agent audits a phase, a post-phase edit (`E-1`), or the whole build on four
+An **independent** agent audits a phase, a minor edit (`E-1`), or the whole build on four
 axes — requirements coverage, tests, security, static performance — plus constraint compliance.
 It returns **PASS** or **CHANGES REQUESTED**; actionable findings become `changeLog[]` entries
 the next Implement run fixes. It changes no code.
@@ -237,7 +267,7 @@ start phase N+1 while phase N is merely `done`**.
 |---|---|
 | "accept P-2" | merges the PR, sets `accepted` + `acceptedUtc` |
 | "P-2 failed — search returns 500" | `pending` + your note, PR left open |
-| "accept E-1" | the same, for a post-phase edit |
+| "accept E-1" | the same, for a minor edit |
 | "I hand-fixed the connection string" | a `changeLog` entry marked `out-of-band` |
 
 Acceptance is the one thing it won't do loosely: it must be **its own instruction naming the
@@ -253,21 +283,65 @@ than offering to accept P-2 for you — because at that moment your goal is P-3,
      `accepted` + `acceptedUtc`, and confirms what it recorded — you never touch `state.json`.
      (If your repo needs reviewers or green CI, it records the acceptance and leaves the merge
      to you.) Then optionally run **Review**, and launch the next phase.
-   - **B. Works, but you want a change** → this is a **post-phase edit**. Either edit the
-     owning doc yourself (LLD for contracts, HLD for architecture, plan for sequencing) and add
-     a `changeLog` note, or just describe the change in the next run's prompt and tell the agent
-     **"this is a post-phase edit"**. The agent runs the **contradiction check**: if it's
-     additive it does it on top; if it's a requirement/design change it presents options and
-     **waits for your call** on anything large.
+   - **B. Works, but you want a change** → ask for it. The agent decides what it is: if it
+     touches **no** contract it's a **minor edit** (`E-n`) done on the spot; if it touches a
+     requirement, design contract, or plan scope, it tells you which document owns it and stops
+     — see §Changing the Design Mid-Build. You never have to classify it yourself.
    - **C. Fails your testing** → say so — **"P-2 failed, search returns 500"**. The agent
      reopens it to `pending` with your note and leaves the PR open. Re-run it on the same
      phase; it reuses that branch and PR rather than opening a second one.
 3. **Repeat** until the final phase is `accepted` (and, if you want, whole-build Review is PASS).
 
-**Big course-corrections:** if your feedback amounts to "the design is wrong", don't funnel it
-through a prompt note — rerun the Design stage, then rerun the Planner to re-slice the remaining
-phases. The Implement agent will itself recommend this when a change is too large to absorb —
-listen to it. Only future (non-`accepted`) phases get re-planned.
+---
+
+## Changing the Design Mid-Build
+
+The common hard case: you're at P-6, and you need to change how auth works — which was built
+back in P-3. **This is a normal, supported flow, and it takes two prompts.**
+
+**1. Change the design.**
+
+> Follow `2_DESIGN_INSTRUCTIONS.md`. **Rerun.** Change auth from the local-table stub to OIDC
+> against `<IdP>`; bearer tokens, existing users table retained for authorization only.
+
+The agent amends the HLD/LLD **in place** (filenames never change — git holds the history), adds
+a `## 0. Revision History` row naming what changed and **which delivered phases it invalidates**
+(here: P-3 and P-5), and logs a `changeLog` entry. It writes no code and doesn't touch the plan.
+
+> **Be specific.** "Change the auth mechanism" doesn't determine a design — protocol, IdP,
+> token vs. session, what happens to existing credentials. The agent will ask or record
+> `ASSUMPTION:`s. **This pause is the point:** it's where you catch it assuming SAML when you
+> meant OIDC, *before* any code is planned around it.
+
+**2. Run the next phase as usual.**
+
+> Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase.
+
+Step 0c reads the revision-history row and proposes a re-slice: a **retrofit phase** (say
+*P-8 — Migrate auth seam to OIDC*), sequenced **before** P-6 so nothing else gets built on the
+old contract, plus any adjustment to P-6/P-7. You approve; it builds P-8.
+
+Then test, `accept P-8`, and run the next phase. **The second prompt is the one you always
+use** — so a mid-flight design change costs you exactly one extra prompt.
+
+**Three things that deliberately don't happen:**
+
+- **P-3 is never reopened.** `accepted` means *you tested that increment*, and that stays true
+  of what you tested. The retrofit is new work with its own acceptance.
+- **No phase is renumbered.** The retrofit is `P-8` even though it runs before `P-6`.
+- **No work silently disappears.** The Coverage Matrix rows for auth move from `done in P-3` to
+  `done in P-8`; they're never deleted.
+
+**If the current phase is mid-run** with an open branch: don't stack two changes on one branch.
+Either land it as-is (if genuinely unaffected by the change), or reset that branch, do the
+retrofit, then redo it. Redoing an unaccepted, half-built phase is cheap — that's what the
+accept gate is for.
+
+**When it's bigger than a retrofit.** If the change invalidates a foundational decision that
+everything is shaped around (monolith → microservices at P-6), no incremental path saves you:
+rerun Design, rerun Plan, and accept that much of the build is being redone. The agent will say
+so rather than proposing a retrofit that can't work. This is rare — but when it happens, the
+honest answer is the expensive one.
 
 ---
 
@@ -282,7 +356,8 @@ debugging so often turns into editing halfway through:
 |---|---|
 | Asking, explaining, diagnosing, running tests | Just done. No gate. |
 | Changing **target code** | It asks whether to run it through Stage 4 (branch, tests, docs, state, PR) or make the change directly |
-| Changing a **pipeline document** (requirements / HLD / LLD / plan) | It declines and points you at the stage that owns it |
+| Changing a **pipeline document** (requirements / HLD / LLD) | It declines and points you at the stage that owns it |
+| Changing the **plan's remaining phases** | Stage 4 owns this — it proposes the re-slice at Step 0c and applies it once you approve |
 
 **If you say "just do it directly", it still logs a `changeLog[]` entry** marked `out-of-band`.
 That's deliberate: skipping the process is your call, but skipping the *record* would leave the
@@ -298,19 +373,26 @@ the contract that both Implement and Review judge everything against.
 
 Every stage document ends with an **Additional Instructions** block. If you're unhappy with an
 output, relaunch that stage's agent with your change requests appended there — e.g. *"Design:
-use a modular monolith, not microservices"* or *"Plan: make P-1 smaller and pull reporting
-earlier."* The agent amends the existing artifacts in place (rather than regenerating from
-scratch), bumps that stage's `rerunCount`, and — if later stages already consumed the old
-output — logs a `changeLog` entry so the downstream work gets reconciled or replanned.
+use a modular monolith, not microservices"* or *"Plan: make P-5 smaller and pull reporting
+earlier."* The agent amends the existing artifacts **in place** (rather than regenerating from
+scratch — filenames never change; git holds the history), bumps that stage's `rerunCount`, and
+logs a `changeLog` entry so the downstream work gets reconciled or replanned.
+
+**Reruns of Stages 1 and 2 also add a `## 0. Revision History` row** naming what changed and
+**which delivered phases it invalidates**. That row is what Step 0c reads to decide whether a
+retrofit phase is needed — it's the handoff that makes a mid-build change land in the code
+rather than sit in a document nobody rebuilt against.
 
 ---
 
 ## Ground Rules & Tips
 
 - **One unit of work per run.** One phase, or one edit — never "just finish the rest".
-- **The designs are the contract; the plan is living; `state.json` is the memory.** The agent
-  may edit the plan's bookkeeping and statuses (via state.json) but never the design. Design
-  changes are yours to make or commission.
+- **The designs are the contract; the plan is a rolling forecast; `state.json` is the memory.**
+  The agent re-slices the *remaining* plan with your approval, but never changes the design.
+  Design changes are yours to make or commission — and they reach the code as a retrofit phase.
+- **Accepted is forever.** An `accepted` phase is never reopened to absorb a change; that mark
+  records that *you tested that increment*, which stays true. New work gets a new phase.
 - **Keep everything in git.** Commit docs, `state.json`, and code at each phase boundary. The
   agent uses git history to detect changes during reconciliation, and you get clean rollback
   points and reviewable PRs.
@@ -452,17 +534,31 @@ test guide, then simply say:*
 *→ PASS → launch P-2. CHANGES REQUESTED → the findings are now in `state.json changeLog[]`;
 your next Implement run reconciles and fixes them before/at P-2.*
 
-### Example B — A post-phase edit (after P-2 was accepted)
+### Example B — Changing the design mid-build (the auth change at P-6)
 
-You've accepted P-2 but realize you want a `department` filter on employee search:
+You're six phases in. Auth was built in P-3 and is used by P-5's endpoints. You now need OIDC
+instead of the local-table stub. **Two prompts.**
 
-> Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. **This is a post-phase edit, not a new phase.**
-> Add a `department` filter to the employee-search endpoint and screen. Plan/designs/
-> requirements/context/state in `./out/`. Branch and open a PR.
+> Follow `2_DESIGN_INSTRUCTIONS.md`. **Rerun.** Change auth from the local-table stub to OIDC
+> against Keycloak; bearer tokens; keep the users table for authorization only. Context +
+> requirements + state in `./out/`.
 
-*→ The agent runs the contradiction check. If the LLD already allows for it, it implements on
-top (updating tests/docs/state, PR). If it's actually a requirement change, it tells you the
-impact and the options (change-on-top / branch-from-a-stage / redo) and waits for your call.*
+*→ HLD §5 and LLD §1/§6 amended in place; a `## 0. Revision History` row records the change and
+names **P-3 and P-5** as invalidated; a `changeLog` entry is added. No code, no plan edits.*
+
+Then, exactly as always:
+
+> Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase. State in `./out/`.
+
+*→ Step 0c reads the revision-history row and proposes: **add P-8 "Migrate auth seam to OIDC"**,
+run it **before P-6**, and adjust P-6/P-7 to build against bearer tokens. You approve; it builds
+P-8 on a branch, regenerates `HOW_TO_TEST.md` (with the auth regression lines rewritten), and
+opens a PR. P-3 stays `accepted` and is never reopened.*
+
+Then `accept P-8`, and run the next phase to get P-6.
+
+**A change that touches nothing** — say a `department` filter the LLD already provides for — is
+just a minor edit; ask for it and the agent does it as `E-1` without any of the above.
 
 ### Example C — Rerunning a stage you're unhappy with
 
@@ -501,11 +597,13 @@ After the final phase is accepted:
 | `0_INTAKE_TEMPLATE.md` | the method | no — copy it | **never** |
 | `INTAKE.md` (your copy) | **you** | **yes — this is where answers live** | **never** (input only) |
 | `PROJECT_CONTEXT.md` | Stage 0 | to fix constraints/obligations (rerun) | Stage 0 only — no other stage writes here |
-| 3 requirements docs | Stage 1 | to answer open questions | Stage 1 rerun; Stage 4 for **small, unambiguous** edits its contradiction check authorizes |
-| HLD / LLD | Stage 2 | **yes — design changes** | Stage 2 rerun; Stage 4 for **small, unambiguous** edits its contradiction check authorizes |
-| `PLAN_<App>.md` (phase content) | Stage 3 | future phases only | reconciliation edits, statuses, stale test-guide fixes |
+| 3 requirements docs | Stage 1 | to answer open questions | Stage 1 rerun only (Stage 4 may make a purely *clarifying* fix and log it) |
+| HLD / LLD | Stage 2 | **yes — design changes** | Stage 2 rerun only (same clarifying carve-out). Every rerun adds a §0 Revision History row |
+| `PLAN_<App>.md` — remaining phases | Stage 3 | say what you want; the agent re-slices | **Stage 4 Step 0c re-slices remaining phases with your approval**; statuses and test-guide fixes |
+| `PLAN_<App>.md` — Coverage Matrix | Stage 3 | no | rows move between phases; **never deleted** |
+| `HOW_TO_TEST.md` (one file) | Stage 4 | no | regenerated at every hand-off |
 | `state.json` phases[] | Stage 3 (init) | **no hand-editing** — you authorize, it writes | all fields, incl. `accepted` on your explicit instruction |
-| `state.json` edits[] | Stage 4 | **no hand-editing** — say "accept E-1" | appends each edit; `accepted` on your instruction |
+| `state.json` edits[] | Stage 4 | **no hand-editing** — say "accept E-1" | appends each **minor** edit; `accepted` on your instruction |
 | `state.json` changeLog[] | Stage 0 (init) | tell it what you changed | your notes, reconciliations, review findings (append-only) |
 | `state.json` reviews[] | Review stage | no | Review appends |
 | `state.json` progress | Stage 0 (init) | no | Stage 4 advances the high-water mark |
@@ -530,10 +628,14 @@ the baseline moved.)*
 | Parity stance | Implicit | **Explicit**: strict parity (bugs preserved + flagged) vs. improvements allowed |
 | CI/CD | Not addressed | **Explicit boundary** (respect / generate / none) |
 | Load-bearing questions | Surfaced as open questions | **Questionnaire with defaults-or-hard-stop** |
-| Status board & change log | Markdown tables in the plan | **`state.json`** (enables branching / lineage) |
+| Status board & change log | Markdown tables in the plan | **`state.json`** (enables lineage & mechanical reconciliation) |
+| The plan | Written once; rerun to re-slice | **Rolling: remaining work only**, re-checked at Step 0c of most phase runs; accepted phases drop to a §2 Completed line |
+| Guarding scope | The phase list | **Coverage Matrix** — rows never deleted, `unscheduled` fails whole-build Review |
+| Phase IDs | Sequential | **Permanent, never renumbered** — execution order lives in the plan |
 | Phase acceptance | `done` (self) + `accepted` (human) | Same, but **exit criteria must be mechanical/falsifiable** |
-| Post-phase edits | Absorbed via prompt notes | **Explicit phase-vs-edit classification + contradiction check** |
-| Big changes | Agent recommends re-plan | Same, plus **change-on-top / branch / redo** options, **human-authorized** |
+| Post-phase edits | Absorbed via prompt notes | **`E-n` = minor, contract-free changes only**; the agent classifies, you don't |
+| Mid-build design changes | Contradiction check → three options you chose between | **One path:** rerun Stage 2 → Step 0c plans a **retrofit phase**. Accepted phases never reopened |
+| Test docs | One per phase, going stale | **One `HOW_TO_TEST.md`**, regenerated every hand-off: *New in P-N* + accumulating *Regression* |
 | Git workflow | "keep it in git" | **Mandated: branch + small commits + PR with descriptive body** |
 | QA / Review | None | **Independent Stage 5** feeding findings back into the loop |
 | Reruns | Plan/Implement footers | **Uniform Additional-Instructions rerun on every stage** |
