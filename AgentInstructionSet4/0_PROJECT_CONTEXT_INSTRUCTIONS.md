@@ -118,6 +118,69 @@ target may have none of these; a DB-reuse migration will have the first):
   groups/claims) regardless.
 - **Code style / quality gate** — e.g. "Backend follows the Google Java Style Guide,
   enforced by a formatter in the build." Name the guide and the enforcement mechanism.
+- **Unit test coverage threshold** *(Q19 — declare this constraint only if the developer set a
+  bar; there is no default bar)*. Without one, tests are still required for behavior built —
+  every stage demands that already — but no percentage is enforced anywhere, and that is a
+  legitimate project choice, not a gap to fill. **Never invent a threshold, and never round a
+  vague answer ("good coverage") into a number** — raise it as an `OPEN QUESTION:` instead.
+
+  Where a bar *is* set, the statement must carry all five parts or it is not enforceable:
+  **metric & threshold** (line/branch %), **scope** (whole codebase vs. changed/new code),
+  **exclusions** (generated sources, DTOs, config/bootstrap, migrations), **enforcement**
+  (build fails / CI-only / advisory), and **from which phase** it binds. Name the tool for the
+  target stack (JaCoCo, Cobertura, coverlet, `nyc`/`c8`, `pytest-cov`, …) if the developer
+  did not.
+
+  **Enforcement level decides whether this is a constraint at all.** Only *build fails below
+  the bar* is a gate — write it as a constraint with the obligations below.
+
+  *CI-only* is a constraint **only** where §3 CI/CD is `generate`, because only then does an
+  agent author the pipeline and can be held to it. Its *Implement* obligation is that the
+  pipeline config declares the gate at the bar; its *Plan* obligation must name exit criteria
+  the agent can genuinely **fail on its own** — "the pipeline config declares the coverage gate
+  at <bar>" (readable in the repo) and "the locally measured coverage is at or above <bar>".
+  Never write "CI passes" as an exit criterion: the agent cannot observe a pipeline result
+  mid-phase, and a criterion it cannot fail is a self-vote, not a gate. Where §3 is *respect
+  existing*, agents must not author pipeline files at all — enforcement is then the developer's,
+  so record it in §6 as a quality target, not in §4, and say so in the hand-off.
+
+  *Advisory* is **not** a constraint — record it in §6 as a quality target and say plainly in
+  the hand-off that nothing will block on it.
+
+  Obligations to state (adapt the numbers to the answer given):
+  - *Design:* name the coverage tool and its build wiring in the LLD alongside the formatter/
+    linter, and keep testability visible in the component boundaries — seams that allow the
+    bar to be met by testing behavior rather than by testing accessors.
+  - *Plan:* stand the gate up in the **binding phase** — the phase that scaffolds the build,
+    unless the constraint names a later one — before any feature code the bar covers lands,
+    and carry "coverage gate passes at <bar>" in that phase's and **every subsequent** phase's
+    exit criteria. Phases *before* the binding phase carry no coverage criterion; state the
+    binding phase in the constraint so the plan agent is never left inferring it. A gate that
+    starts later than the code it judges either fails immediately against everything already
+    shipped or gets exclusion-listed into meaninglessness — so prefer the scaffold phase, and
+    where a later one is chosen, say what happens to the earlier phases' code in the plan's
+    **§6 Risks & Open Questions**.
+  - *Plan (constraint added late).* If a Stage 0 rerun introduces this bar after phases are
+    already delivered, the binding phase is the **next unstarted phase**. Accepted phases are
+    never reopened to meet it (`AGENTS.md` §How a mid-flight change is handled): bringing their
+    code to the bar is either a **retrofit phase** the developer approves at the next Step 0c,
+    or an explicit scope-out recorded in the plan's **§6 Risks & Open Questions** — the
+    constraint must say which. A plan refresh must never apply the bar retroactively to
+    shipped code and call the result a plan.
+  - *Implement:* the gate runs and passes within the phase — under *CI-only* that means the
+    locally measured coverage meets the bar and the pipeline declares the gate, since the local
+    build itself will not fail. A shortfall is fixed in that phase, never deferred. The agent
+    may **not** lower the threshold, widen the exclusion list, or disable the gate to go
+    green — where the bar genuinely cannot be met honestly, it stops and asks the developer to
+    approve an exclusion.
+  - *Review:* verify the gate is **enforced, not merely configured** — and grade it against
+    the enforcement level this constraint actually declares, not against the strictest one:
+    for *build fails*, the gate runs in the build that is actually invoked and fails below the
+    bar; for *CI-only*, the generated pipeline config declares the gate at the bar, and the
+    locally invoked build is **not** expected to fail — a correctly configured CI-only project
+    is compliant, not a Blocker. In both cases, report the measured number against the bar and
+    check the bar was not met by vacuous tests or a widened exclusion list. A breach is a
+    constraint violation — **Blocker**.
 - **UI reference / design language** — where a sample UI, mockup, or design system is supplied
   (Q23). Record its path and whether it is a **reference** (extract a visual language, build
   with the target stack's components themed to match) or **literal** (reproduce the markup).

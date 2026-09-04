@@ -143,7 +143,10 @@ context mode.
    - **Blocker** — violates a constraint, a security hole, a broken/absent core requirement, or
      the build/tests fail.
    - **Major** — a real defect or a meaningful gap that should be fixed before moving on.
-   - **Minor** — quality/maintainability/test-coverage improvements; not gating.
+   - **Minor** — quality/maintainability/test-coverage improvements; not gating — **unless a
+     coverage-threshold constraint in `PROJECT_CONTEXT §4` sets a bar**, in which case a breach
+     of it is a constraint violation and grades as a Blocker above. Absent such a constraint,
+     thin coverage stays a Minor however thin it is; never invent a percentage to grade against.
 5. **Decide the verdict** (see below).
 6. **Record** the review and feed findings back (see §Output).
 

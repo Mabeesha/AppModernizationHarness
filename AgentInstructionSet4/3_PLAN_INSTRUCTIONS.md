@@ -151,8 +151,9 @@ A phase passes through **two gates**, and the plan must equip both:
 1. **Agent gate (mechanical, self-checked).** The coding agent may only mark a phase `done`
    when its **exit criteria** — which you author as *objective, checkable* conditions — all
    pass. Good exit criteria: "build succeeds", "all unit/integration tests green", "formatter/
-   linter gate passes", "the N endpoints in this phase return the specified shapes", "entity
-   mapping validates against the real DB", "traceability rows for this phase are all covered".
+   linter gate passes", "coverage gate passes at the bar C# states", "the N endpoints in this
+   phase return the specified shapes", "entity mapping validates against the real DB",
+   "traceability rows for this phase are all covered".
    Bad exit criteria (do not write these): "the code is good", "looks correct". The agent's
    self-check is meaningful **only because these are falsifiable** — write them that way.
 2. **Human gate (judgment).** Only the **developer** sets a phase `accepted`, after walking
@@ -212,9 +213,10 @@ the trickiest business rule); defer polish (reports, exports, i18n, edge screens
 **3–7 phases** (honor any count/strategy set in `PROJECT_CONTEXT`), adapting to app size.
 
 A sensible default shape (adapt, don't copy blindly): (1) walking skeleton — scaffold +
-quality gate + data-store connection + entity validation + first endpoints; (2) auth + core
-backend; (3) frontend foundation + primary screens against the real API; (4..N) feature
-build-out; (final) completion & hardening + non-functional verification.
+quality gate (formatter/linter, and any coverage gate) + data-store connection + entity
+validation + first endpoints; (2) auth + core backend; (3) frontend foundation + primary
+screens against the real API; (4..N) feature build-out; (final) completion & hardening +
+non-functional verification.
 
 ## Step 3 — Write the Plan & Populate state.json
 
@@ -303,9 +305,10 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
   Concrete: commands, URLs, example payloads, credential source (dev stub users, etc.).
 
 ### Exit criteria (mechanical — the agent gate)
-- [ ] Falsifiable checks only: build green; tests pass; quality gate passes; the phase's
-      endpoints/screens behave per the LLD; constraint checks hold (e.g. DB mapping validates);
-      this phase's Coverage Matrix rows are covered.
+- [ ] Falsifiable checks only: build green; tests pass; quality gate passes (formatter/linter,
+      **and, from the phase a coverage constraint binds in onward, its bar — quote the number**);
+      the phase's endpoints/screens behave per the LLD; constraint checks hold (e.g. DB mapping
+      validates); this phase's Coverage Matrix rows are covered.
 ```
 
 ### Task template (use for every task)

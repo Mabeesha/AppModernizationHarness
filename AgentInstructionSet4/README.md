@@ -483,6 +483,9 @@ in sibling ./frontend/ and ./backend/ roots.
 
 **19. Code style / quality gates the target must enforce?**
 **Answer:** Google Java Style Guide, enforced by google-java-format in Maven.
+Unit test coverage: JaCoCo, line ≥ 80% and branch ≥ 70% **on changed code**, excluding
+generated sources, DTOs and the Spring bootstrap class; **build fails** below the bar,
+in force from the scaffold phase onward.
 ```
 
 Then launch:

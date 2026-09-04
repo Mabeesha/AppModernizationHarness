@@ -193,8 +193,24 @@ tests are often the best behavioral specification available.
 **Answer:**
 
 **19. Code style / quality gates the target must enforce?**
+Name the style guide and the enforcement mechanism (formatter/linter wired into the build).
+
+**Unit test coverage — state a bar here if you want one, because no later stage invents one.**
+If you do, give all five parts; a bare percentage is not enforceable:
+- **Metric & threshold** — e.g. line ≥ 80%, branch ≥ 70%.
+- **Scope** — whole codebase, or changed/new code only. (Changed-code bars suit a migration
+  better: code ported early is legacy-shaped and drags a whole-codebase number down for
+  reasons no phase can fix.)
+- **Exclusions** — generated sources, DTOs/records, config and bootstrap classes, migrations.
+- **Enforcement** — *build fails* below the bar, *CI-only*, or *advisory report*.
+  "Build fails" always gates. *CI-only* gates **only** where the pipeline is generated for you
+  (Q15); against an existing pipeline you own, it — like *advisory* — blocks nothing.
+- **From when** — from the scaffold phase onward (recommended — retrofitting coverage across
+  finished phases costs far more), or from a named phase.
 *Default: idiomatic style for the target stack, with a formatter in the build if one is
-standard for it.*
+standard for it. **No coverage threshold** — every stage already requires tests for the
+behavior built, but no percentage is enforced, and Review treats thin coverage as a
+non-gating Minor.*
 
 **Answer:**
 
