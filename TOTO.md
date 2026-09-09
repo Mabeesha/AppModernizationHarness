@@ -16,3 +16,8 @@
 - [ ] Remove AgentInstructionSet, AgentInstructionSet2, AgentInstructionSet3 - and all the references
 - [ ] Rename AgentInstructionSet4 to moderinzation_harneess
 - [ ] Rename Repo - AppModernizationHarness
+
+# Notes
+
+1. how to check complimentory daily tokens - https://platform.openai.com/settings/organization/data-controls/sharing
+
