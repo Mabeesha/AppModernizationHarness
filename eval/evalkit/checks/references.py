@@ -123,10 +123,10 @@ def b1_section_anchors(ctx: Context) -> CheckResult:
     all_numbers = {n for sections in registry.values() for n in sections}
 
     for doc in ctx.iset.documents:
-        # Sections the document declares as its own live headings. Set 3 uses
-        # `## §0 — Project-Wide Constraints` this way: a real section, declared
-        # in prose rather than inside an artifact template fence. Without this,
-        # every self-reference to it reads as dangling.
+        # Sections the document declares as its own live headings. A set may
+        # declare `## §0 — Project-Wide Constraints` this way: a real section,
+        # written in prose rather than inside an artifact template fence. Without
+        # this, every self-reference to it reads as dangling.
         own = {
             h.section_number
             for h in doc.headings
@@ -313,7 +313,7 @@ def b3_state_paths(ctx: Context) -> CheckResult:
 
 @check("B4", "ID format consistency")
 def b4_id_format(ctx: Context) -> CheckResult:
-    """Per-prefix dominant form. Set 4 uses `C1` (no dash) but `P-1`/`E-1`/`R-1` (dashed),
+    """Per-prefix dominant form. The harness uses `C1` (no dash) but `P-1`/`E-1`/`R-1` (dashed),
     so the convention is established per prefix rather than globally."""
     res = CheckResult()
     forms: dict[str, Counter] = defaultdict(Counter)
@@ -362,7 +362,7 @@ def b5_orphans(ctx: Context) -> CheckResult:
     Scoped to artifacts where section numbering is actually load-bearing — i.e.
     those some file references by `§N` at least once. Requirements, design, and
     plan documents are read whole rather than by section, so reporting every one
-    of their sections as an orphan is noise, not signal. In Set 4 that leaves
+    of their sections as an orphan is noise, not signal. In the harness that leaves
     PROJECT_CONTEXT.md, where §-referencing *is* the mechanism.
 
     Still the weakest check in the group — a section can legitimately exist as

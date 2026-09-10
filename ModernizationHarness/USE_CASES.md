@@ -1,4 +1,4 @@
-# Set 4 by Example
+# The Modernization Harness by Example
 
 **What to say, and what happens when you say it.**
 
@@ -17,8 +17,8 @@ your project root — seen from your chair.
 Two files get copied into your project before anything else:
 
 ```bash
-cp AgentInstructionSet4/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
-cp AgentInstructionSet4/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
+cp ModernizationHarness/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
+cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
 ```
 
 `INTAKE.md` you fill in once. **`AGENTS.md` is the one that changes how the scenarios below

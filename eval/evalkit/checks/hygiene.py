@@ -15,11 +15,14 @@ from .references import RUNTIME_ARTIFACTS, RUNTIME_ARTIFACT_PATTERNS
 
 PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME|XXX|HACK|WIP)\b(?![-\w])")
 INLINE_CODE_RE = re.compile(r"`[^`]*`")
-
-# Paths inside example commands that point back into the repo.
-SET_PATH_RE = re.compile(r"(?P<path>(?:\./)?AgentInstructionSet\d*/[A-Za-z0-9_./<>-]+)")
 # .md filenames appearing inside fenced examples (B2 deliberately skips fences).
 FENCED_MD_RE = re.compile(r"(?P<name>[A-Za-z0-9_<>.-]+\.md)")
+
+
+# Paths inside example commands that point back into the repo. Built per-run from
+# the set's own directory name so a renamed set does not silently stop being checked.
+def _set_path_re(set_name: str) -> re.Pattern[str]:
+    return re.compile(rf"(?P<path>(?:\./)?{re.escape(set_name)}/[A-Za-z0-9_./<>-]+)")
 
 
 @check("F2", "Unresolved placeholders")
@@ -71,6 +74,8 @@ def f3_examples(ctx: Context) -> CheckResult:
             return any(p.match(re.sub(r"<[^>]*>", "X", name)) for p in RUNTIME_ARTIFACT_PATTERNS)
         return False
 
+    set_path_re = _set_path_re(ctx.iset.name)
+
     seen: set[str] = set()
     for doc in ctx.iset.documents:
         for line_no, raw in enumerate(doc.lines, start=1):
@@ -80,7 +85,7 @@ def f3_examples(ctx: Context) -> CheckResult:
                 continue
 
             # Repo-relative paths into an instruction set directory.
-            for m in SET_PATH_RE.finditer(raw):
+            for m in set_path_re.finditer(raw):
                 rel = m.group("path").lstrip("./")
                 if "<" in rel:
                     continue

@@ -1,7 +1,7 @@
 """Markdown parsing for instruction documents.
 
 The one non-obvious behaviour: fenced code blocks are parsed for headings too.
-Set 4 *defines* the shape of its generated artifacts inside ```markdown fences —
+The harness *defines* the shape of its generated artifacts inside ```markdown fences —
 `PROJECT_CONTEXT.md`'s ten sections and `PLAN_<App>.md`'s five are declared that
 way. Those fences are therefore the declaration site for sections that other
 files reference as `§4`, so a reference checker that ignored fences would report

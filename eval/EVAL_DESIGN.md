@@ -14,11 +14,11 @@ designed but not built. See §11.
 
 ## 1. Scope & Non-Goals
 
-**In scope.** Any instruction set under `AgentInstructionSet*/` — a folder of
+**In scope.** The instruction set under `ModernizationHarness/` — a folder of
 Markdown files that together define a multi-stage agent pipeline. The system is
 set-agnostic: it discovers stages from filenames and content rather than
-hardcoding Set 4's structure, so Sets 1–3 can be scored on the same axes for
-regression comparison.
+hardcoding the harness's structure, so a variant set can be scored on the same
+axes for regression comparison.
 
 **Not in scope.**
 
@@ -200,7 +200,7 @@ unambiguous defect. A dangling reference is a rule that silently never fires.
 
 Two implementation notes that matter:
 
-**Fenced blocks are parsed for headings.** Set 4 *declares* the shape of its
+**Fenced blocks are parsed for headings.** The harness *declares* the shape of its
 generated artifacts inside ```markdown fences — `PROJECT_CONTEXT.md`'s ten
 sections, `PLAN_<App>.md`'s five. Those fences are the declaration site for
 every section other files then reference as `§N`, so a checker that skipped
@@ -220,7 +220,7 @@ own declaration, with no second source of truth to keep in sync.
 **B5 requires section addressing to be an established convention** for an
 artifact — at least three distinct sections cited — before reporting orphans in
 it. Requirements and design documents are read whole, not by section; without
-that scope the check produced 15 findings on Set 4, all noise. It remains the
+that scope the check produced 15 findings on the harness, all noise. It remains the
 weakest check in the group and a prune candidate.
 
 ### 5.C Pipeline Coherence
@@ -276,7 +276,7 @@ that point one of the two copies is wrong and nobody knows which.
 **Clustering is what will make E1/E2 affordable.** Naive pairwise comparison over
 a few hundred rules is tens of thousands of judge calls. Instead: bucket by
 `subject`, compare only pairs whose `actor` sets intersect, and skip pairs with
-identical modality *and* predicate (D2's job). For Set 4 that lands in the low
+identical modality *and* predicate (D2's job). For the harness that lands in the low
 hundreds — cheap enough per commit, and cheap enough to batch (§7.3).
 
 **E4 checks three directions**, which is what makes it useful without a judge: a
@@ -353,14 +353,11 @@ slicing.
 
 ### 6.4 Cross-Version Regression
 
-Running all four sets against one fixture answers "did Set 4 improve on Set 3"
-with evidence rather than assertion. Two caveats belong in the report, not
-buried:
-
-1. **Sets 1–3 hardcode source and target stacks.** The fixture must match what
-   they assume, or the comparison measures stack mismatch, not instruction quality.
-2. **Sets 1–3 have no Stage 0 and no `state.json`.** Metrics depending on those
-   report `n/a`, never `0` — scoring an absent feature as zero fabricates a gap.
+Running two revisions of the harness against one fixture answers "did this change
+improve it" with evidence rather than assertion. One caveat belongs in the report,
+not buried: when a revision adds a stage or artifact the other lacks, metrics
+depending on it report `n/a`, never `0` — scoring an absent feature as zero
+fabricates a gap.
 
 ### 6.5 Variance
 
@@ -474,7 +471,7 @@ Written to `eval/results/<timestamp>-<set>/`.
   "id": "a3f9c21b04",
   "check": "B1",
   "severity": "blocker",
-  "file": "AgentInstructionSet4/1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md",
+  "file": "ModernizationHarness/1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md",
   "line": 62,
   "subject": "PROJECT_CONTEXT.md#8",
   "summary": "Reference to PROJECT_CONTEXT.md §8 does not resolve",
@@ -489,7 +486,7 @@ with reasons, and suppressed findings.
 
 **`baseline.json`** (checked in) — finding IDs to suppress, each with a required
 reason. Suppression is per-finding, never per-check, so a suppressed instance
-cannot hide a new one. Current entries cover three findings on Set 4 that are
+cannot hide a new one. Current entries cover three findings on the harness that are
 deliberate design choices rather than defects.
 
 ---
@@ -532,14 +529,14 @@ Setup once: `cd eval && uv sync`.
 
 ```bash
 # CI default — every deterministic check, zero API calls, ~2s
-uv run run.py --set ../AgentInstructionSet4 --det-only
+uv run run.py --set ../ModernizationHarness --det-only
 
 # Token budgets, with the variable half measured against real outputs
-uv run run.py --set ../AgentInstructionSet4 --checks A --docs ../instruction_output
+uv run run.py --set ../ModernizationHarness --checks A --docs ../instruction_output
 
 # A single check or group
-uv run run.py --set ../AgentInstructionSet4 --checks B1
-uv run run.py --set ../AgentInstructionSet4 --checks B C
+uv run run.py --set ../ModernizationHarness --checks B1
+uv run run.py --set ../ModernizationHarness --checks B C
 
 # What is registered, and what is a stub
 uv run run.py --list-checks
@@ -583,29 +580,24 @@ never have fired on real input:
   any artifact type not already in its table, which is exactly the case where a
   handoff break is most likely.
 
-Neither would have surfaced from a clean run on Set 4; both looked like passing
+Neither would have surfaced from a clean run on the harness; both looked like passing
 checks.
 
-### 11.2 Running against every set
+### 11.2 Running against the harness
 
-Sets 1–4 are all run, both to score them and to shake out checker bugs that a
-single corpus cannot reveal. At commit `5e3a2c0`:
+At commit `5e3a2c0`:
 
 | Set | Checks runnable | Blocker | Major | Minor |
 |---|---:|---:|---:|---:|
-| AgentInstructionSet | 11 / 18 | 0 | 0 | 0 |
-| AgentInstructionSet2 | 12 / 18 | 0 | 0 | 0 |
-| AgentInstructionSet3 | 12 / 18 | 0 | 0 | 1 |
-| AgentInstructionSet4 | **18 / 18** | 0 | 0 | 3 |
+| ModernizationHarness | **18 / 18** | 0 | 0 | 3 |
 
-**"Checks runnable" is itself the most interesting number here.** Sets 1–3 skip
-B1/B3/B5/C1/C3/C5/E4 because they genuinely have no `state.json` schema, no
-numbered stage files, and no artifact template fences — there is nothing for
-those checks to verify. Set 4 is the only set whose structure is machine-checkable
-at all. Each skip states its reason in the report rather than silently scoring
-zero, so an absent feature is never mistaken for a clean one.
+**"Checks runnable" is itself a signal.** A set with no `state.json` schema, no
+numbered stage files and no artifact template fences skips B1/B3/B5/C1/C3/C5/E4 —
+there is nothing for those checks to verify. Each skip states its reason in the
+report rather than silently scoring zero, so an absent feature is never mistaken
+for a clean one.
 
-Set 4's three minors are all suppressed in `baseline.json` with reasons: a
+The harness's three minors are all suppressed in `baseline.json` with reasons: a
 `PROJECT_CONTEXT` section read as prose rather than cited, `AGENTS.md`'s
 by-design imperative density, and the README's ASCII pipeline diagram in an
 untagged fence.
@@ -620,7 +612,7 @@ baselined is a check quietly disabled:
 |---|---|
 | Glob read as filename | `*_TEMPLATE.md` reported as a missing file; the fix needed a `(?<![*\w])` lookbehind, because rejecting only `*` let the regex re-anchor onto `TEMPLATE.md` |
 | B5 over-scope | Every unreferenced section of documents that are read whole, not by section |
-| `§0` unregistered | Set 3 declares `## §0 — Project-Wide Constraints` as a live heading, not inside a template fence, so every self-reference read as dangling |
+| `§0` unregistered | A set declaring `## §0 — Project-Wide Constraints` as a live heading, not inside a template fence, made every self-reference read as dangling |
 | Prose hint too loose | "…stated in business terms (see §0)" resolved to `BUSINESS_REQUIREMENTS.md` and raised a blocker; hints are now bounded to 30 characters before the `§` |
 | `TODO` in code span | "mark the AD wiring as \`TODO (AD)\`" is an instruction to *emit* a marker — reporting it inverts the check's meaning |
 
@@ -652,7 +644,7 @@ baselined is a check quietly disabled:
    and Tier 2 is blocked on it.
 3. **Reference outputs.** Should `instruction_output/` be promoted to a verified
    answer key? That needs a human pass. Until then, diff-only.
-4. **Tier 2 budget ceiling.** Three runs × four sets × four stages is a real
+4. **Tier 2 budget ceiling.** Three runs × four stages, per revision compared, is a real
    spend. A per-run cap needs setting before Phase 6.
 5. **Checks to prune.** B5 and D3 survive but earn little — B5 needed two rounds
    of scope-tightening to stop being noise, and D3 is a smell by construction.
@@ -660,6 +652,6 @@ baselined is a check quietly disabled:
 6. **~~Whether `state.schema.json` becomes authoritative.~~** *Resolved:* B3
    derives the schema from the set's own `state.json` template block, so the
    check verifies the set against its own declaration with no second source of
-   truth. A hand-written schema is still worth having as a *Set 4* deliverable —
+   truth. A hand-written schema is still worth having as a harness deliverable —
    the shape is currently described in prose across several files — but the eval
    does not need one.

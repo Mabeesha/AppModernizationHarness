@@ -8,13 +8,13 @@ rather than pretending.
 Examples
 --------
     # CI default: every deterministic check, zero API calls
-    uv run run.py --set ../AgentInstructionSet4 --det-only
+    uv run run.py --set ../ModernizationHarness --det-only
 
     # Token budgets, with the variable half measured against real outputs
-    uv run run.py --set ../AgentInstructionSet4 --checks A --docs ../instruction_output
+    uv run run.py --set ../ModernizationHarness --checks A --docs ../instruction_output
 
     # Single check
-    uv run run.py --set ../AgentInstructionSet4 --checks B1
+    uv run run.py --set ../ModernizationHarness --checks B1
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("--set", dest="set_dir", type=Path,
-                   help="Instruction set directory, e.g. ../AgentInstructionSet4")
+                   help="Instruction set directory, e.g. ../ModernizationHarness")
     p.add_argument("--tier", choices=["static", "behavioral"], default="static")
     p.add_argument("--checks", nargs="*", default=None,
                    help="Check ids or groups to run (e.g. B B3 A1). Default: all.")
@@ -103,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if not args.set_dir:
-        print("error: --set is required (e.g. --set ../AgentInstructionSet4)", file=sys.stderr)
+        print("error: --set is required (e.g. --set ../ModernizationHarness)", file=sys.stderr)
         return 2
 
     set_dir = args.set_dir.resolve()

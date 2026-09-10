@@ -7,7 +7,7 @@ the CLI reports them as not-yet-implemented rather than silently omitting them.
 Clustering note for when E1/E2 land: naive pairwise comparison over the extracted
 rules is tens of thousands of judge calls. Bucket by `subject`, then compare only
 pairs whose `actor` sets intersect, and skip pairs with identical modality AND
-predicate (that is D2's job). For Set 4 this lands in the low hundreds.
+predicate (that is D2's job). For the harness this lands in the low hundreds.
 """
 
 from __future__ import annotations

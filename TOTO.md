@@ -13,8 +13,8 @@
 
 3. Cean up
 
-- [ ] Remove AgentInstructionSet, AgentInstructionSet2, AgentInstructionSet3 - and all the references
-- [ ] Rename AgentInstructionSet4 to moderinzation_harneess
+- [x] Remove AgentInstructionSet, AgentInstructionSet2, AgentInstructionSet3 - and all the references
+- [x] Rename AgentInstructionSet4 to ModernizationHarness
 - [ ] Rename Repo - AppModernizationHarness
 
 # Notes

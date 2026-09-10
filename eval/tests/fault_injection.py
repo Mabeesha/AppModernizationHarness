@@ -12,7 +12,7 @@ Each case reports two distinct failure modes so they are never confused:
   CHECK SILENT    - the edit applied but the check found nothing. That is a
                     real defect in the check.
 
-Run:  uv run tests/fault_injection.py [--set ../AgentInstructionSet4]
+Run:  uv run tests/fault_injection.py [--set ../ModernizationHarness]
 """
 
 from __future__ import annotations
@@ -81,7 +81,7 @@ def m_b3(root: Path) -> bool:
 
 
 def m_b4(root: Path) -> bool:
-    # Set 4's convention is plain `C1`; introduce a dashed minority.
+    # The harness's convention is plain `C1`; introduce a dashed minority.
     return _append(root / "2_DESIGN_INSTRUCTIONS.md",
                    "\n\nHonor C-1 and C-2 exactly as stated.\n")
 
@@ -146,8 +146,8 @@ def m_f2(root: Path) -> bool:
 
 def m_f3(root: Path) -> bool:
     return _sub(root / "README.md",
-                "cp AgentInstructionSet4/AGENTS_TEMPLATE.md",
-                "cp AgentInstructionSet4/AGENTS_TEMPLATE_MISSING.md")
+                "cp ModernizationHarness/AGENTS_TEMPLATE.md",
+                "cp ModernizationHarness/AGENTS_TEMPLATE_MISSING.md")
 
 
 CASES: list[Case] = [
@@ -195,7 +195,7 @@ def run_case(case: Case, source: Path, repo_root: Path) -> tuple[str, str]:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--set", dest="set_dir", type=Path,
-                    default=HERE.parent.parent / "AgentInstructionSet4")
+                    default=HERE.parent.parent / "ModernizationHarness")
     args = ap.parse_args(argv)
 
     source = args.set_dir.resolve()

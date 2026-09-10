@@ -1,13 +1,13 @@
-# Requirements — Agent Instruction Set 4
+# Requirements — Modernization Harness
 
-*What Set 4 is required to do, as currently implemented. Reverse-engineered from the six stage
+*What the harness is required to do, as currently implemented. Reverse-engineered from the six stage
 files, the two templates, and `README.md`.*
 
 ---
 
 ## 1. Purpose
 
-Set 4 is a **prompt-based process** — not code — that lets one developer modernize a legacy
+The harness is a **prompt-based process** — not code — that lets one developer modernize a legacy
 application with a coding agent, **one small testable increment at a time**, without losing
 control of scope, quality, or history.
 

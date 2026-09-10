@@ -1,18 +1,17 @@
-# Developer Guide: Using Agent Instruction Set 4
+# Developer Guide: Using the Modernization Harness
 
 This guide is for **you, the developer** driving an application modernization with the six
-instruction documents in this folder. Set 4 is **stack-agnostic** — nothing about the source
+instruction documents in this folder. The harness is **stack-agnostic** — nothing about the source
 or target technology is baked into the instructions. What you're migrating *from* and *to*,
 how it ships, and the rules that can't be broken are all captured **once**, up front, in a
 Project Context, and every later stage reads them from there.
 
-> **New in Set 4** (vs. Set 3): a **Stage 0 Project Context** that parameterizes stacks /
+> **The load-bearing pieces**: a **Stage 0 Project Context** that parameterizes stacks /
 > CI/CD / constraints and forces a decision on load-bearing questions; a **`state.json`** file
 > that holds all machine state (statuses, lineage, change log) so the doc stays readable and
 > branching is tractable; **mechanical (falsifiable) phase acceptance**; an explicit
 > **rolling plan** that covers remaining work only and is refreshed before most build runs; and an
-> independent **Stage 5 Review/QA** that feeds findings back into the loop. See
-> §What Changed From Set 3.
+> independent **Stage 5 Review/QA** that feeds findings back into the loop.
 
 > **Looking for a specific situation** — a phase failed your testing, the design has to change
 > mid-build, a review came back with a Blocker, you want a stage rerun? **[USE_CASES.md](USE_CASES.md)**
@@ -44,8 +43,8 @@ the plan covers only remaining work and is re-checked at the start of most Stage
 ### Setup — do this once, before Stage 0
 
 ```bash
-cp AgentInstructionSet4/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
-cp AgentInstructionSet4/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
+cp ModernizationHarness/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
+cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
 ```
 
 **`AGENTS.md` matters more than it looks.** Every safety rule in the stage files only applies
@@ -123,7 +122,7 @@ Keep it in git. Its history is how the Implement stage detects what changed betw
 
 ---
 
-## Constraints — the heart of Set 4's generality
+## Constraints — the heart of the harness's generality
 
 There is no hardcoded "reuse the DB / use AD / Google Java Style" anymore. In Stage 0 **you
 declare the constraints that apply to your project**, each with a stable ID — and, critically,
@@ -176,7 +175,7 @@ once, fill in what you know, leave the rest blank. To change an answer later, **
 (including which answers the agent supplied for you).
 
 ```bash
-cp AgentInstructionSet4/0_INTAKE_TEMPLATE.md ./out/INTAKE.md   # then fill in the Answer: lines
+cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md   # then fill in the Answer: lines
 ```
 
 **Your job after:** read the report's *"Answered without you"* list — every question the agent
@@ -442,7 +441,7 @@ was built on it.
 **Stage 0 — Project Context.** First copy the template and fill it in:
 
 ```bash
-cp AgentInstructionSet4/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
+cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
 ```
 
 Filled-in extract (leave anything you don't know blank — it defaults and gets reported back):
@@ -620,33 +619,6 @@ After the final phase is accepted:
 
 *(If you hotfix code or edit a design doc by hand, add a `changeLog` entry so the next run knows
 the baseline moved.)*
-
----
-
-## What Changed From Set 3
-
-| Concern | Set 3 | Set 4 |
-|---|---|---|
-| Source/target stack | Hardcoded (.NET → Angular/Spring) | **Declared in Stage 0**, stack-agnostic |
-| Constraints | Fixed C1/C2/C3 restated in every doc | **Project-supplied, by ID, with per-stage obligations** defined once in `PROJECT_CONTEXT.md`; stage files carry no constraint-specific rules |
-| Ad-hoc chat (outside a stage) | Ungoverned — rules only loaded when a stage was invoked | **`AGENTS.md`** carries invariants + a routing rule; out-of-band edits still get logged |
-| Cutover & coexistence | Not addressed (big-bang assumed) | **Load-bearing questions**; strangler-fig / parallel-run shape the design and phase slicing |
-| UI appearance | Unspecified — each phase invented its own styling | Optional **UI sample** (Q23) → a **design language** in LLD §3b, stood up before feature screens and checked by Review |
-| Integrations | Discovered ad hoc during extraction | Declared up front with **fixed vs. negotiable contracts** (`§8`) |
-| Parity stance | Implicit | **Explicit**: strict parity (bugs preserved + flagged) vs. improvements allowed |
-| CI/CD | Not addressed | **Explicit boundary** (respect / generate / none) |
-| Load-bearing questions | Surfaced as open questions | **Questionnaire with defaults-or-hard-stop** |
-| Status board & change log | Markdown tables in the plan | **`state.json`** (enables lineage & mechanical reconciliation) |
-| The plan | Written once; rerun to re-slice | **Rolling: remaining work only**, re-checked at Step 0c of most phase runs; accepted phases drop to a §2 Completed line |
-| Guarding scope | The phase list | **Coverage Matrix** — rows never deleted, `unscheduled` fails whole-build Review |
-| Phase IDs | Sequential | **Permanent, never renumbered** — execution order lives in the plan |
-| Phase acceptance | `done` (self) + `accepted` (human) | Same, but **exit criteria must be mechanical/falsifiable** |
-| Post-phase edits | Absorbed via prompt notes | **`E-n` = minor, contract-free changes only**; the agent classifies, you don't |
-| Mid-build design changes | Contradiction check → three options you chose between | **One path:** rerun Stage 2 → Step 0c plans a **retrofit phase**. Accepted phases never reopened |
-| Test docs | One per phase, going stale | **One `HOW_TO_TEST.md`**, regenerated every hand-off: *New in P-N* + accumulating *Regression* |
-| Git workflow | "keep it in git" | **Mandated: branch + small commits + PR with descriptive body** |
-| QA / Review | None | **Independent Stage 5** feeding findings back into the loop |
-| Reruns | Plan/Implement footers | **Uniform Additional-Instructions rerun on every stage** |
 
 ---
 

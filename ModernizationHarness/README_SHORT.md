@@ -11,8 +11,8 @@ every increment.
 ## 1. Copy two files
 
 ```bash
-cp AgentInstructionSet4/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
-cp AgentInstructionSet4/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
+cp ModernizationHarness/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
+cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
 ```
 
 `AGENTS.md` keeps the agent honest in *every* chat, not just formal runs. Don't skip it.

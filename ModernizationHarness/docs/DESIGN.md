@@ -1,12 +1,12 @@
-# Design — Agent Instruction Set 4
+# Design — Modernization Harness
 
-*How Set 4 is built, as currently implemented. Pairs with [REQUIREMENTS.md](REQUIREMENTS.md).*
+*How the harness is built, as currently implemented. Pairs with [REQUIREMENTS.md](REQUIREMENTS.md).*
 
 ---
 
 ## 1. Design in one paragraph
 
-Set 4 is **eleven Markdown files**. Six are stage instructions, invoked one per agent session;
+The harness is **eleven Markdown files**. Six are stage instructions, invoked one per agent session;
 two are templates the developer copies into their project; three are the guides. All coordination
 between sessions happens through **two artifacts on disk** — human-readable Markdown documents
 and one machine-readable `state.json`. Nothing is held in an agent's memory between runs,
@@ -59,7 +59,7 @@ Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 
 | # | Decision | Why |
 |---|---|---|
-| **DD-1** | **Constraints carry per-stage obligations**, defined once in `PROJECT_CONTEXT §4` | Stage files hold zero project-specific rules, so a new constraint needs no edit to any stage file. This is what makes Set 4 stack-agnostic (R1) |
+| **DD-1** | **Constraints carry per-stage obligations**, defined once in `PROJECT_CONTEXT §4` | Stage files hold zero project-specific rules, so a new constraint needs no edit to any stage file. This is what makes the harness stack-agnostic (R1) |
 | **DD-2** | **Split state from content**: `state.json` for machine state, Markdown for prose | Markdown status tables were unmergeable and drifted. JSON gives lineage, mechanical reconciliation, and diffable history (R7) |
 | **DD-3** | **High-water mark** rather than "diff everything" | A run must distinguish new change-log entries from ones it already applied, without re-reading history each time (R7.3) |
 | **DD-4** | **Two gates, different owners** — falsifiable exit criteria (agent) then `accepted` (human) | A self-check is only meaningful if it can fail; judgment stays with the person who ran the app (R4) |

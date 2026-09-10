@@ -41,7 +41,7 @@ E3, F1). E3 is additionally marked experimental and stays out of any run unless
 ## 3. The command you'll use most
 
 ```bash
-uv run run.py --set ../AgentInstructionSet4 --det-only
+uv run run.py --set ../ModernizationHarness --det-only
 ```
 
 Runs every deterministic check. **No API calls, no credentials, ~2 seconds.**
@@ -50,11 +50,11 @@ This is the CI default.
 Output:
 
 ```
-AgentInstructionSet4  (5e3a2c0)
+ModernizationHarness  (5e3a2c0)
   checks run : 18  skipped: 0
   findings   : 0 blocker, 0 major, 0 minor  (3 suppressed)
   tokens     : APPROXIMATE via tiktoken:cl100k_base
-  report     : /path/to/eval/results/20260731-081530-AgentInstructionSet4/report.md
+  report     : /path/to/eval/results/20260731-081530-ModernizationHarness/report.md
 ```
 
 Open the `report.md` path for the readable version.
@@ -65,14 +65,13 @@ Open the `report.md` path for the readable version.
 
 | I want to… | Command |
 |---|---|
-| Check one set, everything deterministic | `uv run run.py --set ../AgentInstructionSet4 --det-only` |
-| Just token budgets | `uv run run.py --set ../AgentInstructionSet4 --checks A` |
-| Complete the stage-budget table | `uv run run.py --set ../AgentInstructionSet4 --checks A --docs ../instruction_output` |
-| Run one group | `uv run run.py --set ../AgentInstructionSet4 --checks B` |
-| Run specific checks | `uv run run.py --set ../AgentInstructionSet4 --checks B1 B3 F2` |
-| See findings the baseline hides | `uv run run.py --set ../AgentInstructionSet4 --det-only --baseline /dev/null` |
-| Write output somewhere specific | `uv run run.py --set ../AgentInstructionSet4 --det-only --out results/today` |
-| Compare all four sets | see §8 |
+| Check one set, everything deterministic | `uv run run.py --set ../ModernizationHarness --det-only` |
+| Just token budgets | `uv run run.py --set ../ModernizationHarness --checks A` |
+| Complete the stage-budget table | `uv run run.py --set ../ModernizationHarness --checks A --docs ../instruction_output` |
+| Run one group | `uv run run.py --set ../ModernizationHarness --checks B` |
+| Run specific checks | `uv run run.py --set ../ModernizationHarness --checks B1 B3 F2` |
+| See findings the baseline hides | `uv run run.py --set ../ModernizationHarness --det-only --baseline /dev/null` |
+| Write output somewhere specific | `uv run run.py --set ../ModernizationHarness --det-only --out results/today` |
 | Prove the checks still work | `uv run tests/fault_injection.py` |
 
 `--checks` accepts check ids (`B1`) and group letters (`B`), mixed freely. An
@@ -115,11 +114,11 @@ a stable `id` (see §6) and a `subject` used for grouping.
 
 ### "Skipped" is not "passed"
 
-A skipped check reports *why*. Sets 1–3 skip B1/B3/B5/C1/C3/C5/E4 because they
-genuinely have no `state.json` schema, no numbered stage files, and no artifact
-template fences — there is nothing for those checks to verify. That is very
-different from those checks passing, and the report distinguishes them. The
-`checks run` count excludes skipped checks for the same reason.
+A skipped check reports *why*. A set with no `state.json` schema, no numbered
+stage files and no artifact template fences skips B1/B3/B5/C1/C3/C5/E4 — there is
+nothing for those checks to verify. That is very different from those checks
+passing, and the report distinguishes them. The `checks run` count excludes
+skipped checks for the same reason.
 
 ---
 
@@ -186,7 +185,7 @@ measurable) and **variable** (generated artifacts). Without `--docs` the variabl
 half reads `unmeasured` — deliberately not estimated.
 
 ```bash
-uv run run.py --set ../AgentInstructionSet4 --checks A --docs ../instruction_output
+uv run run.py --set ../ModernizationHarness --checks A --docs ../instruction_output
 ```
 
 A partially-measured stage renders as `15,765+` with the missing artifacts named
@@ -197,22 +196,7 @@ requirements documents.
 
 ---
 
-## 8. Comparing sets
-
-```bash
-for s in AgentInstructionSet AgentInstructionSet2 AgentInstructionSet3 AgentInstructionSet4; do
-  uv run run.py --set "../$s" --det-only --out "results/$s" --quiet --baseline /dev/null
-done
-```
-
-Then compare `results/*/findings.json`. Note that **"checks runnable" is itself a
-signal** — at the time of writing Sets 1–3 support 11–12 of 18 checks while Set 4
-supports all 18, because only Set 4 has the machine-checkable structure the rest
-of the checks need.
-
----
-
-## 9. Verifying the checks themselves
+## 8. Verifying the checks themselves
 
 ```bash
 uv run tests/fault_injection.py
@@ -237,7 +221,7 @@ that could never have fired on real input (EVAL_DESIGN.md §11.1).
 
 ---
 
-## 10. Adding a check
+## 9. Adding a check
 
 1. Pick the module in `evalkit/checks/` matching the group (`references.py` for
    B, `hygiene.py` for F, …).
@@ -279,7 +263,7 @@ and return a `CheckResult(skipped="…")` until Phase 3 lands the harness.
 
 ---
 
-## 11. CI integration
+## 10. CI integration
 
 ```yaml
 - name: Evaluate instruction sets
@@ -287,7 +271,7 @@ and return a `CheckResult(skipped="…")` until Phase 3 lands the harness.
     cd eval
     uv sync --frozen
     uv run tests/fault_injection.py
-    for s in ../AgentInstructionSet4; do
+    for s in ../ModernizationHarness; do
       uv run run.py --set "$s" --det-only
     done
 ```
@@ -299,12 +283,12 @@ To upload the reports, archive `eval/results/`.
 
 ---
 
-## 12. Troubleshooting
+## 11. Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
 | `error: unknown check selector(s): X` | Typo. `--list-checks` shows valid ids and groups. |
-| `error: instruction set not found` | `--set` is relative to your shell's cwd. From `eval/`, use `../AgentInstructionSetN`. |
+| `error: instruction set not found` | `--set` is relative to your shell's cwd. From `eval/`, use `../ModernizationHarness`. |
 | `checks run: 0` | Every selected check skipped — read the Skipped table in the report for why. |
 | Exit 2 on `--tier behavioral` | Tier 2 isn't built. Blocked on `eval/fixtures/INTAKE.md` (EVAL_DESIGN.md §13.2). |
 | Stubs report "needs `--with-llm`" | Expected. The judge harness is Phase 3; `--with-llm` currently just changes the skip reason. |

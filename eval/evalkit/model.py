@@ -30,7 +30,7 @@ class Heading:
     level: int
     text: str
     line: int
-    # True when the heading lives inside a ``` fence. Those fences are how Set 4
+    # True when the heading lives inside a ``` fence. Those fences are how the harness
     # *defines* the shape of generated artifacts (PROJECT_CONTEXT.md, PLAN_<App>.md),
     # so they are the declaration site for sections other files then reference.
     in_fence: bool = False
@@ -115,7 +115,7 @@ class Document:
 
 @dataclass
 class InstructionSet:
-    """A folder of instruction documents, e.g. AgentInstructionSet4/."""
+    """A folder of instruction documents, e.g. ModernizationHarness/."""
 
     root: Path
     name: str
