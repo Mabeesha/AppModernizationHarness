@@ -282,7 +282,7 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 > what makes branching and "redo from a stage" tractable. You initialize `phases[]`; the
 > change log is appended by the Implement/Review stages and the developer.
 
-### Phase template (use for every phase in §3)
+### Phase template (use for every phase in §5)
 ```markdown
 ## Phase <P-N>: <Name>
 - **Goal:** what this phase achieves, in one or two sentences.

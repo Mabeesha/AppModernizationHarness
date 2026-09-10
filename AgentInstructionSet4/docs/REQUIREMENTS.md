@@ -42,7 +42,7 @@ and anything that modifies the legacy source (read-only in every stage).
   carrying **per-stage obligations**. Adding a constraint must require **no edit to any stage file**.
 
 ### R2 — Load-bearing questions get decided, not guessed
-- **R2.1** Intake asks 22 questions; **6 block the pipeline** (current stack, target stack,
+- **R2.1** Intake asks 23 questions; **6 block the pipeline** (current stack, target stack,
   DB reuse, legacy coexistence, auth, cutover strategy).
 - **R2.2** A blank non-load-bearing answer gets a **stated default**; a blank load-bearing
   answer is a **hard stop**.
@@ -133,7 +133,7 @@ and anything that modifies the legacy source (read-only in every stage).
 
 | # | Requirement |
 |---|---|
-| Q1 | **Readable in five minutes** — `README_SHORT.md` gets a developer running; `README.md` carries the reasoning |
+| Q1 | **Readable in five minutes** — `README_SHORT.md` gets a developer running; `README.md` carries the reasoning; `USE_CASES.md` walks the situations by example |
 | Q2 | **No duplicated rules** — a constraint-specific rule lives in its obligation, once |
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra |

@@ -19,7 +19,7 @@ cp AgentInstructionSet4/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
 
 ## 2. Answer six questions
 
-Open `INTAKE.md`. It has 22 questions — **six block the pipeline**, the rest have sensible
+Open `INTAKE.md`. It has 23 questions — **six block the pipeline**, the rest have sensible
 defaults. Answer these and you're done:
 
 | Q | |
@@ -148,5 +148,8 @@ Ask anything, anytime — questions and debugging are free. The moment the agent
 say directly, it still logs the change so the next run knows the ground moved.
 
 ---
+
+**Hit a situation this page doesn't cover** — a failed phase, a mid-build design change, a
+review blocker? → [USE_CASES.md](USE_CASES.md) walks each one with the exact prompt.
 
 **Stuck, or want the "why"?** → [README.md](README.md)

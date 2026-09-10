@@ -14,6 +14,11 @@ Project Context, and every later stage reads them from there.
 > independent **Stage 5 Review/QA** that feeds findings back into the loop. See
 > §What Changed From Set 3.
 
+> **Looking for a specific situation** — a phase failed your testing, the design has to change
+> mid-build, a review came back with a Blocker, you want a stage rerun? **[USE_CASES.md](USE_CASES.md)**
+> walks twenty-one of them with the exact prompt to send and what happens behind it. This file is the
+> reasoning; that one is the recipe book.
+
 ---
 
 ## The Files, in the Order You Use Them
@@ -642,3 +647,13 @@ the baseline moved.)*
 | Git workflow | "keep it in git" | **Mandated: branch + small commits + PR with descriptive body** |
 | QA / Review | None | **Independent Stage 5** feeding findings back into the loop |
 | Reruns | Plan/Implement footers | **Uniform Additional-Instructions rerun on every stage** |
+
+---
+
+## Where to go next
+
+| You want | Read |
+|---|---|
+| To start, in five minutes | [README_SHORT.md](README_SHORT.md) |
+| A worked recipe for the situation you're in | [USE_CASES.md](USE_CASES.md) |
+| How the set is built, and why | [docs/DESIGN.md](docs/DESIGN.md) / [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) |

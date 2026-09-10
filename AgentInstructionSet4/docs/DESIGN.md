@@ -6,8 +6,8 @@
 
 ## 1. Design in one paragraph
 
-Set 4 is **ten Markdown files**. Six are stage instructions, invoked one per agent session;
-two are templates the developer copies into their project; two are the guides. All coordination
+Set 4 is **eleven Markdown files**. Six are stage instructions, invoked one per agent session;
+two are templates the developer copies into their project; three are the guides. All coordination
 between sessions happens through **two artifacts on disk** — human-readable Markdown documents
 and one machine-readable `state.json`. Nothing is held in an agent's memory between runs,
 because there is no "between runs": each stage session starts cold, reads state, does one unit
@@ -18,21 +18,21 @@ of work, writes state, and stops.
 | File | Kind | Responsibility |
 |---|---|---|
 | `AGENTS_TEMPLATE.md` | template → `AGENTS.md` | Invariants, authority ladder, and the acceptance-recording protocol. Loads in **every** session |
-| `0_INTAKE_TEMPLATE.md` | template → `INTAKE.md` | The 22 questions, their defaults, and which 6 are load-bearing |
+| `0_INTAKE_TEMPLATE.md` | template → `INTAKE.md` | The 23 questions, their defaults, and which 6 are load-bearing |
 | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | stage | Resolve intake → `PROJECT_CONTEXT.md` + initialize `state.json` |
 | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | stage | Legacy code → business / functional / technical requirements |
 | `2_DESIGN_INSTRUCTIONS.md` | stage | Requirements → HLD + LLD |
 | `3_PLAN_INSTRUCTIONS.md` | stage | Design → phased plan + `phases[]` |
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | stage | Build one phase or one minor edit; open a PR; stop |
 | `5_REVIEW_INSTRUCTIONS.md` | stage | Independent audit; findings back into `state.json` |
-| `README.md` / `README_SHORT.md` | guide | The reasoning / the five-minute start |
+| `README.md` / `README_SHORT.md` / `USE_CASES.md` | guide | The reasoning / the five-minute start / the situations you'll hit, by example |
 
 ## 3. Pipeline
 
 ```mermaid
 flowchart TD
     L[Legacy app<br/>read-only] --> S0
-    I[INTAKE.md<br/>22 questions] --> S0[0 · Project Context]
+    I[INTAKE.md<br/>23 questions] --> S0[0 · Project Context]
     S0 --> PC[PROJECT_CONTEXT.md<br/>constraints C1..Cn]
     S0 --> ST[(state.json)]
     PC --> S1[1 · Requirements]
@@ -186,7 +186,7 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
   `AGENTS.md` in every session, and an independent Stage 5.
 - **Non-sequential phase IDs** confuse at first read. Deliberate (DD-5); the plan's summary
   table carries the running order.
-- **Volume.** ~3,600 lines of instruction across the set; the two READMEs exist to keep the
+- **Volume.** ~3,600 lines of instruction across the set; the three guides exist to keep the
   entry cost low (Q1).
 - **Git-dependent history.** Superseded design and plan versions exist only as commits, so a
   project that keeps `./out/` out of git loses the lineage the Implement stage diffs against.
