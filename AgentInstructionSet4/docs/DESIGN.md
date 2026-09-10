@@ -186,7 +186,7 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
   `AGENTS.md` in every session, and an independent Stage 5.
 - **Non-sequential phase IDs** confuse at first read. Deliberate (DD-5); the plan's summary
   table carries the running order.
-- **Volume.** ~3,600 lines of instruction across the set; the three guides exist to keep the
-  entry cost low (Q1).
+- **Volume.** ~2,900 lines of instruction across the six stage files and two templates;
+  the three guides exist to keep the entry cost low (Q1).
 - **Git-dependent history.** Superseded design and plan versions exist only as commits, so a
   project that keeps `./out/` out of git loses the lineage the Implement stage diffs against.

@@ -551,7 +551,7 @@ instead of the local-table stub. **Two prompts.**
 > against Keycloak; bearer tokens; keep the users table for authorization only. Context +
 > requirements + state in `./out/`.
 
-*→ HLD §5 and LLD §1/§6 amended in place; a `## 0. Revision History` row records the change and
+*→ HLD §5 and LLD §1/§5 amended in place; a `## 0. Revision History` row records the change and
 names **P-3 and P-5** as invalidated; a `changeLog` entry is added. No code, no plan edits.*
 
 Then, exactly as always:

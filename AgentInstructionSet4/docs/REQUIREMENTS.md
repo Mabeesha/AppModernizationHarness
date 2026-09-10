@@ -154,6 +154,7 @@ and anything that modifies the legacy source (read-only in every stage).
 
 ```mermaid
 stateDiagram-v2
+    state "in progress" as in_progress
     [*] --> pending
     pending --> in_progress : agent starts the phase
     in_progress --> done : exit criteria all pass (agent gate)

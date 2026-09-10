@@ -152,7 +152,7 @@ guide and it passed."* You never touch the JSON.
   take them one at a time.
 
 **If your repo requires reviewers or green CI**, it records the acceptance and leaves the merge
-to you — and the next phase's run will notice if that merge never happened (Scenario 17).
+to you — and the next phase's run will notice if that merge never happened (Part 7).
 
 ---
 
