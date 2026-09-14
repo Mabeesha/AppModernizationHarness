@@ -1,7 +1,7 @@
 # Requirements — Modernization Harness
 
 *What the harness is required to do, as currently implemented. Reverse-engineered from the six stage
-files, the two templates, and `README.md`.*
+files, the two templates, and `DEVELOPER_GUIDE.md`.*
 
 ---
 
@@ -135,7 +135,7 @@ and anything that modifies the legacy source (read-only in every stage).
 
 | # | Requirement |
 |---|---|
-| Q1 | **Readable in five minutes** — `README_SHORT.md` gets a developer running; `README.md` carries the reasoning; `USE_CASES.md` walks the situations by example |
+| Q1 | **Readable in five minutes** — `README.md` gets a developer running; `DEVELOPER_GUIDE.md` carries the reasoning; `USE_CASES.md` walks the situations by example |
 | Q2 | **No duplicated rules** — a constraint-specific rule lives in its obligation, once |
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra |

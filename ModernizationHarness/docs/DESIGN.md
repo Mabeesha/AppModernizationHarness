@@ -25,7 +25,7 @@ of work, writes state, and stops.
 | `3_PLAN_INSTRUCTIONS.md` | stage | Design → phased plan + `phases[]` |
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | stage | Build one phase or one minor edit; open a PR; stop |
 | `5_REVIEW_INSTRUCTIONS.md` | stage | Independent audit; findings back into `state.json` |
-| `README.md` / `README_SHORT.md` / `USE_CASES.md` | guide | The reasoning / the five-minute start / the situations you'll hit, by example |
+| `DEVELOPER_GUIDE.md` / `README.md` / `USE_CASES.md` | guide | The reasoning / the five-minute start / the situations you'll hit, by example |
 
 ## 3. Pipeline
 
