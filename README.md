@@ -1,10 +1,10 @@
 # Developer Guide: Using the Modernization Harness
 
 This guide is for **you, the developer** driving an application modernization with the six
-instruction documents in this folder. The harness is **stack-agnostic** — nothing about the source
-or target technology is baked into the instructions. What you're migrating *from* and *to*,
-how it ships, and the rules that can't be broken are all captured **once**, up front, in a
-Project Context, and every later stage reads them from there.
+instruction documents in `ModernizationHarness/`. The harness is **stack-agnostic** — nothing
+about the source or target technology is baked into the instructions. What you're migrating
+*from* and *to*, how it ships, and the rules that can't be broken are all captured **once**,
+up front, in a Project Context, and every later stage reads them from there.
 
 > **The load-bearing pieces**: a **Stage 0 Project Context** that parameterizes stacks /
 > CI/CD / constraints and forces a decision on load-bearing questions; a **`state.json`** file
@@ -14,7 +14,7 @@ Project Context, and every later stage reads them from there.
 > independent **Stage 5 Review/QA** that feeds findings back into the loop.
 
 > **Looking for a specific situation** — a phase failed your testing, the design has to change
-> mid-build, a review came back with a Blocker, you want a stage rerun? **[USE_CASES.md](USE_CASES.md)**
+> mid-build, a review came back with a Blocker, you want a stage rerun? **[USE_CASES.md](ModernizationHarness/USE_CASES.md)**
 > walks twenty-one of them with the exact prompt to send and what happens behind it. This file is the
 > reasoning; that one is the recipe book.
 
@@ -22,7 +22,8 @@ Project Context, and every later stage reads them from there.
 
 ## The Files, in the Order You Use Them
 
-Filenames are numbered by stage, so the folder listing reads as the running order:
+All of these live in `ModernizationHarness/`. Filenames are numbered by stage, so the folder
+listing reads as the running order:
 
 | File | Stage | What you do with it |
 |---|---|---|
@@ -640,5 +641,5 @@ the baseline moved.)*
 | You want | Read |
 |---|---|
 | To start, in five minutes | [README_SHORT.md](README_SHORT.md) |
-| A worked recipe for the situation you're in | [USE_CASES.md](USE_CASES.md) |
-| How the set is built, and why | [docs/DESIGN.md](docs/DESIGN.md) / [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) |
+| A worked recipe for the situation you're in | [USE_CASES.md](ModernizationHarness/USE_CASES.md) |
+| How the set is built, and why | [docs/DESIGN.md](ModernizationHarness/docs/DESIGN.md) / [docs/REQUIREMENTS.md](ModernizationHarness/docs/REQUIREMENTS.md) |

@@ -2,8 +2,8 @@
 
 **What to say, and what happens when you say it.**
 
-The other two guides explain the method: [README_SHORT.md](README_SHORT.md) gets you running in
-five minutes, [README.md](README.md) explains why it's built this way. This one is different —
+The other two guides explain the method: [README_SHORT.md](../README_SHORT.md) gets you running in
+five minutes, [README.md](../README.md) explains why it's built this way. This one is different —
 it walks through the **situations you'll actually hit**, in order of how likely you are to hit
 them, and shows the exact prompt plus what the agent does behind it.
 
@@ -711,5 +711,5 @@ files.
 
 ---
 
-**Want the reasoning behind any of this?** → [README.md](README.md)
-**Just want to start?** → [README_SHORT.md](README_SHORT.md)
+**Want the reasoning behind any of this?** → [README.md](../README.md)
+**Just want to start?** → [README_SHORT.md](../README_SHORT.md)

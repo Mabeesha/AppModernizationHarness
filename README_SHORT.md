@@ -155,6 +155,6 @@ say directly, it still logs the change so the next run knows the ground moved.
 ---
 
 **Hit a situation this page doesn't cover** — a failed phase, a mid-build design change, a
-review blocker? → [USE_CASES.md](USE_CASES.md) walks each one with the exact prompt.
+review blocker? → [USE_CASES.md](ModernizationHarness/USE_CASES.md) walks each one with the exact prompt.
 
 **Stuck, or want the "why"?** → [README.md](README.md)
