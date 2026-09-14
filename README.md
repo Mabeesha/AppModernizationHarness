@@ -8,18 +8,40 @@ every increment.
 
 ---
 
-## 1. Copy two files
+## The whole thing, in one picture
+
+```
+ setup ─► [0] context ─► [1] requirements ─► [2] design ─► [3] plan ─┐
+          fill INTAKE     what it does        HLD + LLD    phases    │
+                                                                    ▼
+                        ┌──────────────────────────────────► [4] build one phase
+                        │                                           │
+                        └── you test ◄── accept / report failure ◄──┘
+                                    └─► [5] review (separate chat, optional)
+```
+
+Stages **0–3 run once each**, in order. Then **4 loops** — one phase, you test, you accept,
+repeat — until it's done. Every document and the `state.json` that tracks progress live in
+`./out/`; the code the agent writes goes to your target repo.
+
+---
+
+## 1. Set up
 
 ```bash
+mkdir -p out
 cp ModernizationHarness/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
 cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
 ```
+
+The six numbered instruction files stay in `ModernizationHarness/` — you never copy those,
+you just point the agent at them.
 
 `AGENTS.md` keeps the agent honest in *every* chat, not just formal runs. Don't skip it.
 
 ## 2. Answer six questions
 
-Open `INTAKE.md`. It has 24 questions — **six block the pipeline**, the rest have sensible
+Open `out/INTAKE.md`. It has 24 questions — **six block the pipeline**, the rest have sensible
 defaults. Answer these and you're done:
 
 | Q | |
@@ -34,6 +56,9 @@ defaults. Answer these and you're done:
 Fill in more if you know it. Leave the rest blank — the agent applies defaults and **tells you
 exactly which ones it answered for you**.
 
+**Worth doing too:** Q16 says where the legacy code, the docs, and the **target repo** live. Get
+it right and you never type a path again (see below).
+
 **Got a sample UI?** Answer Q23 with a path to some HTML/CSS, a mockup, or your design system.
 The design stage turns it into a design language every phase builds from — which is what keeps
 later screens looking like earlier ones.
@@ -45,44 +70,45 @@ checks both that it was followed and that nothing outside its scope was copied a
 
 ## 3. Run four stages, once each
 
-One prompt each, in order. Read the output before moving on.
+**Stage 0 is the only prompt that carries paths.** It writes `state.json`, and every stage after
+it finds its own inputs there. So the rest are one line each — don't bother repeating paths.
 
 ```
-Follow `0_PROJECT_CONTEXT_INSTRUCTIONS.md`. Intake: ./out/INTAKE.md.
-Legacy app: ./legacy/. App: MyApp. Write output to ./out/.
+Follow `ModernizationHarness/0_PROJECT_CONTEXT_INSTRUCTIONS.md`.
+Intake: ./out/INTAKE.md. Legacy app: ./legacy/. App: MyApp. Write output to ./out/.
 ```
 → `PROJECT_CONTEXT.md` + `state.json`. **Check the constraints it derived** — they drive everything downstream.
 
 ```
-Follow `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md`. Context + state in ./out/.
-Legacy app: ./legacy/. Write output to ./out/.
+Follow `ModernizationHarness/1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md`.
 ```
 → Three requirements docs. **Answer every `OPEN QUESTION:`.**
 
 ```
-Follow `2_DESIGN_INSTRUCTIONS.md`. Everything in ./out/.
+Follow `ModernizationHarness/2_DESIGN_INSTRUCTIONS.md`.
 ```
 → HLD + LLD. **Sanity-check the big decisions now** — changing them later costs rework.
 
 ```
-Follow `3_PLAN_INSTRUCTIONS.md`. Everything in ./out/.
+Follow `ModernizationHarness/3_PLAN_INSTRUCTIONS.md`.
 ```
 → A phased plan for **remaining work**. **Is phase 1 genuinely small?** If not, say so now.
+
+Read each output before moving on. Unhappy with one? Rerun that stage and say what you want
+different.
 
 The plan is a rolling forecast, not a fixed schedule: accepted phases drop off it, and the
 remaining ones get re-checked before most build runs. What *doesn't* move is the **Coverage
 Matrix** — every requirement has a row there, and rows are never deleted.
 
-Unhappy with any output? Rerun that stage and say what you want different.
-
 ## 4. Build it, one phase at a time
 
 ```
-Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Everything in ./out/.
-Next phase. Branch and open a PR.
+Follow `ModernizationHarness/4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase.
 ```
 
-The agent builds it, opens a PR, and **stops**. Then you:
+Branching and opening a PR is built in — you don't ask for it. The agent builds the phase,
+opens the PR, and **stops**. Then you:
 
 1. **Test it** — follow `HOW_TO_TEST.md` (one file, always current: *New in P-N* first, then
    the accumulated regression checks). The agent tells you which regression lines this phase
@@ -91,7 +117,7 @@ The agent builds it, opens a PR, and **stops**. Then you:
 
    | | |
    |---|---|
-   | It works | **`accept P-1`** — merges the PR, records it, done |
+   | It works | **`accept P-1`** — records it and merges the PR (if your repo requires reviewers or green CI, it records the acceptance and leaves the merge to you) |
    | It's broken | **`P-1 failed — search returns 500`** — reopens it, keeps the PR |
    | You want a change | describe it — the agent works out whether it's a minor edit or needs a design change first |
 
@@ -100,7 +126,7 @@ The agent builds it, opens a PR, and **stops**. Then you:
 Optionally, in a **separate chat**, audit a phase:
 
 ```
-Follow `5_REVIEW_INSTRUCTIONS.md`. Target: P-1. Everything in ./out/. Codebase is this repo.
+Follow `ModernizationHarness/5_REVIEW_INSTRUCTIONS.md`. Target: P-1.
 ```
 → PASS, or findings that the next build run fixes. Run it in a fresh session — an agent can't
 review its own work.
@@ -112,14 +138,14 @@ review its own work.
 You're at P-6 and need to change auth — which was built in P-3. **Two prompts:**
 
 ```
-Follow `2_DESIGN_INSTRUCTIONS.md`. Rerun. Change auth from the local stub to OIDC
-against Keycloak, bearer tokens. Everything in ./out/.
+Follow `ModernizationHarness/2_DESIGN_INSTRUCTIONS.md`. Rerun. Change auth from the local
+stub to OIDC against Keycloak, bearer tokens.
 ```
 → Design amended in place, with a note recording that **P-3 and P-5** are now out of date.
 **Be specific about what you want** — the agent will otherwise ask, or assume.
 
 ```
-Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase. Everything in ./out/.
+Follow `ModernizationHarness/4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase.
 ```
 → It proposes adding **P-8 "migrate auth to OIDC"**, to run *before* P-6. You approve; it
 builds it. P-3 stays accepted and is never reopened — the retrofit is new work.
@@ -133,8 +159,9 @@ exactly one extra prompt.
 
 - **Never edit `state.json` by hand.** Just say what happened — "accept P-2", "P-2 failed" —
   and the agent writes it.
-- **Say "accept" as its own message.** Asking for the next phase won't accept the current one;
-  the agent will stop and point you back. That's deliberate.
+- **Say "accept" as its own message, one item at a time.** Asking for the next phase won't
+  accept the current one, and "accept everything so far" gets challenged — both mean nothing
+  was actually tested. The agent stops and points you back. That's deliberate.
 - **Read the "Answered without you" list** after stage 0. Those are decisions you didn't make,
   and they propagate everywhere.
 - **Keep `./out/` and `state.json` in git.** The agent diffs them to work out what changed
@@ -155,6 +182,7 @@ say directly, it still logs the change so the next run knows the ground moved.
 ---
 
 **Hit a situation this page doesn't cover** — a failed phase, a mid-build design change, a
-review blocker? → [USE_CASES.md](ModernizationHarness/USE_CASES.md) walks each one with the exact prompt.
+review blocker? → [USE_CASES.md](ModernizationHarness/USE_CASES.md) walks each one with the
+exact prompt.
 
 **Stuck, or want the "why"?** → [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
