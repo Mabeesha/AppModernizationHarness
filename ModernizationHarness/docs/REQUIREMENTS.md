@@ -91,7 +91,9 @@ and anything that modifies the legacy source (read-only in every stage).
 ### R7 — Machine state
 - **R7.1** `state.json` is the single source of truth for progress, lineage, and change history;
   Markdown holds content only.
-- **R7.2** `changeLog[]`, `reviews[]`, `edits[]` are **append-only**; corrections supersede.
+- **R7.2** `changeLog[]` and `reviews[]` are **append-only**; corrections supersede. `edits[]`
+  entries are never deleted or renumbered, but their lifecycle fields update in place, as
+  `phases[]` entries' do (R6.4).
 - **R7.3** A **high-water mark** (`lastProcessedChangeLogId`, `lastProcessedReviewNumber`, both
   integers) tells each run which entries it has already folded in.
 - **R7.4** The developer never hand-edits `state.json` — they say what happened, the agent

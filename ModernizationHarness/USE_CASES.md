@@ -202,8 +202,8 @@ Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Re-run P-3 with the failure not
 ```
 
 It reuses **the same branch and the same PR** — adding commits and appending to the PR body
-describing what broke and what changed. It does not open a second PR: one phase, one reviewable
-history.
+describing what broke and what changed. It does not open a new PR: one phase, one reviewable
+history per repo.
 
 **Be specific about the symptom.** "P-3 failed" alone gives the agent nothing to reproduce.
 Naming the step number from `HOW_TO_TEST.md` is the cheapest thing you can do here.

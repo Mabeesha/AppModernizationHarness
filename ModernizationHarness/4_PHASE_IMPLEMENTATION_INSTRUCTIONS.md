@@ -56,16 +56,19 @@ Then the developer tests, the Review stage may audit, and the next run begins. D
    they should never have to hand-edit `state.json`.
 
    **Un-remediated Blockers gate the next phase.** Scan `reviews[]` for any entry with
-   `result: "changes-requested"` and `blockerCount > 0` whose target is **in scope** — the
-   predecessor phase, **any `edits[]` entry landed after it**, or **`whole-build`** — and whose
-   target still shows `reviewStatus: "changes-requested"` (i.e. not yet `remediated`). If one
-   exists, do **not** start the next phase: fix those Blockers first as reconciliation, or
-   report and stop. Whole-build and edit reviews gate exactly as phase reviews do; a Blocker
-   is a Blocker wherever it was found.
+   `result: "changes-requested"` and `blockerCount > 0` whose target is **in scope** — **any
+   phase** (not just the predecessor; reviews are independent runs and need not arrive in phase
+   order), **any `edits[]` entry**, or **`whole-build`** — and whose
+   target still shows `reviewStatus: "changes-requested"` (i.e. not yet `remediated`). That
+   field lives on the target's `phases[]` entry, its `edits[]` entry, or — for `whole-build` —
+   on the top-level `wholeBuild` object. If one exists, do **not** start the next phase: fix
+   those Blockers first as reconciliation, or report and stop. Whole-build and edit reviews
+   gate exactly as phase reviews do; a Blocker is a Blocker wherever it was found.
 
    **Clearing the gate:** when you have fixed a review's Blockers, set that target's
-   `reviewStatus` to `remediated` and say so in your report, recommending a re-review. Nothing
-   else clears it — a review left at `changes-requested` blocks indefinitely, deliberately.
+   `reviewStatus` to `remediated` — in the same place the gate read it, `wholeBuild` included —
+   and say so in your report, recommending a re-review. Nothing else clears it: a review left at
+   `changes-requested` blocks indefinitely, deliberately.
 
    Majors without Blockers do not gate: fold them into this run's reconciliation and proceed.
 
@@ -151,7 +154,9 @@ shape is a contract change; a hundred-line refactor behind a stable interface is
    them to `changeLog[]`** (author `developer`) so the paper trail is complete.
 4. **Classify each change:**
    - **Affects already-built code** → apply the rework **first**, as preliminary
-     `[reconciliation]` tasks in this run.
+     `[reconciliation]` tasks in this run. **Except where it invalidates code in an `accepted`
+     phase or edit** — that is not reconciliation, it is new work: leave it for Step 0c, which
+     plans it as a retrofit phase the developer approves before you build it.
    - **Affects the current phase** → update the phase's tasks/test guide/exit criteria in the
      plan, then build to the updated version.
    - **Affects future phases only** → update those phases in the plan; build none of it now.
@@ -183,8 +188,9 @@ attention is on testing the last phase is exactly how scope moves unnoticed.
 
 When the change invalidates code that is already `accepted`, the proposal is a **retrofit
 phase** (new ID, sequenced before anything that would build on the old contract) — **never** a
-reopened phase. `accepted` means a human tested that increment; that stays true of what they
-tested, and the retrofit is new work with its own acceptance.
+reopened phase, and never a `[reconciliation]` task folded into this run (0b.4 bucket one stops
+at code that is not yet `accepted`). `accepted` means a human tested that increment; that stays
+true of what they tested, and the retrofit is new work with its own acceptance.
 
 Once approved, apply the refresh per `3_PLAN_INSTRUCTIONS.md` (plan doc §1/§2/§3/§5/§7,
 `phases[]` sync, revision-history row, `changeLog` entry, `stages.plan.rerunCount`), then build
@@ -266,7 +272,7 @@ test guide where the change surface warrants.
    - Set the phase `status: "done"` — **not** `accepted`. That mark requires the developer to
      have tested it and to say so explicitly; you write it only on that instruction (see
      §Recording Developer Decisions), never at hand-off.
-   - Record the `branch` and `prUrl` on the phase (or on the `edits[]` entry, for an edit).
+   - Record the `branch` and `prUrls` on the phase (or on the `edits[]` entry, for an edit).
    - **Advance the high-water mark** to **what this run actually folded in** — the highest
      `changeLog[].id` you reconciled, plus any entries you appended yourself; and
      `progress.lastProcessedReviewNumber` to the `<n>` of the last review you addressed. Do
@@ -297,10 +303,17 @@ The shape is the same as a phase, minus phase-status transitions: branch, make t
 tests/docs/state updated, verify, regenerate `HOW_TO_TEST.md` if the change is visible to the
 developer, open a PR, report, stop.
 
+**`HOW_TO_TEST.md` on an edit run.** An edit does not displace the phase the developer is
+testing, so it never opens a `New in <E-n>` section and never condenses `New in <P-N>` into
+Regression. Leave both sections where they are; edit in place any step or Regression line whose
+behavior this edit changed, and add a Regression line for a check it introduced. If the change is
+not visible to the developer, leave the file alone.
+
 **Register every minor edit in `state.json edits[]`.** An edit ships code — it deserves an id,
 a status, and a reviewable identity, not just a change-log line. Append
 `{ "id": "E-<n>", "utc": ..., "summary": ..., "afterPhase": "<the phase it follows>",
-"status": "done", "branch": ..., "prUrl": ..., "acceptedUtc": null, "reviewStatus": "none" }`
+"status": "done", "branch": ..., "prUrls": [...], "acceptedUtc": null, "reviewStatus": "none",
+"notes": "" }`
 using the next unused `n`, and reference that id in the `editsAffected` field of any related
 `changeLog[]` entry.
 
@@ -368,16 +381,18 @@ accepting it — but verify rather than assume:
    files/symbols the previous phase delivered actually exist on the base, or that its merge
    commit is an ancestor. Branch names and PR state are unreliable here: squash-merge and
    rebase workflows discard the predecessor's branch and commit ids entirely.
-3. If the predecessor's work is **missing**, stop and report: its PR is accepted but unmerged.
+3. If the predecessor's work is **missing**, stop and report: that repo's PR is accepted but
+   unmerged.
    Under the normal flow acceptance merges it, so this means either the repository requires
    reviewers/CI (the merge is still theirs) or the acceptance was recorded without the merge.
    Offer both ways forward: **they merge it**, or **they re-issue the acceptance** ("merge and
    accept P-2") and you do it. Don't merge unasked, and don't branch off the predecessor's
    unmerged branch unless they explicitly tell you to stack the work.
 
-Record the branch you created and the PR you opened in the phase's `state.json` entry
-(`branch`, `prUrl`) so the next run and the developer can find them later. Under a `split`
-layout, record every PR you opened — one per repo — not just the first.
+Record the branch you created and the PRs you opened in the phase's `state.json` entry
+(`branch`, `prUrls`) so the next run and the developer can find them later. `prUrls` is always an
+array: one element under a `single` layout, and under `split` **one per repo you opened a PR in**
+— every one, not just the first.
 
 ### Recording Developer Decisions
 
@@ -395,8 +410,8 @@ Two points specific to this stage:
 ### Re-running a Phase (or Edit) That Failed Testing
 
 If the developer reopened a phase **or an edit** (`pending`, with failure notes) and asked you
-to run it again, **reuse the existing branch and PR** — add commits to them. Do not create a second
-branch or open a second PR for the same phase; that splits one phase's history across two
+to run it again, **reuse the existing branch and PRs** — add commits to them. Do not create a
+second branch or open a second PR in the same repo; that splits one phase's history across two
 reviews. Append to the PR body describing what the failure was and what changed, and leave the
 phase `done` again at hand-off.
 
@@ -475,6 +490,10 @@ items as `OPEN QUESTION:` and assumptions as `ASSUMPTION:`.
 
 ## Definition of Done (for this run)
 
+Items below are written for a phase run. **On a minor-edit run they apply to the `edits[]` entry
+instead**, with the test-guide and phase-status items scoped as §Minor Edits states — an edit has
+no plan test guide of its own and does not displace the current phase.
+
 - [ ] Step 0 done: work classified by you (phase/minor edit); changes reconciled into plan +
       code; developer notes and reconciliation appended to `changeLog[]` (or "no changes"
       confirmed).
@@ -502,7 +521,8 @@ items as `OPEN QUESTION:` and assumptions as `ASSUMPTION:`.
 - [ ] **Branch created, small commits made and pushed, tests + docs + `state.json` updated, PR
       opened with a descriptive body (initial task / reasoning / outcome).** The PR is left
       **unmerged** for the developer.
-- [ ] `branch` and `prUrl` recorded on the phase (or `edits[]` entry); a minor edit is
+- [ ] `branch` and `prUrls` recorded on the phase (or `edits[]` entry) — every repo's PR under a
+      `split` layout; a minor edit is
       registered in `edits[]` with its own `E-<n>` id.
 - [ ] `progress.lastProcessedChangeLogId` and `lastProcessedReviewNumber` advanced to exactly
       what this run folded in (never blindly to the highest present).

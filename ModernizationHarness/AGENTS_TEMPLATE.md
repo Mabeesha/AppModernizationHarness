@@ -83,8 +83,8 @@ translate it into the state and confirm what you wrote:
 
 | They say | You write |
 |---|---|
-| "accept P-2" / "P-2 passed testing" | merge its PR (see below), `status: "accepted"`, `acceptedUtc: <now>` |
-| "P-2 failed — search returns 500" | `status: "pending"` + the failure note; **leave the branch and PR open** for the re-run |
+| "accept P-2" / "P-2 passed testing" | merge **every** PR in its `prUrls` (see below), `status: "accepted"`, `acceptedUtc: <now>` |
+| "P-2 failed — search returns 500" | `status: "pending"` + the failure note; **leave the branches and PRs open** for the re-run |
 | "accept E-1" | same as a phase, on the `edits[]` entry |
 | "E-1 failed — <symptom>" | same as a failed phase, on the `edits[]` entry |
 | "I hand-fixed X myself" | a `changeLog[]` entry, `author: developer`, `origin: out-of-band` |
@@ -104,8 +104,9 @@ branch, a PR, and a review status. Anything you can do to a phase you can do to 
 3. **Say what they are attesting to**, e.g. "Recording that you tested P-2 against its test
    guide and it passed." They should register the claim, not just see a box ticked.
 
-**Merging:** accepting normally includes merging that item's PR, because the next phase branches
-from a base that must contain it. If the repository requires reviewers or green CI
+**Merging:** accepting normally includes merging that item's PRs — **all of them**, one per repo
+under a `split` layout — because the next phase branches from a base that must contain the work,
+and that base check runs per repo. If the repository requires reviewers or green CI
 (`PROJECT_CONTEXT §3`), **do not merge** — record the acceptance, and tell them the merge is
 still theirs to do.
 

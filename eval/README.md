@@ -1,7 +1,9 @@
 # Running the Instruction Set Eval
 
 Practical guide. For *why* the checks exist and how they were designed, see
-[EVAL_DESIGN.md](EVAL_DESIGN.md).
+[EVAL_DESIGN.md](EVAL_DESIGN.md). For the agent-driven review that runs alongside this one,
+see [INSTRUCTION_SET_REVIEW_INSTRUCTIONS.md](INSTRUCTION_SET_REVIEW_INSTRUCTIONS.md) and §12
+below.
 
 ---
 
@@ -295,3 +297,29 @@ To upload the reports, archive `eval/results/`.
 | Token numbers look low | They are — tiktoken undercounts Claude. See §7. |
 | `tiktoken is not installed` | `uv sync` in `eval/`. |
 | Results directory growing | `eval/results/` and `.cache/` are gitignored; delete freely. `--no-cache` bypasses the token cache. |
+
+---
+
+## 12. The agentic review (parallel track)
+
+[INSTRUCTION_SET_REVIEW_INSTRUCTIONS.md](INSTRUCTION_SET_REVIEW_INSTRUCTIONS.md) is an
+instruction file for a coding agent, not code. It reviews an instruction set by reading it,
+and catches what a parser cannot: semantic contradictions, restatements that have diverged,
+and references that are broken in meaning rather than in syntax.
+
+It **does not replace this pipeline** — it runs beside it, and it is written to be read
+against a Tier 1 report.
+
+```
+Follow eval/INSTRUCTION_SET_REVIEW_INSTRUCTIONS.md. Review the instruction set in
+ModernizationHarness/. The latest Tier 1 report is at eval/results/<latest>/report.md.
+```
+
+Output is one file, `eval/results/<timestamp>-<set>-review/review.md`, in the same severity
+model as `report.md` (blocker / major / minor) so the two can be read side by side.
+Suppressions live in [review-baseline.md](review-baseline.md), keyed on a line-independent
+finding id.
+
+Because it is a judgement call and not a parse, it is only partly deterministic: blockers must
+reproduce, minors will drift. For anything gate-shaped, run it three times and take the union
+of blockers with the intersection of majors.

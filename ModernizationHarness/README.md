@@ -103,7 +103,8 @@ read and append to it. **You never edit it by hand** — you tell the agent what
 - `context` — stacks, CI/CD mode, and the **constraints** (by ID, e.g. `C1`, `C2`).
 - `stages` — status + `rerunCount` for context/requirements/design/plan.
 - `phases[]` — each phase's `status` (`pending`/`in progress`/`done`/`accepted`),
-  `reviewStatus`, plus the `branch` and `prUrl` of its work. **IDs are permanent** — a plan
+  `reviewStatus`, plus the `branch` and `prUrls` of its work (`prUrls` is always an array — one
+  per repo under a `split` layout). **IDs are permanent** — a plan
   refresh may drop unstarted phases and append new ones, but never renumbers or reuses an ID.
 - `edits[]` — **minor** edits (`E-1`, `E-2`…): changes touching no contract. An edit ships code,
   so it gets an id, a status, and a branch/PR of its own — and can be reviewed independently,
@@ -114,6 +115,9 @@ read and append to it. **You never edit it by hand** — you tell the agent what
 - `reviews[]` — one entry per Review run, with its verdict and `blockerCount`. A target's
   `reviewStatus` goes `changes-requested` → `remediated` once Implement fixes the Blockers;
   until then the next phase is gated.
+- `wholeBuild` — the `reviewStatus` of the build as a whole. A `whole-build` review has no
+  `phases[]` or `edits[]` entry of its own, so this is where its verdict lives and where the
+  gate is cleared.
 - `progress` — the **high-water mark** (`lastProcessedChangeLogId`,
   `lastProcessedReviewNumber`, both integers) telling the next Implement run which entries it
   has already folded in. Without it, every run would re-apply the whole change log.
@@ -613,6 +617,7 @@ After the final phase is accepted:
 | `state.json` edits[] | Stage 4 | **no hand-editing** — say "accept E-1" | appends each **minor** edit; `accepted` on your instruction |
 | `state.json` changeLog[] | Stage 0 (init) | tell it what you changed | your notes, reconciliations, review findings (append-only) |
 | `state.json` reviews[] | Review stage | no | Review appends |
+| `state.json` wholeBuild | Stage 0 (init) | no | Review sets the verdict; Stage 4 marks `remediated` |
 | `state.json` progress | Stage 0 (init) | no | Stage 4 advances the high-water mark |
 | Application code | Stage 4 | hotfixes → log them | yes (on a branch, via PR) |
 | Review reports | Stage 5 | no | yes |

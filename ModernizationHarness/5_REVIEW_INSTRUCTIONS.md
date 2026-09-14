@@ -20,9 +20,11 @@ you find, classify, and hand back a verdict. Fixes go through the Implement stag
 
 ## Inputs
 
-1. **`state.json`** — `phases[]` (what's built/accepted), `context.constraints`, prior
-   `reviews[]`. You **append a new entry to `reviews[]`** and, for each actionable finding,
-   a `changeLog[]` entry so the Implement stage picks it up.
+1. **`state.json`** — `phases[]` (what's built/accepted), `edits[]` (what each minor edit was
+   and where it landed), `wholeBuild` (the last whole-build verdict), `context.constraints`, and
+   prior `reviews[]`. Read the array your target lives in. You **append a new entry to
+   `reviews[]`**, **set the target's `reviewStatus`** in place, and, for each actionable finding,
+   append a `changeLog[]` entry so the Implement stage picks it up.
 2. **The three requirements documents** — the "what/why" bar.
 3. **The design documents** (HLD + LLD) — the contract bar.
 4. **`PROJECT_CONTEXT.md`** — constraints (by ID), target stack, NFRs, CI/CD mode.
@@ -173,7 +175,8 @@ severities have different consequences:
   fixed during that run's reconciliation. Stalling a sound build over non-critical findings
   costs more than it saves.
 
-Set the reviewed target's `reviewStatus` in `state.json` to `pass` or `changes-requested`.
+Set the reviewed target's `reviewStatus` in `state.json` to `pass` or `changes-requested` — on
+its `phases[]` entry, its `edits[]` entry, or the `wholeBuild` object (see Output below).
 
 ---
 
@@ -184,8 +187,10 @@ Set the reviewed target's `reviewStatus` in `state.json` to `pass` or `changes-r
 { "id": "R-<n>", "target": "P-3 | E-1 | whole-build", "utc": "<ISO-8601>",
   "result": "pass | changes-requested", "blockerCount": <int>, "findingsCount": <int> }
 ```
-Use the next unused `R-<n>`; ids are never reused. Set the target's `reviewStatus` (on its
-`phases[]` or `edits[]` entry) to `pass` or `changes-requested`.
+Use the next unused `R-<n>`; ids are never reused. Set the target's `reviewStatus` to `pass` or
+`changes-requested` — on its `phases[]` entry, its `edits[]` entry, or, for a `whole-build`
+target, on the top-level `wholeBuild` object. Every target kind has exactly one such field, and
+it is the only thing the Blocker gate reads.
 
 **On a re-review after remediation:** a target sitting at `reviewStatus: "remediated"` means
 the Implement stage fixed a previous review's Blockers. Verify those fixes specifically, then
@@ -228,7 +233,9 @@ filenames unique and ordered — two reviews of the same target never collide:
 ```
 
 Do **not** modify application code, the design, or the requirements — reviewing is read-only on
-those. You only append to `state.json` and write the report.
+those. The only things you write are the **review record** in `state.json` — the `reviews[]`
+entry (appended), the target's `reviewStatus` (**set in place**, per §Output), and a
+`changeLog[]` entry per Blocker/Major (appended) — and the report itself.
 
 ---
 

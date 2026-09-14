@@ -83,28 +83,34 @@ erDiagram
     STATE ||--o{ EDIT : "edits[]"
     STATE ||--o{ CHANGELOG : "changeLog[] (append-only)"
     STATE ||--o{ REVIEW : "reviews[] (append-only)"
+    STATE ||--|| WHOLEBUILD : "wholeBuild"
     CONTEXT ||--o{ CONSTRAINT : "constraints[] C1..Cn"
     REVIEW }o--|| PHASE : targets
     REVIEW }o--|| EDIT : targets
+    REVIEW }o--|| WHOLEBUILD : targets
     CHANGELOG }o--o{ PHASE : phasesAffected
 
     CONSTRAINT { string id  string statement  string obligations_per_stage }
-    PHASE   { string id  string status  string reviewStatus  string branch  string prUrl  string acceptedUtc }
+    PHASE   { string id  string status  string reviewStatus  string branch  string[] prUrls  string acceptedUtc }
     EDIT    { string id  string status  string reviewStatus  string afterPhase }
     CHANGELOG { int id  string author  string origin  string summary }
     REVIEW  { string id  string target  string result  int blockerCount }
+    WHOLEBUILD { string reviewStatus }
     PROGRESS { int lastProcessedChangeLogId  int lastProcessedReviewNumber }
 ```
 
 Rules that hold the model together:
 
-- **Append-only:** `changeLog[]`, `reviews[]`, `edits[]`. Correct by superseding, never rewriting.
+- **Append-only:** `changeLog[]`, `reviews[]`. Correct by superseding, never rewriting.
+  `edits[]` entries are never deleted or renumbered, but their lifecycle fields are updated in
+  place, like `phases[]`.
 - **ID allocation:** `changeLog.id` = max + 1; `E-<n>` and `R-<n>` use the next unused *n* for
   their own array. IDs are never reused.
 - **`progress` is numeric** — `R-10` sorts before `R-2` as a string, which would silently skip
   reviews.
-- **`context.repo` / `context.deployment`** are decided *only* in Stage 0. Stage 2 fills
-  `frontendRoot` / `backendRoot` if they were left null; nothing downstream may invent a layout.
+- **`context.repo` / `context.deployment`** are decided *only* in Stage 0, which is also the
+  only stage that writes them. Where `frontendRoot` / `backendRoot` were left null, Stage 2
+  settles the tree in **LLD §3a** rather than in state; nothing downstream may invent a layout.
 
 ## 6. Control flow of a build run (Stage 4)
 
@@ -130,7 +136,7 @@ sequenceDiagram
     end
     A->>G: branch, task-sized commits
     A->>A: run exit criteria (agent gate)
-    A->>S: status=done, branch, prUrl, advance high-water mark
+    A->>S: status=done, branch, prUrls, advance high-water mark
     A->>G: push + open PR
     A-->>D: report + HOW_TO_TEST.md + at-risk regression lines
     D->>D: test it

@@ -223,7 +223,7 @@ non-functional verification.
 Produce the document per the template below, decomposing each phase into right-sized,
 dependency-ordered tasks. **Then write the phase list into `state.json` `phases[]`** — one
 entry per phase, all `status: "pending"`, `branch: null`,
-`prUrl: null`, `acceptedUtc: null`, `reviewStatus: "none"`. The
+`prUrls: []`, `acceptedUtc: null`, `reviewStatus: "none"`. The
 plan document holds the *content*; `state.json` holds the *status and lineage*.
 
 On a **refresh**, sync `phases[]` rather than rewriting it: leave `accepted`, `done`, and
@@ -375,6 +375,12 @@ Step 3. Add a §3 Plan Revision History row and a `changeLog` entry noting the r
 increment `stages.plan.rerunCount`. **A "no change" refresh writes none of these** — it is not
 a revision, and recording it would bury the real ones.
 
+**One exception, on every refresh including "no change":** move phases that have become
+`accepted` since the last run out of §5 into §2 Completed. That is bookkeeping, not a revision —
+do it without a revision-history row, a `changeLog` entry, or a `rerunCount` bump. §5 holds
+remaining work only, and an accepted phase listed there reads as outstanding to the developer and
+to a whole-build review.
+
 ---
 
 ## Definition of Done
@@ -404,8 +410,8 @@ a revision, and recording it would bury the real ones.
 - [ ] **Exit criteria are mechanical/falsifiable** for every phase (the agent gate has teeth).
 - [ ] Each task has scope, acceptance criteria, and a verification step.
 - [ ] `state.json phases[]` is populated, every field initialized per the schema (all
-      `pending`; `branch`, `prUrl`, `acceptedUtc` null; `reviewStatus: "none"`). On a refresh,
-      existing non-`pending` entries are left untouched.
+      `pending`; `branch` and `acceptedUtc` null, `prUrls` empty; `reviewStatus: "none"`). On a
+      refresh, existing non-`pending` entries are left untouched.
 - [ ] Risks and open questions listed, not silently resolved.
 - [ ] **No phase ID was reused or renumbered**; new phases took the next unused numbers.
 - [ ] Accepted phases were moved to §2 Completed and removed from §5, not re-planned.

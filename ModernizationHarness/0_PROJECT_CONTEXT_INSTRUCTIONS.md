@@ -16,7 +16,7 @@ You produce **two artifacts**:
 1. **`PROJECT_CONTEXT.md`** — the human-readable statement of the project: current stack,
    target stack, CI/CD, the constraint set, and the answered intake questionnaire.
 2. **`state.json`** — the machine-readable state file that every later stage reads and
-   updates. You **initialize** it here (see §state.json Schema).
+   updates. You **initialize** it here (see §Output 2 — `state.json`).
 
 > **Golden rule: capture decisions, don't invent them.** Where the human has decided
 > (target stack, whether to reuse the database), record it. Where they haven't, use the
@@ -466,6 +466,7 @@ empty:
   "edits": [],
   "changeLog": [],
   "reviews": [],
+  "wholeBuild": { "reviewStatus": "none" },
   "progress": { "lastProcessedChangeLogId": 0, "lastProcessedReviewNumber": 0 }
 }
 ```
@@ -490,24 +491,31 @@ Field notes (the later stages depend on these; keep them exact):
   increments each time a stage is rerun with additional instructions. For `plan`, it counts
   **substantive refreshes only** — a Step 0c check that left the phase list unchanged is not a
   rerun and writes nothing.
-- **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done|accepted", "branch": "<or null>", "prUrl": "<or null>", "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated", "notes": "" }`.
+- **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done|accepted", "branch": "<or null>", "prUrls": [], "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated", "notes": "" }`.
   - **IDs are permanent.** A refresh may drop `pending` entries and append new ones with the
     next unused number; it never renumbers or reuses an ID, and never rewrites a non-`pending`
     entry. IDs therefore stop matching execution order — the plan document holds the order.
-  - `branch` / `prUrl` are written by the Implement stage so the work is findable later.
+  - `branch` / `prUrls` are written by the Implement stage so the work is findable later.
+    `prUrls` is **always an array** — one element under a `single` layout, one per repo under
+    `split`. Never a bare string, so nothing downstream has to test its shape.
   - `reviewStatus` moves `changes-requested` → **`remediated`** when the Implement stage has
-    fixed that review's findings. Nothing else clears it, and the Blocker gate reads it — so a
+    fixed that review's **Blockers** (Majors ride along and do not change this field). Nothing else clears it, and the Blocker gate reads it — so a
     review left at `changes-requested` blocks the next phase indefinitely, by design. A
     re-review after remediation is what returns it to `pass`.
   - `status: "accepted"` and `acceptedUtc` are written **only on the developer's explicit
     per-phase instruction** ("accept P-2"); an agent records them then, never on its own.
 - **`edits[]`** — **minor** edits, created by the Implement stage: changes that touch no
   requirement, design contract, or plan scope (a config value, a label, an obvious bug fix).
-  Anything that touches a contract is a doc change followed by a **phase**, not an edit. Each: `{ "id": "E-1", "utc": "...", "summary": "...", "afterPhase": "P-2", "status": "pending|in progress|done|accepted", "branch": "<or null>", "prUrl": "<or null>", "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated" }`.
+  Anything that touches a contract is a doc change followed by a **phase**, not an edit. Each: `{ "id": "E-1", "utc": "...", "summary": "...", "afterPhase": "P-2", "status": "pending|in progress|done|accepted", "branch": "<or null>", "prUrls": [], "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated", "notes": "" }`.
   An edit is a **reviewable unit in its own right** — it ships code, so it can be a Review
   target exactly like a phase.
 - **`changeLog[]`** — the loop's memory. Each: `{ "id": <int>, "utc": "...", "author": "developer|implement-agent|review-agent", "origin": "developer-prompt|reconcile|review-<Rid>|out-of-band", "summary": "...", "docsTouched": ["requirements|design|plan|context"], "phasesAffected": ["P-3"], "editsAffected": ["E-1"] }`.
 - **`reviews[]`** — created by the Review stage. Each: `{ "id": "R-1", "target": "P-3 | E-1 | whole-build", "utc": "...", "result": "pass|changes-requested", "blockerCount": <int>, "findingsCount": <int> }`.
+- **`wholeBuild`** — the review status of the build as a whole: `{ "reviewStatus":
+  "none|pass|changes-requested|remediated" }`. A `whole-build` review has no `phases[]` or
+  `edits[]` entry to carry its status, so this object is its target record; it is **updated in
+  place**, exactly as a phase's `reviewStatus` is, and the Blocker gate reads it the same way.
+  Like a phase, it holds the outcome of the **latest** whole-build review.
 - **`progress`** — the reconciliation **high-water mark**, written by the Implement stage at
   every hand-off. Both are **integers**, compared numerically:
   - `lastProcessedChangeLogId` — the highest `changeLog[].id` that run actually folded in.
@@ -521,8 +529,14 @@ Field notes (the later stages depend on these; keep them exact):
 is `R-<n>` and `edits[].id` is `E-<n>`, each using the next unused `n` for its own array. Ids
 are never reused, even if an entry is superseded.
 
-Only ever **append** to `changeLog`, `reviews`, and `edits`; never rewrite history. Correct a
+Only ever **append** to `changeLog` and `reviews`; never rewrite history. Correct a
 mistaken entry by appending a new one that supersedes it.
+
+`edits[]` is different: entries are appended and never deleted or renumbered, but an entry's
+lifecycle fields (`status`, `branch`, `prUrls`, `acceptedUtc`, `reviewStatus`) are **updated in
+place**, exactly as a `phases[]` entry's are. An edit is a unit of shipped work, not a history
+record — see `AGENTS.md §Recording What the Developer Tells You`, which is normative for these
+writes.
 
 ---
 
@@ -591,7 +605,8 @@ actually changed.
   expectations are stated as a constraint.
 - [ ] The constraint set is written with stable IDs, in both `PROJECT_CONTEXT.md` and
   `state.json`.
-- [ ] `state.json` is initialized per schema, with `phases`, `changeLog`, `reviews` empty.
+- [ ] `state.json` is initialized per schema, with `phases`, `edits`, `changeLog`, `reviews`
+  empty and `wholeBuild.reviewStatus` at `none`.
 - [ ] Defaults and inferences are marked `ASSUMPTION:`; unresolved non-blockers are
   `OPEN QUESTION:`.
 - [ ] Every defaulted/inferred answer is listed explicitly in the hand-off report for the
