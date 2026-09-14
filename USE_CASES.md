@@ -2,8 +2,8 @@
 
 **What to say, and what happens when you say it.**
 
-The other two guides explain the method: [README.md](../README.md) gets you running in five
-minutes, [DEVELOPER_GUIDE.md](../DEVELOPER_GUIDE.md) explains why it's built this way. This
+The other two guides explain the method: [README.md](README.md) gets you running in five
+minutes, [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) explains why it's built this way. This
 one is different — it walks through the **situations you'll actually hit**, in order of how
 likely you are to hit them, and shows the exact prompt plus what the agent does behind it.
 
@@ -707,5 +707,5 @@ files.
 
 ---
 
-**Want the reasoning behind any of this?** → [DEVELOPER_GUIDE.md](../DEVELOPER_GUIDE.md)
-**Just want to start?** → [README.md](../README.md)
+**Want the reasoning behind any of this?** → [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
+**Just want to start?** → [README.md](README.md)

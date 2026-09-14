@@ -14,7 +14,7 @@ up front, in a Project Context, and every later stage reads them from there.
 > independent **Stage 5 Review/QA** that feeds findings back into the loop.
 
 > **Looking for a specific situation** — a phase failed your testing, the design has to change
-> mid-build, a review came back with a Blocker, you want a stage rerun? **[USE_CASES.md](ModernizationHarness/USE_CASES.md)**
+> mid-build, a review came back with a Blocker, you want a stage rerun? **[USE_CASES.md](USE_CASES.md)**
 > walks twenty-one of them with the exact prompt to send and what happens behind it. This file is the
 > reasoning; that one is the recipe book.
 
@@ -642,5 +642,5 @@ the baseline moved.)*
 | You want | Read |
 |---|---|
 | To start, in five minutes | [README.md](README.md) |
-| A worked recipe for the situation you're in | [USE_CASES.md](ModernizationHarness/USE_CASES.md) |
-| How the set is built, and why | [docs/DESIGN.md](ModernizationHarness/docs/DESIGN.md) / [docs/REQUIREMENTS.md](ModernizationHarness/docs/REQUIREMENTS.md) |
+| A worked recipe for the situation you're in | [USE_CASES.md](USE_CASES.md) |
+| How the set is built, and why | [docs/DESIGN.md](docs/DESIGN.md) / [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) |
