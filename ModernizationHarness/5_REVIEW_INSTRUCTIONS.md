@@ -30,7 +30,11 @@ you find, classify, and hand back a verdict. Fixes go through the Implement stag
 4. **`PROJECT_CONTEXT.md`** — constraints (by ID), target stack, NFRs, CI/CD mode.
 5. **`PLAN_<AppName>.md`** — the phase(s) in scope and their exit criteria.
 6. **The implemented codebase** — what you actually audit. Run its build and tests.
-7. **The review target** — from the prompt: a phase ID (`P-3`), a minor edit id (`E-1`),
+7. **The reference-implementation samples**, where `PROJECT_CONTEXT §2` lists any and the scope
+   touched their areas — at the `path` on each `context.referenceImplementations[]` entry. Read
+   them alongside **LLD §3c**; §3c is the contract you grade against, the sample is how you check
+   §3c was actually followed.
+8. **The review target** — from the prompt: a phase ID (`P-3`), a minor edit id (`E-1`),
    or `whole-build`. Edits ship code just as phases do, so they are reviewable in their own
    right; review one when the developer asks, or when an edit was large enough to warrant it.
 
@@ -98,6 +102,25 @@ what's wrong, why it matters, and the requirement/design/constraint it violates.
   alone. Where a UI reference was supplied, check the result matches its visual language.
   Conversely, check the UI reference was **not** used to change behavior: extra fields, altered
   flows, or new screens that the requirements don't call for are divergences, not improvements.
+
+- **Reference adherence**, for each area with a reference row in `PROJECT_CONTEXT §2` that this
+  scope touched. Grade it against **that row's own Governs scope and LLD §3c** — not against a
+  general notion of following the sample, and not against another row's scope. Check both
+  directions, because each is a real finding:
+  - **Divergence** — the built code ignores the sample **within** the declared scope: a
+    hand-rolled Dockerfile where a layering convention was supplied, an auth chain whose claim
+    names differ from the reference's. Severity follows the constraint, as any breach does.
+  - **Over-adoption** — the built code absorbed something from the sample **outside** the scope:
+    the sample's endpoints, entities, fields, business rules, or its literal names, ports and
+    resource sizing where the row said those stay this app's own. This is a divergence from the
+    requirements, not an improvement, and it is the failure mode a reference invites.
+
+  **Scopes differ by row, deliberately.** A deployment reference governs shape and carries no
+  behavior; an auth reference usually does dictate behavior and adopting it was the point. Do
+  not grade every row against the UI reference's "appearance only" boundary, and do not widen a
+  narrow scope because the sample happened to contain more. Where the row's scope is missing or
+  ambiguous in `PROJECT_CONTEXT`, report that as a finding against the context rather than
+  inventing a scope to grade against.
 
 ### 2. Unit / automated tests
 - Do tests exist for the behavior built in scope? Do they actually **run and pass**?

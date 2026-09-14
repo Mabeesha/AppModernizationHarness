@@ -18,7 +18,7 @@ of work, writes state, and stops.
 | File | Kind | Responsibility |
 |---|---|---|
 | `AGENTS_TEMPLATE.md` | template → `AGENTS.md` | Invariants, authority ladder, and the acceptance-recording protocol. Loads in **every** session |
-| `0_INTAKE_TEMPLATE.md` | template → `INTAKE.md` | The 23 questions, their defaults, and which 6 are load-bearing |
+| `0_INTAKE_TEMPLATE.md` | template → `INTAKE.md` | The 24 questions, their defaults, and which 6 are load-bearing |
 | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | stage | Resolve intake → `PROJECT_CONTEXT.md` + initialize `state.json` |
 | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | stage | Legacy code → business / functional / technical requirements |
 | `2_DESIGN_INSTRUCTIONS.md` | stage | Requirements → HLD + LLD |
@@ -32,7 +32,7 @@ of work, writes state, and stops.
 ```mermaid
 flowchart TD
     L[Legacy app<br/>read-only] --> S0
-    I[INTAKE.md<br/>23 questions] --> S0[0 · Project Context]
+    I[INTAKE.md<br/>24 questions] --> S0[0 · Project Context]
     S0 --> PC[PROJECT_CONTEXT.md<br/>constraints C1..Cn]
     S0 --> ST[(state.json)]
     PC --> S1[1 · Requirements]

@@ -269,5 +269,53 @@ records them as the design language anyway, so screens stay consistent across ph
 
 ---
 
+## I. Reference Implementations
+
+**24. Do you have reference implementations for the target — example code the build should
+follow for a given area?**
+One row per area; leave the table empty if you have none.
+
+| Area | Path | Mode | Governs |
+|------|------|------|---------|
+| Deployment | `./refs/deploy/` | reference | Dockerfile layering, compose/chart structure, values layout, probe and secret conventions — **not** this app's names, ports, or resource sizing |
+| Auth | `./refs/auth/` | reference | token shape, claim names, filter/middleware chain, refresh and logout handling |
+| File upload/download | `./refs/storage/` | literal | streaming, size-limit and content-type handling, reproduced as given |
+
+The areas worth supplying are the ones every project otherwise rewrites badly from scratch:
+**deployment** (Dockerfile, compose, Helm chart, pipeline templates), **auth**, **file
+upload/download**, logging and observability wiring, error handling and API envelope shape,
+and integration clients.
+
+**Mode — say which for every row, because the two differ sharply:**
+- **Reference** *(recommended, and the default)* — follow the sample's **shape**: its
+  structure, layering, naming conventions, and the way it decomposes the problem. Substitute
+  this app's own names, values, and details. The result should read as though written by the
+  same team — not copied.
+- **Literal** — reproduce the sample as-is, changing only what cannot stay (package names,
+  identifiers). Only sensible when the sample is already written in the target stack and you
+  want exactly it.
+
+**The Governs scope is per-row, and you must fill it in.** It is the field that stops an agent
+absorbing a reference's *business logic* along with its shape. Say what the sample dictates,
+and — where it matters — what it does not. A reference Dockerfile is purely structural and
+carries no behavior; reference auth code genuinely *does* dictate behavior (token shape,
+session model, claim names), which is usually the whole reason you supplied it. Both are
+legitimate. They simply grade differently in Review, which checks each row against **its own**
+Governs scope and nothing wider.
+
+> **A reference is not a requirement.** Where a sample implies behavior the requirements don't
+> call for — an extra endpoint, a field, a flow — that is an `OPEN QUESTION:`, not a licence to
+> build it. Where it **conflicts** with a requirement or a constraint, the requirement or
+> constraint wins and the conflict is reported rather than silently resolved.
+
+**The UI is deliberately not a row here — it is Q23.** Its boundary is narrower (appearance
+only) and its per-stage obligations differ, so it keeps its own question. Don't answer it twice.
+
+*Default: none supplied. Each stage picks idiomatic defaults for the target stack.*
+
+**Answer:**
+
+---
+
 *Project-specific questions can be appended here. Mark any question the team wants to force an
 answer to as load-bearing.*

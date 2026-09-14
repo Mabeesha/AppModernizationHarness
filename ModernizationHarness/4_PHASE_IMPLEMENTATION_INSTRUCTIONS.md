@@ -78,7 +78,11 @@ Then the developer tests, the Review stage may audit, and the next run begins. D
 4. **Reference — the design documents** (HLD + LLD). The LLD is the authoritative contract.
 5. **Reference — the three requirements files** — intent, business rules, exact values.
 6. **Reference — `PROJECT_CONTEXT.md`** — target stack, constraints by ID, CI/CD mode.
-7. **The codebase built so far** — the working baseline: extend it, keep it green.
+7. **Reference — the reference implementations**, where `PROJECT_CONTEXT §2` lists any (intake
+   Q24) and this phase builds an area they cover. **LLD §3c is what you follow** — it already
+   records what the target takes from each sample and what it does not. Open the sample itself
+   only for detail §3c leaves out, and never to re-decide what §3c settled.
+8. **The codebase built so far** — the working baseline: extend it, keep it green.
 
 When sources conflict, apply the authority ladder: a **constraint in `PROJECT_CONTEXT §4`
 always wins** — if honoring it breaks a design contract, that is a blocker, not a choice. For
@@ -100,6 +104,8 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
 3. **The legacy source and target code repository**, where this stage needs them — from
    `context.locations.legacySource` and `context.locations.targetRepo` (plus
    `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
+4. **Reference-implementation samples**, where this phase needs one — from the `path` on the
+   matching `context.referenceImplementations[]` entry. Read-only, like the legacy source.
 
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.
@@ -115,6 +121,32 @@ don't re-derive them here. Verify each relevant obligation before considering a 
 project regardless of the declared constraints: **no secrets in source** (connection/IdP
 config comes from env/profiles, never committed) and **don't mutate the reused database's
 schema** where a data-reuse constraint is in force.
+
+---
+
+## Building From a Reference Implementation
+
+Where this phase builds an area with a reference row in `PROJECT_CONTEXT §2`, **LLD §3c is the
+contract** — build what it says the target takes from the sample, and leave what it says the
+target does not. Apply the row's mode: under *reference*, follow the sample's structure,
+layering and naming while substituting this app's own names, values, ports and sizing; under
+*literal*, reproduce it, changing only what cannot stay.
+
+Two failure modes, and you are responsible for both:
+
+- **Ignoring the sample** — writing an idiomatic-but-different Dockerfile or auth chain because
+  it seemed cleaner. The row exists precisely to prevent that.
+- **Copying past the Governs scope** — carrying over the sample's business logic, endpoints,
+  fields, entities, or config values because they came in the same file. **The scope is
+  per-area and they genuinely differ**: a deployment sample dictates shape and no behavior,
+  while an auth sample usually does dictate behavior. Read the row's own scope; don't
+  generalize from another row, and don't apply the UI reference's "appearance only" fence here.
+
+A sample is **never** a requirement. If following it would add behavior the requirements don't
+call for, or would breach a constraint, build to the requirements and constraints and report
+the conflict (§When You're Blocked) — do not resolve it in the sample's favor. If §3c is missing
+for an area that has a reference row, that is a design gap: say so rather than reading the
+sample and deciding for yourself.
 
 ---
 

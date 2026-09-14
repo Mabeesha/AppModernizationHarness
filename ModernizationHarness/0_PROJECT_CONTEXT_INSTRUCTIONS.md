@@ -191,6 +191,33 @@ target may have none of these; a DB-reuse migration will have the first):
   re-invents styling. **Scope it to appearance only** — behavior still comes from the
   requirements. Note that even with *no* sample supplied this constraint is worth declaring,
   because screens are built across several phases in separate runs and drift otherwise.
+- **Reference implementations** — where example code is supplied for a given area (Q24):
+  deployment artifacts, auth, file upload/download, logging, error/API envelope shape,
+  integration clients. Raise **one constraint per area**, not one covering all of them — they
+  have different scopes and Review must be able to grade them separately. Each constraint's
+  statement carries the area's **path**, its **mode** (*reference* — follow the sample's shape,
+  substituting this app's own names and values; *literal* — reproduce it as given), and its
+  **Governs scope verbatim from the intake row**. That scope is load-bearing: it is what keeps
+  an agent from absorbing the sample's business logic along with its shape, and it differs
+  sharply by area — a reference Dockerfile is structural and carries no behavior, while
+  reference auth code legitimately does dictate behavior (token shape, session model, claim
+  names). Do not normalize the two into one boundary statement, and do not widen a scope the
+  human wrote narrowly.
+
+  Obligations should require: *Design* — read the sample and record in the LLD what the target
+  takes from it (structure, naming, decomposition) and what it does not, so no phase re-derives
+  it; *Plan* — schedule the area where the sample implies it belongs, and for deployment
+  references, stand the artifacts up in the phase that first needs a deployable, not at the end;
+  *Implement* — build from the sample per its mode, and never copy across its Governs scope;
+  *Review* — check the result follows the sample within that row's **own** scope and nothing
+  wider, flagging both directions as findings: divergence from the sample where it governs, and
+  absorbed behavior where it does not.
+
+  **A reference is not a requirement.** Where a sample implies behavior the requirements don't
+  call for, that is an `OPEN QUESTION:` (§7). Where it conflicts with a requirement or another
+  constraint, the requirement or constraint wins — record the conflict rather than resolving it
+  silently in the sample's favor.
+
 - **Compliance / security / data-residency** — any regulatory or org rule the build must
   not violate.
 - **CI/CD boundary** — what the pipeline must do (see Step 3).
@@ -319,6 +346,16 @@ many times across a build — so **state each fact once and cross-reference; nev
 - **UI reference** (Q23): the sample/mockup/design-system path if supplied, and whether it is
   used as a **reference** or **literally**; plus responsive, dark-mode, and i18n/RTL
   expectations. Appearance only — never a licence to change behavior.
+- **Reference implementations** (Q24): one table row per area supplied — area, path, mode
+  (*reference* / *literal*), and the **Governs scope copied from the intake row unchanged**.
+  Each row also has a constraint in §4 carrying its per-stage obligations; name the constraint
+  ID here and keep the detail there. State "none supplied" explicitly when the table is empty,
+  so later stages know it was asked rather than skipped. The UI is **not** a row — it is the
+  line above.
+
+  | Area | Path | Mode | Governs | Constraint |
+  |------|------|------|---------|------------|
+  | …    | …    | reference / literal | … | C# |
 
 ## 3. Delivery, Cutover & Environments
 - **CI/CD:** current pipeline (platform + what it does); target expectation — Respect
@@ -451,6 +488,11 @@ empty:
               "frontendRoot": "<path within its repo, or null — then Design fixes it>",
               "backendRoot": "<path within its repo, or null — then Design fixes it>",
               "branchNaming": "", "prTarget": "", "conventions": "" },
+    "referenceImplementations": [
+      { "area": "<deployment | auth | file-transfer | logging | api-envelope | integration | …>",
+        "path": "<path>", "mode": "reference | literal",
+        "governs": "<the intake row's scope, verbatim>", "constraint": "<C# — its §4 constraint>" }
+    ],
     "constraints": [
       { "id": "C1", "title": "", "statement": "", "source": "human | derived",
         "obligations": { "requirements": "", "design": "", "plan": "", "implement": "", "review": "" } }
@@ -487,6 +529,13 @@ Field notes (the later stages depend on these; keep them exact):
   are what ships and how the parts talk at runtime. Stage 2 designs the CORS/base-URL/session
   consequences, Stage 3 phases the test guide around them, Stage 4 must not hard-code past
   them, and Stage 5 checks the built app matches. Changing either is a rerun of this stage.
+- **`referenceImplementations[]`** — the example code supplied per area (Q24), and the
+  machine-readable twin of the §2 table. Empty array when none was supplied; never omit the
+  key, so a later stage can tell "asked and none" from "never asked". `governs` is copied from
+  the intake row **verbatim** and is never widened by any stage — it is the scope Review grades
+  each area against, and it differs per row by design. `constraint` points at the §4 entry
+  holding that area's per-stage obligations; the obligations live there, not here. Adding,
+  removing, or re-scoping a row is a rerun of this stage plus a `changeLog` entry.
 - **`stages.<name>.status`** — `pending` → `in progress` → `complete`. `rerunCount`
   increments each time a stage is rerun with additional instructions. For `plan`, it counts
   **substantive refreshes only** — a Step 0c check that left the phase list unchanged is not a

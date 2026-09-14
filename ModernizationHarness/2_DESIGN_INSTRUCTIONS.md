@@ -50,6 +50,8 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
 3. **The legacy source and target code repository**, where this stage needs them — from
    `context.locations.legacySource` and `context.locations.targetRepo` (plus
    `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
+4. **Reference-implementation samples**, where `context.referenceImplementations[]` is
+   non-empty — from the `path` on each entry. Read-only, like the legacy source.
 
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.
@@ -233,6 +235,16 @@ matches exactly.
    - **Mapping table:** sample pattern → target-framework primitive → the theming needed to
      match. This is what keeps later phases from re-inventing styling.
    - **Responsive / dark mode / i18n-RTL:** what is required, per `PROJECT_CONTEXT §2`.
+## 3c. Reference Adoption               (see §Following a Reference Implementation — one
+                                        subsection per `PROJECT_CONTEXT §2` reference row;
+                                        omit the section entirely when none were supplied)
+   - **Area, path, mode, Governs scope** — restated from the context row, unchanged.
+   - **Taken from the sample:** the structure, layering, naming, and decomposition the target
+     adopts — concretely enough that a phase agent need not open the sample to guess.
+   - **Not taken:** what stays this app's own — names, values, ports, sizing, and any behavior
+     the sample carries that sits outside the Governs scope. Name it explicitly; this is the
+     half that gets absorbed by accident.
+   - **Deviations:** anywhere the target cannot follow the sample, and why.
 ## 4. Validation Rules                  (field- and rule-level, tied to FR IDs)
 ## 5. Auth Seam                         (interface, identity/claims contract, stub behavior)
 ## 6. Error & Response Conventions
@@ -285,6 +297,42 @@ Where the sample is silent — responsive breakpoints, dark mode, RTL, an unstyl
 need — mark `OPEN QUESTION:` rather than inventing. Where accessibility is a stated NFR
 priority and the sample's own markup is inaccessible, **the framework's accessible primitive
 wins**; note the deviation and why.
+
+---
+
+## Following a Reference Implementation
+
+Where `PROJECT_CONTEXT §2` lists reference implementations (intake Q24) — example deployment
+artifacts, auth code, file upload/download, logging, API envelope, integration clients — **read
+each sample** and write **LLD §3c**, one subsection per row. Do this even when the area will not
+be built until a late phase: §3c is what stops each phase agent re-reading the sample and
+drawing its own conclusions, exactly as §3b does for the UI.
+
+Apply the row's mode:
+
+- **Reference (the normal case):** take the sample's **shape** — how it layers, what it names
+  things, how it decomposes the problem, which concerns it separates — and specify the target
+  using this app's own names, values and details. The result should read as though the same team
+  wrote it, not as a copy with the identifiers swapped.
+- **Literal:** specify the sample as given, changing only what cannot stay. Where you believe
+  this is the wrong call — typically when the sample is not in the target stack — say so in the
+  HLD rather than quietly switching modes.
+
+> **Each row's Governs scope is the boundary, and the rows differ.** There is no single sentence
+> that fences all of them, which is why the scope is per-row and copied verbatim. A reference
+> Dockerfile is structural and carries no behavior. Reference auth code *does* carry behavior —
+> token shape, claim names, session model — and adopting it is usually the point. Honor the
+> scope each row actually declares; never widen one, and never narrow one into "appearance only"
+> by analogy with the UI reference.
+
+**A reference is not a requirement.** Where a sample implies behavior the requirements don't call
+for — an endpoint, a field, a flow, a stored value — record an `OPEN QUESTION:` and design to the
+requirements. Where a sample conflicts with a requirement or a constraint, the requirement or
+constraint wins; record the conflict in HLD §11 rather than resolving it silently in the sample's
+favor. Where the sample is silent on something the design needs, choose an idiomatic default and
+mark it `ASSUMPTION:` — do not extrapolate from the sample's style as though it had an opinion.
+
+Where an area has **no** reference row, design it idiomatically for the target stack, as usual.
 
 ---
 

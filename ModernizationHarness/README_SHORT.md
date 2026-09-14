@@ -19,7 +19,7 @@ cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
 
 ## 2. Answer six questions
 
-Open `INTAKE.md`. It has 23 questions — **six block the pipeline**, the rest have sensible
+Open `INTAKE.md`. It has 24 questions — **six block the pipeline**, the rest have sensible
 defaults. Answer these and you're done:
 
 | Q | |
@@ -37,6 +37,11 @@ exactly which ones it answered for you**.
 **Got a sample UI?** Answer Q23 with a path to some HTML/CSS, a mockup, or your design system.
 The design stage turns it into a design language every phase builds from — which is what keeps
 later screens looking like earlier ones.
+
+**Got example code you want followed?** Answer Q24 with a path per area — deployment files,
+auth, file upload/download, logging. Say for each whether it's a *reference* (follow its shape,
+use your own names) or *literal*, and what it governs. Every stage then builds to it, and Review
+checks both that it was followed and that nothing outside its scope was copied along with it.
 
 ## 3. Run four stages, once each
 

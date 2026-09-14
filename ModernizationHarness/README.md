@@ -200,6 +200,14 @@ language** (§3b) — tokens, layout patterns, and a component inventory. If you
 sample (intake Q23), that language is extracted from it; if you didn't, idiomatic defaults are
 chosen and written down anyway. Either way it's what stops phase 7's screens from looking
 unlike phase 3's, since each phase is built in a separate run.
+If you supplied **reference implementations** (intake Q24) — example Docker/Helm files, auth
+code, file upload/download, and so on — the LLD also writes **§3c Reference Adoption**: what the
+target takes from each sample and, just as importantly, what it does not. Each area carries its
+own *Governs* scope, because they differ: a sample Dockerfile dictates shape and no behavior,
+while sample auth code usually does dictate behavior — and that is normally why you supplied it.
+Review grades each area against its own scope, flagging both ignoring the sample and copying
+past it.
+
 **Your job after:** validate the big decisions (layering, API style, auth path, data handling)
 and clear the open questions. Changing a decision now costs a doc edit; changing it mid-build
 costs rework.

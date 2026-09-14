@@ -42,7 +42,7 @@ and anything that modifies the legacy source (read-only in every stage).
   carrying **per-stage obligations**. Adding a constraint must require **no edit to any stage file**.
 
 ### R2 — Load-bearing questions get decided, not guessed
-- **R2.1** Intake asks 23 questions; **6 block the pipeline** (current stack, target stack,
+- **R2.1** Intake asks 24 questions; **6 block the pipeline** (current stack, target stack,
   DB reuse, legacy coexistence, auth, cutover strategy).
 - **R2.2** A blank non-load-bearing answer gets a **stated default**; a blank load-bearing
   answer is a **hard stop**.
