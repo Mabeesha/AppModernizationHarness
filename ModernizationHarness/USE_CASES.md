@@ -67,12 +67,12 @@ behind the scenes, and what is true afterwards. Prompts are copy-paste ready.
 | Your situation | What you send |
 |---|---|
 | Starting a brand-new project | Copy `AGENTS.md` and `INTAKE.md` into place, then run Stages 0→3 once each |
-| Build the next planned increment | `Follow 4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md. Next phase. Everything in ./out/.` |
+| Build the next planned increment | `run stage 4` |
 | You tested it and it works | `accept P-3` |
 | You tested it and it's broken | `P-3 failed — the search box returns 500` |
 | You want a small tweak | Just describe it. The agent decides if it's a minor edit. |
 | You want to change how something *works* | Rerun Stage 2 (design), then run the next phase |
-| You want an independent audit | `Follow 5_REVIEW_INSTRUCTIONS.md. Target: P-3.` — **in a fresh session** |
+| You want an independent audit | `run stage 5 on P-3` — **in a fresh session** |
 | You're unhappy with a stage's output | Rerun that stage with what you want different |
 | You changed an intake answer | Edit `INTAKE.md`, rerun Stage 0 |
 | You fixed something by hand | Tell the agent — it logs it so the next run isn't surprised |
@@ -90,7 +90,7 @@ This is 90% of your time. Two prompts per phase.
 **You send:**
 
 ```
-Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase.
+run stage 4
 Plan/designs/requirements/context/state in ./out/. Repo is this repo; branch and open a PR.
 ```
 
@@ -163,7 +163,7 @@ to you — and the next phase's run will notice if that merge never happened (Pa
 **You send — in a brand-new chat session**, not the one that built it:
 
 ```
-Follow `5_REVIEW_INSTRUCTIONS.md`. Target: P-3.
+run stage 5 on P-3
 State/plan/design/requirements/context in ./out/. Codebase is this repo. Write the report to ./out/.
 ```
 
@@ -198,7 +198,7 @@ P-3 failed — step 4, employee search returns a 500 when the query is empty
 **Then re-run it:**
 
 ```
-Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Re-run P-3 with the failure note. Everything in ./out/.
+run stage 4 — re-run P-3 with the failure note.
 ```
 
 It reuses **the same branch and the same PR** — adding commits and appending to the PR body
@@ -276,7 +276,7 @@ endpoints use it. You now need real OIDC against Keycloak.
 ### Prompt 1 — change the design
 
 ```
-Follow `2_DESIGN_INSTRUCTIONS.md`. **Rerun.** Change auth from the local-table stub to OIDC
+rerun stage 2 — change auth from the local-table stub to OIDC
 against Keycloak; bearer tokens; keep the users table for authorization only.
 Context + requirements + state in ./out/.
 ```
@@ -298,7 +298,7 @@ Context + requirements + state in ./out/.
 ### Prompt 2 — run the next phase, exactly as always
 
 ```
-Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase. Everything in ./out/.
+run stage 4
 ```
 
 **Behind the scenes:** Step 0c reads that revision-history row — this is the handoff that makes
@@ -328,9 +328,8 @@ rewritten in place, and opens a PR. Then `accept P-8`, and ask for the next phas
 **You send:**
 
 ```
-Follow `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md`. **Rerun.** BR-14 is wrong: overtime rounds
+rerun stage 1 — BR-14 is wrong: overtime rounds
 to the nearest 15 minutes, not up to the hour — see ./legacy/Payroll/OvertimeCalc.cs:88.
-Everything in ./out/.
 ```
 
 **Behind the scenes:** the three requirements docs are amended in place (not regenerated — you'd
@@ -366,10 +365,10 @@ work.** No incremental path saves you when the change invalidates the decision e
 shaped around. The honest answer:
 
 ```
-Follow `2_DESIGN_INSTRUCTIONS.md`. Rerun. <the new architecture>. Everything in ./out/.
+rerun stage 2 — <the new architecture>.
 ```
 ```
-Follow `3_PLAN_INSTRUCTIONS.md`. Rerun. Re-slice the remaining work against the revised design.
+rerun stage 3 — re-slice the remaining work against the revised design.
 Existing plan + state in ./out/.
 ```
 
@@ -398,7 +397,7 @@ change-log entry tells downstream runs the ground moved.
 2. Then:
 
 ```
-Follow `0_PROJECT_CONTEXT_INSTRUCTIONS.md`. **Rerun.** Intake: ./out/INTAKE.md (updated).
+rerun stage 0 — intake: ./out/INTAKE.md (updated).
 Existing ./out/PROJECT_CONTEXT.md and ./out/state.json. Re-derive the constraints and their
 obligations accordingly.
 ```
@@ -426,8 +425,7 @@ reconciled.
 **You send:**
 
 ```
-Follow `3_PLAN_INSTRUCTIONS.md`. **Rerun.** Existing plan + state in ./out/.
-Additional Instructions: P-1 is too big — split the frontend out into its own later phase; keep
+rerun stage 3 — P-1 is too big; split the frontend out into its own later phase and keep
 P-1 to backend scaffold + DB validation + two endpoints only. Re-slice future phases only;
 leave any accepted phases untouched.
 ```
@@ -453,12 +451,11 @@ skated over the reporting module.
 Same pattern for any stage:
 
 ```
-Follow `2_DESIGN_INSTRUCTIONS.md`. **Rerun.** Use a modular monolith, not microservices.
-Everything in ./out/.
+rerun stage 2 — use a modular monolith, not microservices.
 ```
 ```
-Follow `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md`. **Rerun.** Go deeper on the reporting
-module — the current pass missed the scheduled export. Everything in ./out/.
+rerun stage 1 — go deeper on the reporting
+module — the current pass missed the scheduled export.
 ```
 
 Reruns of Stages 1 and 2 add a Revision History row naming the delivered phases invalidated —
@@ -481,8 +478,7 @@ Blocker in scope, and stops.
 **You send:**
 
 ```
-Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Address the R-1 findings on P-3.
-Everything in ./out/.
+run stage 4 — address the R-1 findings on P-3.
 ```
 
 **Behind the scenes:** the findings are already in `state.json` as change-log entries — Review
@@ -492,7 +488,7 @@ put them there — so the run picks them up as reconciliation work, fixes them, 
 **Then re-review, in a fresh session:**
 
 ```
-Follow `5_REVIEW_INSTRUCTIONS.md`. Target: P-3. Re-review after remediation. Everything in ./out/.
+run stage 5 on P-3 — re-review after remediation.
 ```
 
 `remediated` is **a claim awaiting confirmation, never a verdict**. Only a re-review returns the
@@ -507,7 +503,7 @@ the next phase indefinitely, deliberately.
 **Nothing is gated.** Carry on:
 
 ```
-Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase. Everything in ./out/.
+run stage 4
 ```
 
 The Majors ride along: Step 0b folds them into that run's reconciliation and fixes them
@@ -519,7 +515,7 @@ saves — which is exactly why the two severities are recorded separately.
 An edit ships code, so it's a review target like any other:
 
 ```
-Follow `5_REVIEW_INSTRUCTIONS.md`. Target: E-1. Everything in ./out/. Codebase is this repo.
+run stage 5 on E-1
 ```
 
 Worth doing when an edit turned out bigger or more delicate than "a label".
@@ -529,7 +525,7 @@ Worth doing when an edit turned out bigger or more delicate than "a label".
 **Situation:** the last phase is accepted. Is the build actually complete?
 
 ```
-Follow `5_REVIEW_INSTRUCTIONS.md`. Target: **whole-build**. All docs + state in ./out/.
+run stage 5 on the whole build
 Codebase is this repo. Emphasize security and requirements coverage. Write the report to ./out/.
 ```
 

@@ -34,10 +34,12 @@ cp ModernizationHarness/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
 cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
 ```
 
-The six numbered instruction files stay in `ModernizationHarness/` — you never copy those,
-you just point the agent at them.
+The six numbered stage files stay in `ModernizationHarness/` — you never copy those.
 
-`AGENTS.md` keeps the agent honest in *every* chat, not just formal runs. Don't skip it.
+`AGENTS.md` does two jobs. It keeps the agent honest in *every* chat, not just formal runs —
+don't skip it. And its first section records where those stage files live, which is why you
+can name them bare in a prompt. Moved the folder? Change that one line and everything below
+still works.
 
 ## 2. Answer six questions
 
@@ -70,32 +72,36 @@ checks both that it was followed and that nothing outside its scope was copied a
 
 ## 3. Run four stages, once each
 
-**Stage 0 is the only prompt that carries paths.** It writes `state.json`, and every stage after
-it finds its own inputs there. So the rest are one line each — don't bother repeating paths.
+You ask for a stage by name — **`run stage 2`** or **`run the design stage`**, whichever you'd
+say out loud. `AGENTS.md` maps both to the right file.
+
+**Stage 0 is the only one that needs paths.** It writes `state.json`, and every stage after it
+reads its own inputs from there — so the rest really are just four words.
 
 ```
-Follow `ModernizationHarness/0_PROJECT_CONTEXT_INSTRUCTIONS.md`.
-Intake: ./out/INTAKE.md. Legacy app: ./legacy/. App: MyApp. Write output to ./out/.
+run stage 0 — intake: ./out/INTAKE.md, legacy app: ./legacy/, app: MyApp,
+write to ./out/
 ```
 → `PROJECT_CONTEXT.md` + `state.json`. **Check the constraints it derived** — they drive everything downstream.
 
 ```
-Follow `ModernizationHarness/1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md`.
+run stage 1
 ```
 → Three requirements docs. **Answer every `OPEN QUESTION:`.**
 
 ```
-Follow `ModernizationHarness/2_DESIGN_INSTRUCTIONS.md`.
+run stage 2
 ```
 → HLD + LLD. **Sanity-check the big decisions now** — changing them later costs rework.
 
 ```
-Follow `ModernizationHarness/3_PLAN_INSTRUCTIONS.md`.
+run stage 3
 ```
 → A phased plan for **remaining work**. **Is phase 1 genuinely small?** If not, say so now.
 
-Read each output before moving on. Unhappy with one? Rerun that stage and say what you want
-different.
+Read each output before moving on. Unhappy with one? **`rerun stage 2 — the API should be REST,
+not GraphQL`** — everything after the dash is what you want changed. Reruns are normal, not a
+sign something went wrong.
 
 The plan is a rolling forecast, not a fixed schedule: accepted phases drop off it, and the
 remaining ones get re-checked before most build runs. What *doesn't* move is the **Coverage
@@ -104,7 +110,7 @@ Matrix** — every requirement has a row there, and rows are never deleted.
 ## 4. Build it, one phase at a time
 
 ```
-Follow `ModernizationHarness/4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase.
+run stage 4
 ```
 
 Branching and opening a PR is built in — you don't ask for it. The agent builds the phase,
@@ -126,7 +132,7 @@ opens the PR, and **stops**. Then you:
 Optionally, in a **separate chat**, audit a phase:
 
 ```
-Follow `ModernizationHarness/5_REVIEW_INSTRUCTIONS.md`. Target: P-1.
+run stage 5 on P-1
 ```
 → PASS, or findings that the next build run fixes. Run it in a fresh session — an agent can't
 review its own work.
@@ -138,14 +144,14 @@ review its own work.
 You're at P-6 and need to change auth — which was built in P-3. **Two prompts:**
 
 ```
-Follow `ModernizationHarness/2_DESIGN_INSTRUCTIONS.md`. Rerun. Change auth from the local
-stub to OIDC against Keycloak, bearer tokens.
+rerun stage 2 — change auth from the local stub to OIDC against Keycloak,
+bearer tokens
 ```
 → Design amended in place, with a note recording that **P-3 and P-5** are now out of date.
 **Be specific about what you want** — the agent will otherwise ask, or assume.
 
 ```
-Follow `ModernizationHarness/4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase.
+run stage 4
 ```
 → It proposes adding **P-8 "migrate auth to OIDC"**, to run *before* P-6. You approve; it
 builds it. P-3 stays accepted and is never reopened — the retrofit is new work.

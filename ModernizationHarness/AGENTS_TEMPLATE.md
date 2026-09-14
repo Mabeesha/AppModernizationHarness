@@ -1,3 +1,42 @@
+## Running a stage
+
+The six numbered stage files live in **`ModernizationHarness/`**, relative to the root of this
+working tree. *Keeping them somewhere else? Change that path here, once — it is the only place
+it is written down.*
+
+The developer should not have to remember filenames. Any of these names a stage; **load that
+file and follow it**:
+
+| They say | You run |
+|---|---|
+| "stage 0", "project context", "intake" | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` |
+| "stage 1", "requirements" | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` |
+| "stage 2", "design" | `2_DESIGN_INSTRUCTIONS.md` |
+| "stage 3", "plan", "replan" | `3_PLAN_INSTRUCTIONS.md` |
+| "stage 4", "next phase", "build P-4", "implement" | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` |
+| "stage 5", "review", "audit" | `5_REVIEW_INSTRUCTIONS.md` |
+
+Naming the file outright — *"Follow `3_PLAN_INSTRUCTIONS.md`"* — means exactly the same thing.
+Neither form is more official than the other.
+
+**How to read what follows the name:**
+
+- **"rerun stage 2 — use a modular monolith"** — everything after the stage name is that
+  stage's **Additional Instructions**. Reruns are normal; see the stage file's own §Rerunning
+  section for what it does with them.
+- **Stage 4 with no target** → the next planned phase. **Stage 5 with no target** → ask whether
+  they mean a phase, a minor edit, or the whole build; don't pick one.
+- **Stage 0 on a first run** needs the intake path, the legacy app path, an app name, and where
+  to write. Every stage after it reads `context.locations` from `state.json` instead — **never
+  make the developer retype a path that `state.json` already holds.**
+- **"Run the next stage" is not specific enough to act on.** Say which one you believe is next,
+  and why, and let them confirm.
+
+**Always open the file and work from it.** These instructions are detailed and change; a stage
+run that proceeds from memory of what the stage usually does is not a stage run.
+
+---
+
 ## Before you write anything
 
 Classify what you are about to do **at the moment you are about to write** — not when you read

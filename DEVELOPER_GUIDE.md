@@ -44,6 +44,7 @@ the plan covers only remaining work and is re-checked at the start of most Stage
 ### Setup — do this once, before Stage 0
 
 ```bash
+mkdir -p out
 cp ModernizationHarness/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
 cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
 ```
@@ -54,6 +55,10 @@ when you explicitly invoke that stage. The moment you just chat — *"add a depa
 state can drift from reality without anyone noticing. `AGENTS.md` loads every session and
 closes that gap: it carries the invariants, the authority ladder, and a routing rule that
 catches edits made outside a formal stage run (see §Working Outside a Stage).
+
+Its **first section also records where the stage files live** — `ModernizationHarness/` by
+default. That is what lets every prompt in this guide name them bare. Keep the harness
+somewhere else and you change that one line; nothing else moves.
 
 ---
 
@@ -318,7 +323,7 @@ back in P-3. **This is a normal, supported flow, and it takes two prompts.**
 
 **1. Change the design.**
 
-> Follow `2_DESIGN_INSTRUCTIONS.md`. **Rerun.** Change auth from the local-table stub to OIDC
+> rerun stage 2 — change auth from the local-table stub to OIDC
 > against `<IdP>`; bearer tokens, existing users table retained for authorization only.
 
 The agent amends the HLD/LLD **in place** (filenames never change — git holds the history), adds
@@ -332,7 +337,7 @@ a `## 0. Revision History` row naming what changed and **which delivered phases 
 
 **2. Run the next phase as usual.**
 
-> Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase.
+> run stage 4
 
 Step 0c reads the revision-history row and proposes a re-slice: a **retrofit phase** (say
 *P-8 — Migrate auth seam to OIDC*), sequenced **before** P-6 so nothing else gets built on the
@@ -389,11 +394,17 @@ the contract that both Implement and Review judge everything against.
 ## Reruns (any stage)
 
 Every stage document ends with an **Additional Instructions** block. If you're unhappy with an
-output, relaunch that stage's agent with your change requests appended there — e.g. *"Design:
-use a modular monolith, not microservices"* or *"Plan: make P-5 smaller and pull reporting
-earlier."* The agent amends the existing artifacts **in place** (rather than regenerating from
-scratch — filenames never change; git holds the history), bumps that stage's `rerunCount`, and
-logs a `changeLog` entry so the downstream work gets reconciled or replanned.
+output, relaunch that stage and say what you want changed:
+
+> rerun stage 2 — use a modular monolith, not microservices
+
+> rerun stage 3 — make P-5 smaller and pull reporting earlier
+
+Everything after the dash *is* the Additional Instructions block; you don't have to name it.
+
+The agent amends the existing artifacts **in place** (rather than regenerating from scratch —
+filenames never change; git holds the history), bumps that stage's `rerunCount`, and logs a
+`changeLog` entry so the downstream work gets reconciled or replanned.
 
 **Reruns of Stages 1 and 2 also add a `## 0. Revision History` row** naming what changed and
 **which delivered phases it invalidates**. That row is what Step 0c reads to decide whether a
@@ -507,8 +518,8 @@ in force from the scaffold phase onward.
 
 Then launch:
 
-> Follow `0_PROJECT_CONTEXT_INSTRUCTIONS.md`. Intake: `./out/INTAKE.md`. Legacy app: `./legacy/`.
-> App name: `EmployeeSearch`. Write `PROJECT_CONTEXT.md` and `state.json` to `./out/`.
+> run stage 0 — intake: `./out/INTAKE.md`, legacy app: `./legacy/`, app: `EmployeeSearch`,
+> write to `./out/`
 
 *→ You get `PROJECT_CONTEXT.md` with constraints **C1** (DB reuse), **C2** (auth seam), **C3**
 (Java style) — each carrying its own per-stage obligations, e.g. C1 → *Requirements:* capture
@@ -519,25 +530,19 @@ a missing obligation is a rule that silently won't be enforced.*
 
 **Stage 1 — Requirements:**
 
-> Follow `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md`. Context: `./out/PROJECT_CONTEXT.md`,
-> `./out/state.json`. Legacy app: `./legacy/`. Write the three requirements docs to `./out/`.
-> App name: `EmployeeSearch`.
+> run stage 1
 
 **Stage 2 — Design:**
 
-> Follow `2_DESIGN_INSTRUCTIONS.md`. Context + requirements in `./out/`. Legacy app `./legacy/`
-> for schema disambiguation only. Write the HLD and LLD to `./out/`.
+> run stage 2
 
 **Stage 3 — Plan:**
 
-> Follow `3_PLAN_INSTRUCTIONS.md`. Designs + requirements + context in `./out/`. Write
-> `PLAN_EmployeeSearch.md` to `./out/` and populate `state.json phases[]`. Prefer ~5 phases.
+> run stage 3 — prefer ~5 phases
 
 **Stage 4 — Implement phase 1:**
 
-> Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Plan/designs/requirements/context/state in
-> `./out/`. **This is a phase.** Implement the next pending phase (P-1). Repo is this git
-> repo; branch and open a PR.
+> run stage 4
 
 *→ Agent builds P-1 on a branch, marks it `done`, opens a PR. You test it via the plan's P-1
 test guide, then simply say:*
@@ -548,8 +553,7 @@ test guide, then simply say:*
 
 **Stage 5 — Review P-1** (independent run):
 
-> Follow `5_REVIEW_INSTRUCTIONS.md`. Target: **P-1**. State/plan/design/requirements/context in
-> `./out/`. Codebase is this repo. Write the review report to `./out/`.
+> run stage 5 on **P-1**
 
 *→ PASS → launch P-2. CHANGES REQUESTED → the findings are now in `state.json changeLog[]`;
 your next Implement run reconciles and fixes them before/at P-2.*
@@ -559,16 +563,15 @@ your next Implement run reconciles and fixes them before/at P-2.*
 You're six phases in. Auth was built in P-3 and is used by P-5's endpoints. You now need OIDC
 instead of the local-table stub. **Two prompts.**
 
-> Follow `2_DESIGN_INSTRUCTIONS.md`. **Rerun.** Change auth from the local-table stub to OIDC
-> against Keycloak; bearer tokens; keep the users table for authorization only. Context +
-> requirements + state in `./out/`.
+> rerun stage 2 — change auth from the local-table stub to OIDC
+> against Keycloak; bearer tokens; keep the users table for authorization only.
 
 *→ HLD §5 and LLD §1/§5 amended in place; a `## 0. Revision History` row records the change and
 names **P-3 and P-5** as invalidated; a `changeLog` entry is added. No code, no plan edits.*
 
 Then, exactly as always:
 
-> Follow `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`. Next phase. State in `./out/`.
+> run stage 4
 
 *→ Step 0c reads the revision-history row and proposes: **add P-8 "Migrate auth seam to OIDC"**,
 run it **before P-6**, and adjust P-6/P-7 to build against bearer tokens. You approve; it builds
@@ -586,25 +589,23 @@ just a minor edit; ask for it and the agent does it as `E-1` without any of the 
 no CI/CD, but you do have a pipeline). Edit **`INTAKE.md`** — Q15 becomes *"Respect existing:
 GitHub Actions"* — then:
 
-> Follow `0_PROJECT_CONTEXT_INSTRUCTIONS.md`. **Rerun.** Intake: `./out/INTAKE.md` (updated).
-> Existing `./out/PROJECT_CONTEXT.md` and `./out/state.json`. Re-derive the constraints and
-> their obligations accordingly.
+> rerun stage 0 — the intake at `./out/INTAKE.md` is updated; re-derive the constraints and
+> their obligations accordingly
 
 *→ If later stages already ran, the agent logs a `changeLog` entry naming which docs are now
 stale so they get reconciled or rerun.*
 
 **Re-slicing a plan** that front-loaded too much into P-1:
 
-> Follow `3_PLAN_INSTRUCTIONS.md`. **Rerun.** Existing plan + state in `./out/`. Additional
-> Instructions: P-1 is too big — split the frontend out into its own later phase; keep P-1 to
-> backend scaffold + DB validation + two endpoints only. Re-slice future phases only; leave any
-> accepted phases untouched.
+> rerun stage 3 — P-1 is too big; split the frontend out into its own later phase and keep P-1
+> to backend scaffold + DB validation + two endpoints only. Re-slice future phases only; leave
+> any accepted phases untouched.
 
 ### Example D — Whole-build final review
 
 After the final phase is accepted:
 
-> Follow `5_REVIEW_INSTRUCTIONS.md`. Target: **whole-build**. All docs + state in `./out/`.
+> run stage 5 on the **whole build**
 > Codebase is this repo. Emphasize security and requirements coverage. Write the report to `./out/`.
 
 ---
