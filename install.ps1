@@ -3,10 +3,10 @@
   Install the Modernization Harness into a working directory.
 
 .DESCRIPTION
-  Creates .\out\, drops AGENTS.md and out\INTAKE.md from their templates, and
+  Creates .\out\, drops AGENTS.md and out\INTAKE.md from their templates,
   installs the bundled agent skills into .agents\skills\ (GitLab Duo Agent
-  Platform layout). Anything it would overwrite is backed up first, under
-  .harness-backups\<timestamp>\.
+  Platform layout), and adds the harness entries to .gitignore. Anything it
+  would overwrite is backed up first, under .harness-backups\<timestamp>\.
 
 .PARAMETER TargetDir
   Where to install. Defaults to the current directory.
@@ -42,6 +42,10 @@ $Manifest      = Join-Path $SkillsDir '.upstream-angular'
 $AngularRepo   = 'https://github.com/angular/skills'
 $AngularZipUrl = 'https://codeload.github.com/angular/skills/zip/refs/heads/main'
 $Stamp         = Get-Date -Format 'yyyyMMdd-HHmmss'
+
+# Appended to the target's .gitignore if not already covered.
+$GitignoreHeader  = '# Modernization Harness'
+$GitignoreEntries = @('ModernizationHarness/', 'AGENTS.md', '.agents/')
 
 $script:Installed  = 0
 $script:BackedUp   = 0
@@ -213,6 +217,72 @@ function Install-HarnessFile {
   $script:Installed++
 }
 
+# True if a non-comment line already names the entry, with or without a
+# trailing slash.
+function Test-GitignoreEntry {
+  param([string] $Path, [string] $Entry)
+  if (-not (Test-Path -LiteralPath $Path)) { return $false }
+  $wanted = $Entry.TrimEnd('/')
+  foreach ($line in [System.IO.File]::ReadAllLines($Path)) {
+    $trimmed = $line.Trim()
+    if ($trimmed.Length -eq 0) { continue }
+    if ($trimmed.StartsWith('#')) { continue }
+    if ($trimmed.TrimEnd('/') -eq $wanted) { return $true }
+  }
+  return $false
+}
+
+function Update-Gitignore {
+  $gitignore = Join-Path $TargetDir '.gitignore'
+  $missing = @()
+
+  foreach ($entry in $GitignoreEntries) {
+    if (Test-GitignoreEntry -Path $gitignore -Entry $entry) {
+      Write-Note "present    $entry"
+    } else {
+      $missing += $entry
+    }
+  }
+
+  if ($missing.Count -eq 0) { return }
+
+  if ($DryRun) {
+    foreach ($entry in $missing) { Write-Note "(dry run) append $entry" }
+    return
+  }
+
+  $nl = [char]10
+  $existing = ''
+  if (Test-Path -LiteralPath $gitignore) {
+    # Match whatever line ending the file already uses.
+    if ([System.IO.File]::ReadAllText($gitignore) -match ([char]13 + [char]10)) {
+      $nl = [string]([char]13) + [char]10
+    }
+    $backup = Join-Path $BackupRoot '.gitignore'
+    $backupDir = Split-Path -Parent $backup
+    if (-not (Test-Path -LiteralPath $backupDir)) {
+      New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+    }
+    Copy-Item -LiteralPath $gitignore -Destination $backup -Force
+    Write-Note "backed up  .gitignore -> .harness-backups\$Stamp\.gitignore"
+    $script:BackedUp++
+
+    # Keep the file's existing line endings; separate from what came before
+    # without stacking blank lines.
+    $existing = [System.IO.File]::ReadAllText($gitignore)
+    $existing = $existing.TrimEnd([char]10, [char]13) + $nl + $nl
+  } else {
+    Write-Note "created    .gitignore"
+  }
+
+  $text = $existing + $GitignoreHeader + $nl
+  foreach ($entry in $missing) { $text += $entry + $nl }
+  Write-TextFile $gitignore $text
+
+  foreach ($entry in $missing) { Write-Note "appended   $entry" }
+  $script:Installed++
+}
+
 Write-Host "Installing the Modernization Harness into $TargetDir"
 Write-Host ''
 
@@ -257,6 +327,10 @@ if (Test-Path -LiteralPath $SkillsDir) {
   }
 }
 if (-not $found) { Write-Note 'none vendored - run: .\install.ps1 -Update' }
+
+Write-Host ''
+Write-Host '.gitignore'
+Update-Gitignore
 
 Write-Host ''
 Write-Host "Done - $script:Installed file(s) written, $script:BackedUp backed up."

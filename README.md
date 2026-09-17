@@ -35,10 +35,16 @@ repeat — until it's done. Every document and the `state.json` that tracks prog
 .\install.ps1           # Windows
 ```
 
-That creates `./out/`, writes `AGENTS.md` and `out/INTAKE.md` from their templates, and
-installs the Angular agent skills into `.agents/skills/`. It is safe to re-run: identical
-files are left alone, and anything it would overwrite is moved to
-`.harness-backups/<timestamp>/` first — so a filled-in `INTAKE.md` is never lost.
+That creates `./out/`, writes `AGENTS.md` and `out/INTAKE.md` from their templates,
+installs the Angular agent skills into `.agents/skills/`, and adds `ModernizationHarness/`,
+`AGENTS.md` and `.agents/` to the target's `.gitignore` (creating it if there isn't one —
+entries already covered are left alone, and your existing content is never rewritten, only
+appended to). It is safe to re-run: identical files are left alone, and anything it would
+overwrite is moved to `.harness-backups/<timestamp>/` first — so a filled-in `INTAKE.md`
+is never lost.
+
+Note `./out/` is deliberately **not** ignored — the agent diffs those documents and
+`state.json` between runs, so they belong in git.
 
 Useful flags (same meaning in both, `--flag` in bash, `-Flag` in PowerShell):
 `--target <dir>` to install somewhere other than the current directory, `--dry-run` to see

@@ -4,9 +4,10 @@
 #
 #   ./install.sh [--target <dir>] [--update] [--dry-run]
 #
-# Creates ./out/, drops AGENTS.md and out/INTAKE.md from their templates, and
+# Creates ./out/, drops AGENTS.md and out/INTAKE.md from their templates,
 # installs the bundled agent skills into .agents/skills/ (GitLab Duo Agent
-# Platform layout). Anything it would overwrite is backed up first.
+# Platform layout), and adds the harness entries to .gitignore. Anything it
+# would overwrite is backed up first.
 
 set -euo pipefail
 
@@ -17,6 +18,10 @@ MANIFEST="$SKILLS_DIR/.upstream-angular"
 
 ANGULAR_REPO="https://github.com/angular/skills"
 ANGULAR_TARBALL="https://codeload.github.com/angular/skills/tar.gz/refs/heads/main"
+
+# Appended to the target's .gitignore if not already covered.
+GITIGNORE_HEADER="# Modernization Harness"
+GITIGNORE_ENTRIES=("ModernizationHarness/" "AGENTS.md" ".agents/")
 
 TARGET_DIR="$PWD"
 DO_UPDATE=0
@@ -161,6 +166,68 @@ install_file() {
   installed=$((installed + 1))
 }
 
+# gitignore_has <file> <entry> — true if a non-comment line already names it,
+# with or without a trailing slash.
+gitignore_has() {
+  local file="$1" entry="${2%/}" line
+  [ -f "$file" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -n "$line" ] || continue
+    case "$line" in '#'*) continue ;; esac
+    [ "${line%/}" = "$entry" ] && return 0
+  done < "$file"
+  return 1
+}
+
+update_gitignore() {
+  local gi="$TARGET_DIR/.gitignore" entry
+  local missing=()
+
+  for entry in "${GITIGNORE_ENTRIES[@]}"; do
+    if gitignore_has "$gi" "$entry"; then
+      note "present    $entry"
+    else
+      missing+=("$entry")
+    fi
+  done
+
+  if [ "${#missing[@]}" -eq 0 ]; then return; fi
+
+  if [ "$DRY_RUN" -eq 1 ]; then
+    for entry in "${missing[@]}"; do note "(dry run) append $entry"; done
+    return
+  fi
+
+  local eol='\n'
+  if [ -f "$gi" ]; then
+    # Match whatever line ending the file already uses. (Checked with a case
+    # glob, not grep — Git Bash's grep strips CR before matching.)
+    case "$(head -c 4096 "$gi")" in *$'\r'*) eol='\r\n' ;; esac
+
+    local bak="$BACKUP_ROOT/.gitignore"
+    mkdir -p "$(dirname "$bak")"
+    cp "$gi" "$bak"
+    note "backed up  .gitignore -> .harness-backups/$STAMP/.gitignore"
+    backed_up=$((backed_up + 1))
+    # Separate from whatever came before, without stacking blank lines.
+    [ -z "$(tail -c1 "$gi")" ] || printf "$eol" >> "$gi"
+    [ -z "$(tail -c2 "$gi" | head -c1)" ] || printf "$eol" >> "$gi"
+  else
+    note "created    .gitignore"
+  fi
+
+  {
+    printf "%s$eol" "$GITIGNORE_HEADER"
+    for entry in "${missing[@]}"; do printf "%s$eol" "$entry"; done
+  } >> "$gi"
+
+  for entry in "${missing[@]}"; do note "appended   $entry"; done
+  installed=$((installed + 1))
+}
+
 printf 'Installing the Modernization Harness into %s\n\n' "$TARGET_DIR"
 
 printf 'Artifact directory\n'
@@ -206,6 +273,9 @@ if [ -d "$SKILLS_DIR" ]; then
 else
   note "none vendored — run: ./install.sh --update"
 fi
+
+printf '\n.gitignore\n'
+update_gitignore
 
 printf '\nDone — %d file(s) written, %d backed up.\n' "$installed" "$backed_up"
 if [ "$backed_up" -gt 0 ]; then printf 'Backups: %s\n' "$BACKUP_ROOT"; fi
