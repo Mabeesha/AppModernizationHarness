@@ -9,3 +9,6 @@ obj/
 
 #output artifacts
 modernized_app*
+
+#harness backups
+.harness-backups/

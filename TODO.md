@@ -11,11 +11,15 @@
 - [ ] Tier 1 - remaining checks
 - [ ] Tier 2 - All 
 
-3. Cean up
+3. Clean up
 
 - [x] Remove AgentInstructionSet, AgentInstructionSet2, AgentInstructionSet3 - and all the references
 - [x] Rename AgentInstructionSet4 to ModernizationHarness
 - [ ] Rename Repo - AppModernizationHarness
+
+4. Others
+
+- [ ] Installation scripts
 
 # Notes
 

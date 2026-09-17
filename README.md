@@ -29,10 +29,36 @@ repeat — until it's done. Every document and the `state.json` that tracks prog
 ## 1. Set up
 
 ```bash
-mkdir -p out
-cp ModernizationHarness/AGENTS_TEMPLATE.md   ./AGENTS.md      # project root
-cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
+./install.sh            # macOS / Linux / Git Bash
 ```
+```powershell
+.\install.ps1           # Windows
+```
+
+That creates `./out/`, writes `AGENTS.md` and `out/INTAKE.md` from their templates, and
+installs the Angular agent skills into `.agents/skills/`. It is safe to re-run: identical
+files are left alone, and anything it would overwrite is moved to
+`.harness-backups/<timestamp>/` first — so a filled-in `INTAKE.md` is never lost.
+
+Useful flags (same meaning in both, `--flag` in bash, `-Flag` in PowerShell):
+`--target <dir>` to install somewhere other than the current directory, `--dry-run` to see
+what it would do, and `--update` to re-vendor the Angular skills (below).
+
+### The Angular skills
+
+`.agents/skills/` is where the [GitLab Duo Agent Platform](https://docs.gitlab.com/user/duo_agent_platform/customize/agent_skills)
+looks for agent skills, one directory per skill, each holding a `SKILL.md`.
+
+What gets installed is the Angular team's own [angular/skills](https://github.com/angular/skills)
+(MIT) — `angular-developer`, whose `SKILL.md` plus 40 reference files cover signals, forms,
+DI, routing, testing, ARIA, styling and the CLI; and `angular-new-app` for scaffolding. They
+are **vendored into `ModernizationHarness/skills/`** and committed, so installing works
+offline and you can see exactly what your agents are being told.
+
+`--update` re-downloads them and rewrites those directories, so upstream changes arrive as a
+reviewable git diff. The upstream commit is recorded in `skills/.upstream-angular`, which is
+also the list of directories `--update` is allowed to replace — **any skill you write
+yourself is left untouched**, so this is where to put your own project conventions.
 
 The six numbered stage files stay in `ModernizationHarness/` — you never copy those.
 
