@@ -15,11 +15,11 @@
 
 - [x] Remove AgentInstructionSet, AgentInstructionSet2, AgentInstructionSet3 - and all the references
 - [x] Rename AgentInstructionSet4 to ModernizationHarness
-- [ ] Rename Repo - AppModernizationHarness
+- [x] Rename Repo - AppModernizationHarness
 
 4. Others
 
-- [ ] Installation scripts
+- [x] Installation scripts
 
 # Notes
 
