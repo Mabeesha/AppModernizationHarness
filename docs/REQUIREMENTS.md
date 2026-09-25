@@ -138,12 +138,15 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R11.1** Branch per unit of work, small self-describing commits, a PR whose body records
   initial task / reasoning / outcome.
 - **R11.2** The agent branches from **the currently checked-out branch** and targets its PR at
-  it, so not merging simply stacks the next phase. It merges at hand-off per
-  `context.repo.mergePolicy` (`ask` by default) — and never where the repo requires reviewers or
-  green CI.
+  it. **It never merges.** Nothing in the pipeline depends on a merge, because the next phase
+  starts from where the previous phase's code already is; merging is the developer's housekeeping
+  alone. `context.repo.prTarget` records intent and **no rule reads it**.
 - **R11.3** Presence of work is checked **by content**, never by branch-merge status: git is the
-  truth and `state.json` is a cache. Work merged or edited outside the harness is detected, not
-  reported by the developer.
+  truth and `state.json` is a cache. No merge is recorded anywhere. Work merged or edited outside
+  the harness is detected, not reported by the developer.
+- **R11.4** Where the developer asks for the change **on the current branch**, the agent creates
+  no branch and opens no PR; `prUrls` stays empty and the PR body's history moves into the commit
+  messages.
 
 ---
 

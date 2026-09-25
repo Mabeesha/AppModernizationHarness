@@ -45,7 +45,8 @@ FILE_HINT_ALIASES: dict[str, str] = {
 # Generated at runtime by the pipeline, so they legitimately do not exist in the set.
 RUNTIME_ARTIFACTS = {
     "AGENTS.md",
-    "HOW_TO_TEST.md",
+    "FEATURE_STATUS.md",
+    "HOW_TO_RUN.md",
     "INTAKE.md",
     "PROJECT_CONTEXT.md",
     "README.md",

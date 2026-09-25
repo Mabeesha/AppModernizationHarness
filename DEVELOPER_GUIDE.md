@@ -116,8 +116,9 @@ It holds **machine facts only**. What you have tested is *not* in here — that 
 - `context` — stacks, CI/CD mode, and the **constraints** (by ID, e.g. `C1`, `C2`).
 - `stages` — status + `rerunCount` for context/requirements/design/plan.
 - `phases[]` — each phase's `status` (`pending`/`in progress`/`done` — **forward only**, and
-  `done` is terminal), plus the `branch`, `prUrls` and `mergedUtc` of its work (`prUrls` is
-  always an array — one per repo under a `split` layout). **IDs are permanent** — a plan
+  `done` is terminal), plus the `branch` and `prUrls` of its work (`prUrls` is
+  always an array — one per repo under a `split` layout, and empty if you asked for no PR).
+  **Nothing records whether work was merged**, because nothing depends on it. **IDs are permanent** — a plan
   refresh may drop unstarted phases and append new ones, but never renumbers or reuses an ID.
 - `edits[]` — **minor** edits (`E-1`, `E-2`…): changes touching no contract. An edit ships code,
   so it gets an id, a status, and a branch/PR of its own — and can be reviewed independently,
@@ -253,9 +254,12 @@ commits**, updates **tests + docs + state + the ledger**, opens a **PR** with a 
 body, marks the phase `done`, and **stops**. `done` is the end of the line — there is no further
 status, and nothing waits on you.
 
-**It branches from whatever branch you're standing on**, and targets the PR at it. Merge, and
-the next phase starts clean from your base branch; don't merge, and it stacks on top. Either
-way it tells you, in one line, which branch it used and what that branch contained.
+**It branches from whatever branch you're standing on**, targets the PR at that branch, leaves
+you on the new branch, and **never merges.** Merge and check out your base branch, and the next
+phase starts clean from there; leave the PR open, and the next phase continues from this branch.
+Either way it tells you, in one line, which branch it used and what that branch contained — and
+that is why no merge is ever required: **the next phase starts where the last phase's code
+already is.**
 
 **Step 0c — the plan refresh.** Before building, it checks whether the remaining phases are
 still right. Default is **no change** ("plan unchanged — building P-6"). When something did
@@ -306,12 +310,15 @@ it:
 
 | You say | It writes |
 |---|---|
-| "merge P-3" | merges every PR for it, sets `mergedUtc` |
 | "accept P-2" | ticks every ledger row P-2 built — `passed <today>`. P-2 stays `done` |
 | "accept P-2, P-3, P-4" | the same, for each in turn |
 | "search works" | ticks that one row |
 | "P-2 failed — search returns 500" | `failed` on the affected rows, plus a `changeLog` entry. The fix is planned forward |
 | "I hand-fixed the connection string" | a `changeLog` entry marked `out-of-band` |
+| "do it on this branch" / "no PR" | commits where you are; no branch, no PR |
+
+**Merging isn't on that list, because it's never the agent's to do.** You merge, or you don't,
+and it needs nothing from you either way.
 
 Accepting several at once is fine **when you name them** — deferring testing is a supported way
 to work. What gets challenged is the vague version: "accept everything so far" usually means
@@ -321,9 +328,9 @@ also won't fold acceptance into another request, because when your mind is on th
 
 **When a phase lands on your desk (`done`):**
 
-1. **Merge it** — say **"merge P-2"**, or merge it yourself in the web UI; the agent checks the
-   branch by content and notices either way. (Say *"merge as you go from now on"* to stop being
-   asked.) If your repo needs reviewers or green CI, the merge is always yours.
+1. **Merge it, or don't.** The PR is yours; the agent never touches it. Leave it open and the
+   next phase continues from this branch. Merge it and check out your base branch, and the next
+   phase starts from there. Nothing in the harness cares which you do.
 2. **Carry on, or test — your call.** Running the next phase needs nothing from you but the
    word. When you do want to test: open `FEATURE_STATUS.md`, walk the rows marked `untested`,
    and use `HOW_TO_RUN.md` to get the app up.
@@ -572,13 +579,10 @@ a missing obligation is a rule that silently won't be enforced.*
 
 > run stage 4
 
-*→ Agent builds P-1 on the branch you're standing on, marks it `done`, opens a PR, and asks
-whether to merge. You say:*
-
-> merge P-1
-
-*→ It merges and records `mergedUtc`. You can start P-2 straight away. When you get round to
-testing, walk the `untested` rows in `FEATURE_STATUS.md` and say:*
+*→ Agent branches from the branch you're standing on, builds P-1, marks it `done`, opens a PR
+back at that branch, and stops. Merge the PR yourself if you want — or don't; P-2 can start
+either way. When you get round to testing, walk the `untested` rows in `FEATURE_STATUS.md` and
+say:*
 
 > accept P-1
 
@@ -611,7 +615,7 @@ run it **before P-6**, and adjust P-6/P-7 to build against bearer tokens. You ap
 P-8 on a branch, rewrites the auth rows' checks in `FEATURE_STATUS.md` and resets them to
 `untested`, and opens a PR. P-3 is never reopened.*
 
-Then merge it and run the next phase to get P-6.
+Then run the next phase to get P-6 — merging P-8's PR first if you want it off the stack.
 
 **A change that touches nothing** — say a `department` filter the LLD already provides for — is
 just a minor edit; ask for it and the agent does it as `E-1` without any of the above.
@@ -656,7 +660,7 @@ After the final phase is delivered:
 | `PLAN_<App>.md` — remaining phases | Stage 3 | say what you want; the agent re-slices | **Stage 4 Step 0c re-slices remaining phases with your approval**; statuses and test-guide fixes |
 | `FEATURE_STATUS.md` | Stage 3 | **no hand-editing** — say "accept P-2" / "search works" | Stage 4 updates rows in place; rows **never deleted**, file **never regenerated** |
 | `HOW_TO_RUN.md` (one file) | Stage 4 | no | only when building/running/configuring the app changes |
-| `state.json` phases[] | Stage 3 (init) | **no hand-editing** | status (forward only), branch, PRs, `mergedUtc` |
+| `state.json` phases[] | Stage 3 (init) | **no hand-editing** | status (forward only), branch, PRs |
 | `state.json` edits[] | Stage 4 | **no hand-editing** | appends each **minor** edit; same lifecycle as a phase |
 | `state.json` changeLog[] | Stage 0 (init) | tell it what you changed | your notes, reconciliations, review findings (append-only) |
 | `state.json` reviews[] | Review stage | no | Review appends |

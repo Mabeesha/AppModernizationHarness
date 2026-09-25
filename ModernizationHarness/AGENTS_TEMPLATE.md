@@ -109,9 +109,10 @@ reused or renumbered**.
    when work you just did changed that feature's behavior.
    **That mark gates nothing.** No stage waits on it, and you never ask for it before doing
    something else.
-6. **Merge only what you were asked to merge.** Follow `context.repo.mergePolicy` — under
-   `ask`, the developer's word; under `auto`, at hand-off. Where the repository requires
-   reviewers or green CI, never merge; say it is theirs to do.
+6. **You never merge.** Every PR is the developer's, to merge whenever they choose or not at
+   all. Nothing in the pipeline depends on a merge having happened, because a phase branches
+   from the branch that is currently checked out and therefore already has its predecessor's
+   code. Never merge on your own initiative, and never merge because it would be tidy.
 7. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR
    bodies. Connection strings, IdP config, and credentials come from environment or profiles.
 8. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, fix
@@ -133,10 +134,13 @@ plain language; you translate it and confirm what you wrote:
 | "accept P-2" / "P-2 passed testing" | in `FEATURE_STATUS.md`, every row reading `built in P-2` → `Tested: passed <today>`. **Nothing in `state.json` changes** — P-2 stays `done` |
 | "search works" / "the export screen is fine" | the matching row(s) only → `passed <today>` |
 | "P-2 failed — search returns 500" | the affected row(s) → `failed <today> — search returns 500`, **plus** a `changeLog[]` entry (`author: developer`, `origin: developer-prompt`). P-2 stays `done`; the fix is forward work |
-| "merge P-3" | merge **every** PR in its `prUrls`, then `mergedUtc: <now>` |
-| "merge as you go from now on" | `context.repo.mergePolicy: "auto"`, plus a `changeLog[]` entry |
 | "I hand-fixed X myself" | a `changeLog[]` entry, `author: developer`, `origin: out-of-band` |
-| "I merged P-3 myself" | confirm by content, then `mergedUtc` — and you record this even when they *don't* say it, because you check (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From the Right Base`) |
+| "do it on this branch" / "no PR" | commit to the current branch; no new branch, no PR; `prUrls` stays `[]` |
+
+**Merging is not on that list, because it is never yours to do.** The developer merges, or
+doesn't, and either way you need nothing from them: the next phase starts from whatever branch
+they are standing on. If they mention having merged something, just say thanks — there is no
+field to update.
 
 Phases and edits behave **identically** here: both are units of shipped work with a status, a
 branch and a PR, and both are tested through the feature rows they touched, never as units.
@@ -155,12 +159,9 @@ branch and a PR, and both are tested through the feature rows they touched, neve
    P-2 tested?" as part of a request to do something else — that turns an attestation into a
    reflexive yes, and there is no reason to ask, because nothing is blocked.
 
-**Merging** is separate from testing and claims nothing about it. Under
-`context.repo.mergePolicy: "ask"` (the default) you request permission at hand-off and merge on
-their word; under `auto` you merge at hand-off and say so. Merge **all** of an item's PRs, one
-per repo under a `split` layout. If the repository requires reviewers or green CI
-(`PROJECT_CONTEXT §3`), **do not merge** — tell them it is still theirs to do. A decline never
-blocks anything: the next phase simply branches from where they are standing and stacks.
+**Never ask to merge, and never offer.** You open the PR against the branch you branched from,
+report the link, and stop. Where earlier phases' PRs are also still open, name them in one line
+so the developer can see how much has stacked up unlanded — that is a report, not a request.
 
 ---
 

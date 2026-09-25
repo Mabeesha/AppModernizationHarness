@@ -16,7 +16,7 @@ every increment.
                                                                     ▼
                         ┌──────────────────────────────────► [4] build one phase
                         │                                           │
-                        └── merge, next phase ◄──────────────────────┘
+                        └── next phase ◄─────────────────────────────┘
                                     ├─► you test whenever you like
                                     └─► [5] review (separate chat, optional)
 ```
@@ -155,16 +155,17 @@ run stage 4
 ```
 
 Branching and opening a PR is built in — you don't ask for it. It branches from **whatever
-branch you're standing on** and targets the PR at it, so if you don't merge, the next phase
-just stacks on top. The agent builds the phase, opens the PR, asks whether to merge, and
-**stops**. Then you:
+branch you're standing on**, points the PR back at that branch, leaves you on the new branch,
+and **stops**. **It never merges** — every PR is yours. Then you:
 
-1. **Merge it** — say `merge P-1`, or do it yourself in the web UI; the agent notices either
-   way. (Say `merge as you go from now on` and it stops asking.)
-2. **Run the next phase whenever you want.** Nothing waits on you having tested anything.
+1. **Merge it, or don't.** Nothing waits on it. If you leave the PR open, the next phase simply
+   continues from this branch; merge it and check out your base branch, and the next phase starts
+   from there instead. Either way the code is where the next phase needs it.
+2. **Run the next phase whenever you want.** Nothing waits on you having tested anything either.
 3. **Test when it suits you** — open `FEATURE_STATUS.md`, walk the rows that say `untested`,
    and use `HOW_TO_RUN.md` to get the app running. Every hand-off report tells you how many
-   features are waiting and which ones this phase put back on the list.
+   features are waiting, which ones this phase put back on the list, and which earlier PRs are
+   still open.
 4. **Say one of these when you have tested:**
 
    | | |
@@ -211,6 +212,11 @@ exactly one extra prompt.
 
 - **Never edit `state.json` or `FEATURE_STATUS.md` by hand.** Just say what happened —
   "accept P-2", "search works", "P-2 failed" — and the agent writes it.
+- **Merging is entirely yours.** The agent never merges, so untested code only reaches `main`
+  if you put it there. The flip side: if you never merge, phases stack as a chain of open PRs
+  and you land them bottom-up later. Watch the open-PR line in each report.
+- **Want the change on the branch you're on?** Say *"do it on this branch"* — no new branch, no
+  PR, just commits where you are.
 - **"accept" records testing; it unblocks nothing.** You can accept several at once when you
   name them. What gets challenged is the vague version — "accept everything so far" — which
   usually means nothing was tested; the agent turns it into the explicit list and asks you to

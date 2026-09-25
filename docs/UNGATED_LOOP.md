@@ -45,12 +45,14 @@ fast pipeline with good instruments.
 | **UL-4** | **`accept P-N` ticks rows; it gates nothing.** Per-feature marking is also allowed | Restores an honest use for the word. Partial results ("search works, export doesn't") become expressible |
 | **UL-5** | **A later phase or edit that changes a feature resets that row to untested** | Otherwise the record lies. This is the thing phase-level acceptance structurally could not do |
 | **UL-6** | **A reported failure never rewinds a status.** It marks the row failed and becomes forward work | The last backwards transition in the system. Fixes are planned from now on, like every other change |
-| **UL-7** | **Merge at hand-off, on the developer's permission** (`context.repo.mergePolicy`: `ask` or `auto`, default `ask`) | Acceptance was what merged the PR; removing it leaves merging with no trigger, and the next phase with no base. Permission costs one word and claims nothing about testing |
+| **UL-7** | **The agent never merges.** Every PR is the developer's, to merge whenever they choose or not at all | Acceptance used to trigger the merge, and removing it appeared to leave the next phase with no base — which is why an earlier draft of this change invented a merge-at-hand-off permission step. UL-12 makes that unnecessary: a phase starts from the branch where the previous phase's code already is, so **no merge is needed for the pipeline to function.** Merging drops out of the harness entirely, and with it `mergePolicy`, `mergedUtc` and the permission question |
 | **UL-8** | **Git is the truth; `state.json` is a cache.** Presence is checked by **content**, never by branch-merge status | The developer may merge or edit outside the harness, and should not have to report it. Squash and rebase merges make branch-based checks answer "not merged" when every line is in fact present. The harness already says this for the predecessor check; it just needs extending to merges the agent did not perform |
 | **UL-9** | **`HOW_TO_RUN.md`** (renamed from `HOW_TO_TEST.md`) — how to build and run the app, plus light testing orientation. Updated only when running the app changes | Removes a duplicated document and a rewrite-from-scratch at every hand-off. Testing detail moves next to the tick box, in `FEATURE_STATUS.md` |
 | **UL-10** | **Review reports; it never blocks.** No `reviewStatus`, no `remediated`, no `wholeBuild` object | The gate only ever fired for a developer who voluntarily ran Review. Findings still survive, via the change log the next run reconciles — the gate only changed *when* they were fixed, not *whether* |
 | **UL-11** | **Every hand-off report carries two counts**: features awaiting testing, and open review findings | With no gates, visibility is the whole defence. Two numbers, always in front of the developer |
-| **UL-12** | **Branch from the current branch; the PR targets it.** The agent names the branch and what it contains, in one line, before it starts | The developer's git state becomes the instruction, so nothing needs configuring. Merging returns them to the base branch and the next phase starts clean; not merging leaves them on the phase branch and the next phase stacks — automatically, with no rule about stacking and nothing stalled |
+| **UL-12** | **Branch from the current branch, PR back at it, leave the developer on the new branch.** The agent names the branch and what it contains, in one line, before it starts | The developer's git state becomes the instruction, so nothing needs configuring. Whether they merged decides what happens next, with no rule about it: merged and standing on `dev` → the next phase starts clean; not merged → the next phase continues from the phase branch and stacks. Either way the predecessor's code is present, which is what makes UL-7 possible |
+| **UL-13** | **`prTarget` stays as a human note that no rule reads** | Where work lands is decided by the branch the developer stands on, not by a field. An earlier draft of §12 claimed setting `prTarget` kept `main` clean — it never could, once UL-12 replaced it. Keeping the field documents intent; reading it would resurrect the setting UL-12 removed |
+| **UL-14** | **"Work on this branch" is supported: no new branch, no PR** | Sometimes the developer wants the change where they are standing. Everything else is unchanged; `prUrls` stays `[]` and the PR body's history moves into the commit messages |
 
 ## 4. Documents after the change
 
@@ -69,12 +71,12 @@ Stage 4 at hand-off and by the developer's word.
 
 | Column | Values |
 |---|---|
-| `id` | requirement ID / design element |
-| `feature` | one line, what it does |
-| `how to check` | 1–3 concrete lines: URL / command / expected result |
-| `phase(s)` | every phase and edit that built or changed it |
-| `build` | `unscheduled`, `scheduled in P-N`, or `built in P-N` |
-| `tested` | `untested`, `passed <date>`, or `failed <date> — <symptom>` |
+| `ID` | requirement ID / design element |
+| `Feature` | one line, what it does |
+| `How to check` | 1–3 concrete lines: URL / command / expected result |
+| `Phase(s)` | every phase and edit that built or changed it |
+| `Build` | `unscheduled`, `scheduled in P-N`, or `built in P-N` |
+| `Tested` | `untested`, `passed <date>`, or `failed <date> — <symptom>` |
 
 Rules:
 
@@ -129,38 +131,39 @@ sequenceDiagram
     A->>S: status=done, branch, prUrls
     A->>F: rows built in P-3; rows P-3 changed reset to untested
     A->>G: push + open PR targeting the branch it came from
-    A-->>D: report + 2 counts + "may I merge P-3?"
-    opt mergePolicy = ask
-        D->>A: "merge P-3"
-    end
-    A->>G: merge
-    A->>S: mergedUtc
+    A-->>D: report + 2 counts + PR link (+ any other open PRs)
+    Note over D,G: the developer merges whenever they choose, or not at all
     Note over D,F: testing happens whenever — "accept P-3" ticks rows, gates nothing
 ```
 
-**Branching.** Three lines, no configuration:
+**Branching — the whole rule, four lines, no configuration:**
 
-1. **Branch from the current branch; the PR targets it.** Per repo under a `split` layout.
-2. **Check by content that the predecessor's work is present, and report it** — one line, every
-   run: *"Branching P-3 from `phase/P-2`. Contains P-2's work. (note: `dev` has 2 commits not in
-   this branch.)"* The agent only stops if that work is **missing**, and then it asks rather
-   than refuses.
-3. **At hand-off it asks to merge.** Yes → the developer lands back on the base branch and the
-   next phase starts clean. No → they stay on the phase branch and the next phase stacks.
+1. **Read the branch that is currently checked out**, and name it in the report.
+2. **Branch from it**, do the work, and **open the PR back at it.** Per repo under a `split`
+   layout.
+3. **Leave the developer on the branch created**, and stop. **Never merge.**
+4. **Unless they said to work on the current branch** — then no branch, no PR; commit there.
 
-Nothing stalls, nothing is invented, nothing is configured. `context.repo.prTarget` stops being
-a rule the instructions read; it stays as a human-facing note about where work eventually lands.
+Alongside step 1, check **by content** that the predecessor's work is present and say so in one
+line: *"Branching P-3 from `phase/P-2`. Contains P-2's work. (Note: `dev` has 2 commits not in
+this branch.)"* The agent stops only if that work is **missing**, and then it asks rather than
+refuses — it never silently rebuilds.
 
-**Merging.** Under `ask`, the agent requests permission in its hand-off report and again at the
-start of the next run if still unmerged; declining is not a blocker, it just means the next phase
-stacks. Under `auto`, it merges at hand-off without asking. The existing exception is unchanged:
-where the repository requires reviewers or green CI, the agent does not merge and says the merge
-is the developer's.
+**Why no merge is needed.** The next phase starts from the branch where the previous phase's code
+already is. So an unmerged PR costs the pipeline nothing: if the developer merged and is standing
+on `dev`, the next phase starts clean; if they didn't, it continues from the phase branch and
+stacks. Merging is housekeeping the developer does on their own schedule, and the harness holds
+no state about it.
 
-**Merged or changed outside the harness.** The agent checks the branch by content, records what
-it finds (`mergedUtc`, or a change-log entry with `origin: out-of-band`), reconciles any code it
-did not write, and continues. The developer never has to report their own actions. If built work
-is **missing**, the agent stops and asks — it never silently rebuilds.
+**What that costs.** Never merging means phases can stack into a chain of open PRs, landed later
+bottom-up. The only mitigation is visibility: the hand-off report names the other phases whose
+PRs are still open. There is no setting for this — `context.repo.prTarget` records where work is
+headed and **no rule reads it**.
+
+**Changed outside the harness.** The developer may merge, hand-fix a file, or resolve a conflict
+without telling anyone; nothing needs keeping in step, because nothing records merges. The agent
+still notices code it did not write, logs it (`origin: out-of-band`), and reconciles it at
+Step 0b.
 
 ## 8. Review after the change
 
@@ -178,10 +181,13 @@ existing `lastProcessedReviewNumber` high-water mark. Nothing is blocked.
 ## 9. `state.json` changes
 
 - `phases[].status` / `edits[].status`: drop `accepted`, leaving `pending | in progress | done`
+- `reviews[].result`: `pass | changes-requested` → **`clean | findings`**, since a review is no
+  longer a verdict on a target
 - **Removed:** `acceptedUtc`, `reviewStatus` (all three locations), the `wholeBuild` object
-- **Added:** `mergedUtc` on `phases[]` and `edits[]`; `context.repo.mergePolicy`
-- **Unchanged:** `changeLog[]`, `reviews[]`, `progress` high-water marks, constraints, permanent
-  IDs, append-only rules
+- **Added:** nothing. `prUrls` may now legitimately be `[]` (the no-PR case, UL-14), and
+  `context.repo.prTarget` survives as a note no rule reads (UL-13)
+- **Unchanged:** `changeLog[]` (including its `origin` values), `progress` high-water marks,
+  constraints, permanent IDs, append-only rules
 
 ## 10. What this supersedes
 
@@ -191,7 +197,7 @@ existing `lastProcessedReviewNumber` high-water mark. Nothing is blocked.
 | `DESIGN.md` DD-6 | retrofit, never reopen `accepted` | retrofit, never reopen `done` |
 | `DESIGN.md` DD-9 | one `HOW_TO_TEST.md`, regenerated each hand-off | `HOW_TO_RUN.md` + `FEATURE_STATUS.md` |
 | `DESIGN.md` §7 | the review gate | deleted; Review reports |
-| `REQUIREMENTS.md` R4.2, R4.3 | only the developer sets `accepted`; next phase blocked | deleted; R4.1 survives |
+| `REQUIREMENTS.md` R4.2, R4.3 | only the developer sets `accepted`; next phase blocked | **the IDs were reused, not retired** — R4.1 survives unchanged, and R4.2–R4.4 now state forward-only status, per-feature testing, and that a tested mark blocks nothing. An old reference to "R4.2" silently reads a different rule |
 | `REQUIREMENTS.md` R5.1 | accepted phases drop to a Completed line | `done` phases do |
 | `REQUIREMENTS.md` R8.3, R8.4 | Blockers gate; cleared by `remediated` | severities are information; findings ride the change log |
 | `REQUIREMENTS.md` R10.2–R10.4 | one regenerated `HOW_TO_TEST.md` with Regression | `HOW_TO_RUN.md` + per-feature checks |
@@ -205,24 +211,32 @@ two-prompt flow (DD-7); `AGENTS.md` always loaded (DD-8); Review as a separate r
 
 | File | Work |
 |---|---|
-| `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | schema edits per §9; constraint-retrofit paragraph keys on `done`; add `mergePolicy`; documents list |
+| `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | schema edits per §9; constraint-retrofit paragraph keys on `done`; `prTarget` marked as read by nothing |
 | `3_PLAN_INSTRUCTIONS.md` | delete §Two-Tier Acceptance; move Coverage Matrix out to `FEATURE_STATUS.md`; §2 Completed keys on `done`; fix "non-`accepted`" in §Refreshing; checklist items |
-| `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | remove entry gate and Blocker scan; merge at hand-off + permission; rewrite §Starting From the Right Base — branch from current, PR targets it, content check **reported not gated**, `prTarget` demoted from a rule to a note; §Recording Developer Decisions → ledger marking; Step 2.3 → `HOW_TO_RUN.md` + rows; two counts in the report; Definition of Done |
+| `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | remove entry gate and Blocker scan; rewrite §Starting From the Right Base as the four-line rule (branch from current, PR back at it, never merge, plus the no-PR case), content check **reported not gated**; delete the merge block from §Git Discipline; §Recording Developer Decisions → ledger marking; Step 2 → `FEATURE_STATUS.md` + `HOW_TO_RUN.md`; two counts and the open-PR line in the report; Definition of Done |
 | `5_REVIEW_INSTRUCTIONS.md` | target any built work; verdict → report with coverage and untested sections; stop writing `reviewStatus` |
-| `AGENTS_TEMPLATE.md` | rule 4; rewrite §Recording What the Developer Tells You (table, guards, merging) |
+| `AGENTS_TEMPLATE.md` | invariants 4–6 (forward-only status, who authorizes a tested mark, never merge); rewrite §Recording What the Developer Tells You (table, guards) |
 | `docs/DESIGN.md` | supersede DD-4/6/9, delete §7, add UL decisions, update the three diagrams and §9 |
 | `docs/REQUIREMENTS.md` | R4, R5.1, R8.3–8.4, R10.2–10.4 |
 | `README.md`, `DEVELOPER_GUIDE.md`, `USE_CASES.md`, `examples/INTAKE_EXAMPLE.md` | 25 `HOW_TO_TEST` references; acceptance narrative throughout |
+| **`eval/`** | **Not Markdown, and therefore missed on the first pass.** `evalkit/checks/references.py` `RUNTIME_ARTIFACTS` (drop `HOW_TO_TEST.md`, add `HOW_TO_RUN.md` and `FEATURE_STATUS.md`) and `evalkit/vocab/status_values.txt` (drop `accepted`/`pass`/`changes-requested`, add the new values). The eval harness reads the instruction set **mechanically**, so a rename it does not know about produces a page of false blockers |
+
+> **Lesson for the next change of this size:** grep the whole repo, not `--include=*.md`. Two
+> Python files consume these documents as data, and every verification sweep on the first pass was
+> scoped to Markdown. A stage's declared outputs are also machine-checked — `FEATURE_STATUS.md`
+> had to be declared as a Stage 3 **Output**, in those words, or checks C/D report three stages
+> consuming a document nothing produces.
 
 ## 12. Trade-offs accepted
 
 - **No hard gates remain.** Nothing prevents a bad build from growing except the developer
   reading the reports. Defensible for a modernization build with one user and nothing deployed;
   it would not be for a team shipping to production.
-- **The base branch contains untested code.** The "just don't merge it" escape disappears: by
-  the time a bad phase is discovered, later phases sit on top of it and the only way out is
-  forward. Largely mitigated by pointing the work at an integration branch (`prTarget: dev`), so
-  untested code never reaches `main` until the developer sends it there.
+- **Untested code reaches a branch only when the developer merges it there.** The agent never
+  merges (UL-7), so nothing lands on `main` without a human clicking Merge — there is no
+  agent-side protection to rely on and no setting that changes this. The mirror-image cost is
+  that never merging leaves a chain of open PRs to land bottom-up later. The hand-off report
+  naming the other open PRs is the whole of the visibility.
 - **Two counts are the whole warning system.** They must appear in every hand-off report, or
   "no gates" becomes "no idea".
 - **Prompt-only enforcement**, as before. Nothing validates `state.json` or the ledger.

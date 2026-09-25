@@ -25,13 +25,13 @@ cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
 behave** — and it's the easiest to skip, because nothing visibly breaks when you do.
 
 Here's why it matters. Every rule in the six stage files applies **only while you are explicitly
-running that stage**. The moment you're just chatting — *"merge P-2"*, *"add a department
+running that stage**. The moment you're just chatting — *"accept P-2"*, *"add a department
 filter"*, *"why is this test failing?"* — not one of them is loaded. `AGENTS.md` is the file the
 agent reads in **every** session, and it carries the things that have to hold everywhere:
 
 | What it carries | Scenarios that depend on it |
 |---|---|
-| **The recording protocol** — what `accept P-3`, `merge P-3` and `P-3 failed` each mean | 2, 4 |
+| **The recording protocol** — what `accept P-3` and `P-3 failed` each mean | 2, 4 |
 | **The routing rule** — what happens when an agent is about to edit code or a pipeline document outside a stage run | 5, 6, 18, 19 |
 | **The out-of-band recording rule** — your hand-fixes get logged | 18 |
 | **The invariants** — legacy read-only, append-only history, forward-only status, only you authorize a tested mark, merge only what you were asked to, no secrets, templates are inputs, never mutate a reused schema | all of them |
@@ -69,7 +69,8 @@ behind the scenes, and what is true afterwards. Prompts are copy-paste ready.
 |---|---|
 | Starting a brand-new project | Copy `AGENTS.md` and `INTAKE.md` into place, then run Stages 0→3 once each |
 | Build the next planned increment | `run stage 4` |
-| Merge the phase you just got | `merge P-3` — or merge it yourself; it notices |
+| Merge the phase you just got | Nothing to send — the PR is yours, merge it or leave it |
+| Work on the branch you're on | `…do it on this branch, no PR` |
 | You tested it and it works | `accept P-3` — or `accept P-3, P-4` — or `search works` |
 | You tested it and it's broken | `P-3 failed — the search box returns 500` |
 | You want a small tweak | Just describe it. The agent decides if it's a minor edit. |
@@ -126,28 +127,34 @@ telling you what was built, how to run it, **which ledger rows this phase put at
 
 ---
 
-## Scenario 2 · Merge it, and record your testing
+## Scenario 2 · Merging, and recording your testing
 
 Two separate things, and **neither one blocks anything**.
 
-### Merging
+### Merging — entirely yours
 
-**Situation:** P-3 landed and you want it in your branch.
+**Situation:** P-3 landed and its PR is open, pointing at whatever branch you were standing on.
+
+**There is no prompt for this.** The agent never merges. You click Merge in the web UI whenever
+you like, or you don't. Squash, rebase or merge commit — all fine; the agent looks for the *code*
+on the branch, not for a merge commit, so nothing gets confused.
+
+**And nothing waits on it.** Leave the PR open and the next phase branches from this branch and
+continues from here. Merge it and check out your base branch, and the next phase starts from
+there. **Either way the next phase has P-3's code** — which is exactly why no merge is needed.
+
+**The cost of never merging** is a chain: P-4 pointing at P-3's branch, P-5 at P-4's, and so on.
+They land bottom-up when you get to them. Each hand-off report names the other phases whose PRs
+are still open, so you can see how tall the stack has grown.
+
+### Want it on the branch you're already on?
 
 ```
-merge P-3
+Add the department filter — do it on this branch, no PR.
 ```
 
-It merges every PR for that phase (one per repo under a `split` layout) and records `mergedUtc`.
-Or just merge it yourself in the web UI — the agent checks the branch **by content** on the next
-run and records what it finds, so you never have to tell it. Squash and rebase merges are fine:
-it looks for the code, not for a merge commit.
-
-Tired of being asked? **`merge as you go from now on`** switches `context.repo.mergePolicy` to
-`auto`. If your repo requires reviewers or green CI, the merge is always yours.
-
-**Declining is fine too.** Say nothing, or say no, and the next phase simply branches from the
-branch you're standing on and **stacks** on top. Nothing stalls.
+Then there's no new branch and no PR: commits land where you are standing, `prUrls` stays empty,
+and the history that would have gone in the PR body goes into the commit messages instead.
 
 ### Recording that you tested something
 

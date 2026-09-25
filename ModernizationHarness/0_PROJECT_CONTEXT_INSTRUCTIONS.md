@@ -488,8 +488,7 @@ empty:
     "repo": { "layout": "single | split", "release": "together | independent",
               "frontendRoot": "<path within its repo, or null — then Design fixes it>",
               "backendRoot": "<path within its repo, or null — then Design fixes it>",
-              "branchNaming": "", "prTarget": "", "mergePolicy": "ask | auto",
-              "conventions": "" },
+              "branchNaming": "", "prTarget": "", "conventions": "" },
     "referenceImplementations": [
       { "area": "<deployment | auth | file-transfer | logging | api-envelope | integration | …>",
         "path": "<path>", "mode": "reference | literal",
@@ -520,15 +519,13 @@ Field notes (the later stages depend on these; keep them exact):
   made **only in this stage**. Stages 2–4 read them to shape the internal API contract and the
   branch/PR flow; none of them decide or override. Changing either is a rerun of this stage
   plus a `changeLog` entry naming the downstream docs it invalidates.
-- **`repo.prTarget` / `repo.mergePolicy`** — `prTarget` names the branch the work is ultimately
-  for (e.g. `dev`, or the repository's default branch). It is a **note for humans and for PR
-  bodies, not a rule an agent reads to pick a base** — the Implement stage branches from the
-  branch that is currently checked out (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From
-  the Right Base`). Pointing `prTarget` at an integration branch is the cheapest way to keep
-  untested work away from `main`.
-  `mergePolicy` is `ask` (default — the agent requests permission at hand-off and merges on the
-  developer's word) or `auto` (it merges at hand-off without asking). Under either, where the
-  repository requires reviewers or green CI, the agent does not merge and says so.
+- **`repo.prTarget`** — the branch the work is ultimately for (e.g. `dev`, or the repository's
+  default branch). **Nothing reads it.** It is a note for humans and for PR bodies only: the
+  Implement stage branches from the branch that is currently checked out and points the PR back
+  at that same branch (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From the Right Base`),
+  and it never merges. Keep the field because it tells a reader where work is headed; never
+  write a rule that depends on it. If untested work should stay off `main`, the developer keeps
+  an integration branch checked out — that, not this field, is what decides where work lands.
 - **`repo.frontendRoot` / `repo.backendRoot`** — where each part's tree lives inside its repo.
   Set here when the developer states them; otherwise `null`, and **Stage 2 fixes them in the
   LLD source-tree section**, after which Stages 3–4 build to that and nothing invents a
@@ -550,7 +547,7 @@ Field notes (the later stages depend on these; keep them exact):
   increments each time a stage is rerun with additional instructions. For `plan`, it counts
   **substantive refreshes only** — a Step 0c check that left the phase list unchanged is not a
   rerun and writes nothing.
-- **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "mergedUtc": "<or null>", "notes": "" }`.
+- **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "notes": "" }`.
   - **Status moves forward only:** `pending` → `in progress` → `done`. There is no `accepted`
     status and nothing rewinds — **what is built is built.** A phase the developer reports as
     broken keeps its `done` status; the failure is recorded in `FEATURE_STATUS.md` and fixed as
@@ -560,17 +557,17 @@ Field notes (the later stages depend on these; keep them exact):
     entry. IDs therefore stop matching execution order — the plan document holds the order.
   - `branch` / `prUrls` are written by the Implement stage so the work is findable later.
     `prUrls` is **always an array** — one element under a `single` layout, one per repo under
-    `split`. Never a bare string, so nothing downstream has to test its shape.
-  - `mergedUtc` records when the work reached the branch it targeted, whoever merged it. It is a
-    **convenience, not an authority**: git is the truth, so a stage that needs to know whether
-    work is present checks the branch **by content** and corrects this field if it disagrees
-    (see `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From the Right Base`).
+    `split`, and **empty where the developer asked for no PR**. Never a bare string, so nothing
+    downstream has to test its shape.
+  - **No stage records whether work was merged, and no stage depends on it.** A phase's branch
+    starts from the branch that is currently checked out, so the predecessor's code is there
+    whether or not anything was merged. Presence is always checked **by content**.
   - **Whether a human has tested a phase's work is not recorded here.** That belongs to
     `FEATURE_STATUS.md`, per feature, because a later phase can change what an earlier one
     delivered and a phase-level mark cannot express that.
 - **`edits[]`** — **minor** edits, created by the Implement stage: changes that touch no
   requirement, design contract, or plan scope (a config value, a label, an obvious bug fix).
-  Anything that touches a contract is a doc change followed by a **phase**, not an edit. Each: `{ "id": "E-1", "utc": "...", "summary": "...", "afterPhase": "P-2", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "mergedUtc": "<or null>", "notes": "" }`.
+  Anything that touches a contract is a doc change followed by a **phase**, not an edit. Each: `{ "id": "E-1", "utc": "...", "summary": "...", "afterPhase": "P-2", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "notes": "" }`.
   An edit is a **reviewable unit in its own right** — it ships code, so it can be a Review
   target exactly like a phase. Its lifecycle fields behave exactly as a phase's do, including
   forward-only status and `FEATURE_STATUS.md` owning whether a human tested it.
@@ -597,7 +594,7 @@ Only ever **append** to `changeLog` and `reviews`; never rewrite history. Correc
 mistaken entry by appending a new one that supersedes it.
 
 `edits[]` is different: entries are appended and never deleted or renumbered, but an entry's
-lifecycle fields (`status`, `branch`, `prUrls`, `mergedUtc`) are **updated in
+lifecycle fields (`status`, `branch`, `prUrls`) are **updated in
 place**, exactly as a `phases[]` entry's are. An edit is a unit of shipped work, not a history
 record — see `AGENTS.md §Recording What the Developer Tells You`, which is normative for these
 writes.
@@ -670,7 +667,7 @@ actually changed.
 - [ ] The constraint set is written with stable IDs, in both `PROJECT_CONTEXT.md` and
   `state.json`.
 - [ ] `state.json` is initialized per schema, with `phases`, `edits`, `changeLog` and `reviews`
-  empty, and `repo.mergePolicy` set (`ask` unless the developer chose otherwise).
+  empty.
 - [ ] Defaults and inferences are marked `ASSUMPTION:`; unresolved non-blockers are
   `OPEN QUESTION:`.
 - [ ] Every defaulted/inferred answer is listed explicitly in the hand-off report for the

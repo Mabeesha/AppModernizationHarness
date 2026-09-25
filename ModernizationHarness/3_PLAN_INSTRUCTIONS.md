@@ -6,6 +6,18 @@ You are a **delivery planner / tech lead**. Given the requirements and design do
 produce a **phased, incremental implementation plan** for the target stack fixed in
 `PROJECT_CONTEXT.md`.
 
+You produce **two artifacts**:
+
+1. **`PLAN_<AppName>.md`** — the phases, their tasks, developer test guides and exit criteria.
+   Rebuilt on every refresh; it covers remaining work only.
+2. **`FEATURE_STATUS.md`** — the coverage ledger: one row per requirement or design element,
+   how to check it, which phase(s) built it, and whether the developer has tested it. You
+   **create** it on the first run; every later run and every later stage updates rows in place
+   and never regenerates it. Stages 4 and 5 both read it, so a first run that skips it leaves
+   the rest of the pipeline with nothing to update.
+
+You also populate `state.json phases[]`.
+
 > **The plan covers remaining work only.** It is a rolling forecast, not a fixed schedule
 > written once. On the first run, "remaining" is everything. On every later run it is whatever
 > is **not yet built** — and the plan is **expected** to change as the design moves, reviews
@@ -228,7 +240,7 @@ non-functional verification.
 Produce the document per the template below, decomposing each phase into right-sized,
 dependency-ordered tasks. **Then write the phase list into `state.json` `phases[]`** — one
 entry per phase, all `status: "pending"`, `branch: null`,
-`prUrls: []`, `mergedUtc: null`. The
+`prUrls: []`. The
 plan document holds the *content*; `state.json` holds the *status and lineage*.
 
 **Then write `FEATURE_STATUS.md`** (§`FEATURE_STATUS.md` below) — one row per requirement ID /
@@ -242,7 +254,7 @@ exists.
 
 ---
 
-## Output Format
+## Output 1 — `PLAN_<AppName>.md`
 
 Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 
@@ -294,9 +306,9 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 
 ---
 
-## `FEATURE_STATUS.md`
+## Output 2 — `FEATURE_STATUS.md`
 
-The coverage ledger. Saved beside the plan, in the documents location. **You create it on the
+The coverage ledger. Save as `FEATURE_STATUS.md`, beside the plan, in the documents location. **You create it on the
 first run and never regenerate it afterwards** — later runs and later stages update rows in
 place. It is feature-keyed rather than phase-keyed, because a later phase can change what an
 earlier one delivered and a phase-level record cannot express that.
@@ -424,8 +436,13 @@ not a reopened one. Plan the retrofit like any other phase:
 
 ### Bookkeeping
 
-Update `PLAN_<AppName>.md` (§1, §2, §3, §5, §7 as applicable) and re-sync `phases[]` per
-Step 3. Add a §3 Plan Revision History row and a `changeLog` entry noting the re-slice, and
+Update `PLAN_<AppName>.md` (§1, §2, §3, §5 as applicable) and re-sync `phases[]` per
+Step 3. **Then re-point `FEATURE_STATUS.md`:** every row reading `scheduled in P-N` whose phase
+this refresh **dropped or resequenced** must move to the phase that will now deliver it, or to
+`unscheduled` with a reason in §6. A row pointing at a phase that no longer exists is the one
+way a refresh can quietly lose coverage. **Never touch a `Tested` value** while doing this — that
+column is the developer's, and a re-slice says nothing about what they have run.
+Add a §3 Plan Revision History row and a `changeLog` entry noting the re-slice, and
 increment `stages.plan.rerunCount`. **A "no change" refresh writes none of these** — it is not
 a revision, and recording it would bury the real ones.
 
@@ -465,11 +482,13 @@ and to a whole-build review.
 - [ ] **Exit criteria are mechanical/falsifiable** for every phase — they are the only gate.
 - [ ] Each task has scope, "done when" conditions, and a verification step.
 - [ ] `state.json phases[]` is populated, every field initialized per the schema (all
-      `pending`; `branch` and `mergedUtc` null, `prUrls` empty). On a
+      `pending`; `branch` null, `prUrls` empty). On a
       refresh, existing non-`pending` entries are left untouched.
 - [ ] Risks and open questions listed, not silently resolved.
 - [ ] **No phase ID was reused or renumbered**; new phases took the next unused numbers.
 - [ ] `done` phases were moved to §2 Completed and removed from §5, not re-planned.
+- [ ] **No `FEATURE_STATUS.md` row points at a phase this refresh dropped** — each was
+      re-pointed or moved to `unscheduled` with a §6 reason; no `Tested` value was touched.
 - [ ] On a refresh that changed the phase list: §3 Plan Revision History row added,
       `changeLog` entry appended, `stages.plan.rerunCount` incremented. On a "no change"
       refresh: none of these written, and "plan unchanged" reported.
