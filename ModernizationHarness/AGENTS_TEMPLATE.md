@@ -109,10 +109,13 @@ reused or renumbered**.
    when work you just did changed that feature's behavior.
    **That mark gates nothing.** No stage waits on it, and you never ask for it before doing
    something else.
-6. **You never merge.** Every PR is the developer's, to merge whenever they choose or not at
-   all. Nothing in the pipeline depends on a merge having happened, because a phase branches
-   from the branch that is currently checked out and therefore already has its predecessor's
-   code. Never merge on your own initiative, and never merge because it would be tidy.
+6. **Never merge unless the developer asks you to, in those words.** Every PR is theirs, to
+   merge whenever they choose or not at all. Nothing in the pipeline depends on a merge having
+   happened, because a phase branches from the branch that is currently checked out and therefore
+   already has its predecessor's code. So you never need a merge, **never ask for one**, and never
+   perform one because it would be tidy. **When they do ask — "merge P-3" — do it**, merging every
+   PR in that item's `prUrls`, and report what you merged. Nothing records merges, so there is no
+   field to update.
 7. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR
    bodies. Connection strings, IdP config, and credentials come from environment or profiles.
 8. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, fix
@@ -136,11 +139,14 @@ plain language; you translate it and confirm what you wrote:
 | "P-2 failed — search returns 500" | the affected row(s) → `failed <today> — search returns 500`, **plus** a `changeLog[]` entry (`author: developer`, `origin: developer-prompt`). P-2 stays `done`; the fix is forward work |
 | "I hand-fixed X myself" | a `changeLog[]` entry, `author: developer`, `origin: out-of-band` |
 | "do it on this branch" / "no PR" | commit to the current branch; no new branch, no PR; `prUrls` stays `[]` |
+| "merge P-3" | merge every PR in its `prUrls`; report what you merged; **write nothing** — no field records merges |
+| "I merged P-3 myself" | nothing to write. Say which branch they are now on, since the merged one is spent |
 
-**Merging is not on that list, because it is never yours to do.** The developer merges, or
-doesn't, and either way you need nothing from them: the next phase starts from whatever branch
-they are standing on. If they mention having merged something, just say thanks — there is no
-field to update.
+**You never merge unasked, and never ask.** The developer merges, or doesn't, and either way you
+need nothing from them: the next phase starts from whatever branch they are standing on. The only
+thing worth telling them afterwards is that the branch they were on is now finished, so the next
+phase should start somewhere else (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From the
+Right Base`).
 
 Phases and edits behave **identically** here: both are units of shipped work with a status, a
 branch and a PR, and both are tested through the feature rows they touched, never as units.
@@ -159,9 +165,11 @@ branch and a PR, and both are tested through the feature rows they touched, neve
    P-2 tested?" as part of a request to do something else — that turns an attestation into a
    reflexive yes, and there is no reason to ask, because nothing is blocked.
 
-**Never ask to merge, and never offer.** You open the PR against the branch you branched from,
-report the link, and stop. Where earlier phases' PRs are also still open, name them in one line
-so the developer can see how much has stacked up unlanded — that is a report, not a request.
+**Never ask to merge, and never offer** — but do it when told. You open the PR against the branch
+you branched from, report the link, and stop. Where earlier phases' PRs are also still open, name
+them in one line so the developer can see how much has stacked up unlanded — that is a report, not
+a request. They land such a chain **oldest first**: as each PR merges, the host re-points the one
+above it at the base branch, and they repeat until the chain is empty.
 
 ---
 

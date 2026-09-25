@@ -316,9 +316,10 @@ it:
 | "P-2 failed — search returns 500" | `failed` on the affected rows, plus a `changeLog` entry. The fix is planned forward |
 | "I hand-fixed the connection string" | a `changeLog` entry marked `out-of-band` |
 | "do it on this branch" / "no PR" | commits where you are; no branch, no PR |
+| "merge P-3" | merges its PRs and reports what it merged — nothing is recorded |
 
-**Merging isn't on that list, because it's never the agent's to do.** You merge, or you don't,
-and it needs nothing from you either way.
+**It never merges unless you say so, and never asks.** You merge, or you don't, and it needs
+nothing from you either way.
 
 Accepting several at once is fine **when you name them** — deferring testing is a supported way
 to work. What gets challenged is the vague version: "accept everything so far" usually means
@@ -328,9 +329,11 @@ also won't fold acceptance into another request, because when your mind is on th
 
 **When a phase lands on your desk (`done`):**
 
-1. **Merge it, or don't.** The PR is yours; the agent never touches it. Leave it open and the
-   next phase continues from this branch. Merge it and check out your base branch, and the next
-   phase starts from there. Nothing in the harness cares which you do.
+1. **Merge it, or don't.** The PR is yours; the agent touches it only if you say `merge P-2`.
+   Leave it open and the next phase continues from this branch. **If you do merge — on GitHub or
+   by asking — check out your base branch afterwards**, because GitHub usually deletes the merged
+   branch while your checkout stays on it. The agent catches that and offers the right branch, but
+   switching yourself is one step instead of two. Nothing in the harness cares which you do.
 2. **Carry on, or test — your call.** Running the next phase needs nothing from you but the
    word. When you do want to test: open `FEATURE_STATUS.md`, walk the rows marked `untested`,
    and use `HOW_TO_RUN.md` to get the app up.

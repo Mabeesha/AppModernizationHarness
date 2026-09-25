@@ -212,9 +212,13 @@ exactly one extra prompt.
 
 - **Never edit `state.json` or `FEATURE_STATUS.md` by hand.** Just say what happened —
   "accept P-2", "search works", "P-2 failed" — and the agent writes it.
-- **Merging is entirely yours.** The agent never merges, so untested code only reaches `main`
-  if you put it there. The flip side: if you never merge, phases stack as a chain of open PRs
-  and you land them bottom-up later. Watch the open-PR line in each report.
+- **Merging is yours.** The agent never merges unless you say `merge P-3`, so untested code only
+  reaches `main` if you put it there. The flip side: if you never merge, phases stack as a chain
+  of open PRs — you land those **oldest first**, and GitHub re-points each remaining PR at your
+  base branch as the one below it merges. Watch the open-PR line in each report.
+- **After merging on GitHub, check out your base branch.** GitHub usually deletes the merged
+  branch, but your checkout stays on it — so the next phase would branch off something spent. The
+  agent notices and offers the right branch, but switching first saves the round trip.
 - **Want the change on the branch you're on?** Say *"do it on this branch"* — no new branch, no
   PR, just commits where you are.
 - **"accept" records testing; it unblocks nothing.** You can accept several at once when you

@@ -146,7 +146,12 @@ and anything that modifies the legacy source (read-only in every stage).
   the harness is detected, not reported by the developer.
 - **R11.4** Where the developer asks for the change **on the current branch**, the agent creates
   no branch and opens no PR; `prUrls` stays empty and the PR body's history moves into the commit
-  messages.
+  messages. Under a `split` layout this applies per repo.
+- **R11.5** Before branching, the agent checks whether the current branch is **already merged or
+  deleted on the remote** — the normal state after the developer merges on the host — and proposes
+  the branch it was merged into rather than building on a spent branch.
+- **R11.6** The agent merges **only** on an explicit instruction naming the item. It never merges
+  unasked and never asks for a merge, since nothing depends on one.
 
 ---
 

@@ -69,7 +69,7 @@ behind the scenes, and what is true afterwards. Prompts are copy-paste ready.
 |---|---|
 | Starting a brand-new project | Copy `AGENTS.md` and `INTAKE.md` into place, then run Stages 0→3 once each |
 | Build the next planned increment | `run stage 4` |
-| Merge the phase you just got | Nothing to send — the PR is yours, merge it or leave it |
+| Merge the phase you just got | Merge it yourself, or send `merge P-3`. Then check out your base branch |
 | Work on the branch you're on | `…do it on this branch, no PR` |
 | You tested it and it works | `accept P-3` — or `accept P-3, P-4` — or `search works` |
 | You tested it and it's broken | `P-3 failed — the search box returns 500` |
@@ -131,21 +131,40 @@ telling you what was built, how to run it, **which ledger rows this phase put at
 
 Two separate things, and **neither one blocks anything**.
 
-### Merging — entirely yours
+### Merging — yours, but you can hand it over
 
 **Situation:** P-3 landed and its PR is open, pointing at whatever branch you were standing on.
 
-**There is no prompt for this.** The agent never merges. You click Merge in the web UI whenever
-you like, or you don't. Squash, rebase or merge commit — all fine; the agent looks for the *code*
-on the branch, not for a merge commit, so nothing gets confused.
+**The agent never merges unless you ask.** Click Merge in the web UI whenever you like, or say:
+
+```
+merge P-3
+```
+
+and it will do it and tell you what it merged. What it will never do is merge unasked, or nag you
+about it. Squash, rebase or merge commit — all fine; the agent looks for the *code* on a branch,
+not for a merge commit, so nothing gets confused.
 
 **And nothing waits on it.** Leave the PR open and the next phase branches from this branch and
-continues from here. Merge it and check out your base branch, and the next phase starts from
-there. **Either way the next phase has P-3's code** — which is exactly why no merge is needed.
+continues from here. **Either way the next phase has P-3's code** — which is exactly why no merge
+is needed.
 
-**The cost of never merging** is a chain: P-4 pointing at P-3's branch, P-5 at P-4's, and so on.
-They land bottom-up when you get to them. Each hand-off report names the other phases whose PRs
-are still open, so you can see how tall the stack has grown.
+> ### ⚠ After you merge on GitHub, check out your base branch
+>
+> GitHub usually **deletes the branch** when you merge its PR. Your local checkout stays on that
+> deleted branch — git doesn't move you. If you then ask for the next phase, it would branch off a
+> spent branch and open a PR at something that no longer exists on the remote.
+>
+> So after merging: `git checkout dev` (or whatever you branch from). The agent also checks for
+> this and will stop and offer: *"You're on `phase/P-3`, which is already merged into `dev` and
+> gone from the remote. I'd branch P-4 from `dev` instead — confirm?"* Saying yes is fine. It's
+> just cheaper to switch first.
+
+**The cost of never merging** is a chain: P-4's PR pointing at P-3's branch, P-5's at P-4's, and
+so on. **You land a chain like that oldest first** — merge P-3's PR, and GitHub automatically
+re-points P-4's PR at your base branch; merge that, and P-5's re-points; repeat until the chain is
+empty. Each hand-off report names the other phases whose PRs are still open, so you can see how
+tall the stack has grown before it gets there.
 
 ### Want it on the branch you're already on?
 
@@ -226,24 +245,32 @@ Major into a change-log entry the next build run will pick up.
 **You send:**
 
 ```
-P-3 failed — step 4, employee search returns a 500 when the query is empty
+P-3 failed — employee search returns a 500 when the query is empty
 ```
 
-**Behind the scenes:** the agent sets `P-3` back to `pending`, records your note, and
-**leaves the branch and PR open**.
+**Behind the scenes:** the agent marks that `FEATURE_STATUS.md` row
+`failed <date> — search returns 500` and appends a `changeLog` entry. **`P-3` itself stays
+`done`** — the code is built, and rewinding a status would tell every later run that the work is
+still pending.
 
-**Then re-run it:**
+**Then get it fixed.** The fix is forward work, classified like any other change, so you have two
+ways to ask:
 
 ```
-run stage 4 — re-run P-3 with the failure note.
+run stage 4
 ```
 
-**P-3 stays `done`, and is never reopened** — the code is built, and rewinding a status would
-tell every later run that work is still pending. Instead the ledger row reads
-`failed — search returns 500`, a change-log entry records it, and the **fix is planned forward**:
-a minor edit if it touches no contract, a reconciliation task folded into the next phase run, or
-a new phase if it's large. Whatever fixes it puts that row back to `untested` for you to
-re-check.
+which builds the next phase **and** folds the fix in as reconciliation — or, if you want it dealt
+with on its own:
+
+```
+run stage 4 — fix the empty-query 500 on employee search, nothing else.
+```
+
+Either way the agent decides *what* the fix is: a **minor edit** if it touches no contract, a
+**reconciliation task** inside the run, or a **new phase** if it's large or contract-touching. It
+never reopens P-3 and never reuses its ID. Whatever fixes it sets that row back to `untested`,
+for you to re-check.
 
 **Be specific about the symptom.** "P-3 failed" alone gives the agent nothing to reproduce.
 Naming the `FEATURE_STATUS.md` row and what you saw is the cheapest thing you can do here.
@@ -679,7 +706,7 @@ There are **two different homes** for that, and picking the wrong one costs you 
 
 | The rule is… | It belongs in | How it gets there |
 |---|---|---|
-| A **repository convention** — branch naming, PR target branch, commit format, required reviewers | `PROJECT_CONTEXT §3` | Answer intake **Q16**, rerun Stage 0. Stage 4 reads its Git Discipline defaults from there and honors yours instead |
+| A **repository convention** — branch naming, commit format | `PROJECT_CONTEXT §3` | Answer intake **Q16**, rerun Stage 0. Stage 4 reads its Git Discipline defaults from there and honors yours instead. (PR target branch and required reviewers are recorded for **you**, not the agent — it targets the branch it branched from and never merges unasked) |
 | **How the agent should work with you** — house practices, a domain glossary, an extra check before hand-off | **your `AGENTS.md`** | Edit it directly. It's yours, and it loads in every session |
 
 **The one rule about editing `AGENTS.md`: add, don't remove.** Append your project specifics
@@ -722,13 +749,21 @@ These aren't failures. Each one is a specific trap the loop exists to prevent.
 
 | It stops because | What it says | What you do |
 |---|---|---|
+| The branch you're on is **already merged and deleted** — the commonest one | "You're on `phase/P-3`, already merged into `dev` and gone from the remote. I'd branch from `dev` instead" | Say yes. Or avoid it: `git checkout dev` after you merge (Scenario 2) |
 | The **branch is missing** the predecessor's work | "I'm on `experiment/x` and P-3's code isn't here" | Switch branch, merge P-3, or tell it to build here anyway |
 | Your request touches a **contract** | "This changes LLD §1 — rerun Stage 2" | Rerun the design, then the next phase (Scenarios 6, 7) |
 | A plan re-slice it proposed **hasn't been approved** | It builds the phase as it stands, or stops | Approve the proposal, or tell it to build as planned |
 | Sources **conflict** | "The plan says X, the LLD says Y" | Decide. It reports conflicts, it doesn't silently pick a side |
 | A **constraint** can't be honored | "Honoring C1 would break the endpoint contract" | Constraints win — this needs your decision or a design change |
 | An input is **missing or ambiguous** | "Two candidate `state.json` files — which?" | Point it at the right one |
+| The **source tree isn't in the design** | "LLD §3a doesn't say where this goes" | Rerun Stage 2. It won't invent a folder layout mid-phase |
+| A dependency, credential or **access is unavailable** | "I can't reach the database to validate the mapping" | Supply it, or tell it to defer that task |
 | You asked for **two units of work** | It does one and stops | One phase or one edit per run. Always. |
+
+**What will *not* stop you**, since most of it used to: a phase you haven't tested, a ledger row
+still `untested` or marked `failed`, an unmerged PR (however many are stacked), and **review
+findings — including Blockers.** A Blocker is strong advice with reasons attached; nothing
+enforces it. Ask for the next phase and you will get the next phase.
 
 **On that "sources conflict" row**, the ladder is fixed and lives in `AGENTS.md`:
 **a constraint in `PROJECT_CONTEXT §4` always wins**, then plan → LLD → HLD → requirements →

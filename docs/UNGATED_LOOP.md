@@ -45,14 +45,15 @@ fast pipeline with good instruments.
 | **UL-4** | **`accept P-N` ticks rows; it gates nothing.** Per-feature marking is also allowed | Restores an honest use for the word. Partial results ("search works, export doesn't") become expressible |
 | **UL-5** | **A later phase or edit that changes a feature resets that row to untested** | Otherwise the record lies. This is the thing phase-level acceptance structurally could not do |
 | **UL-6** | **A reported failure never rewinds a status.** It marks the row failed and becomes forward work | The last backwards transition in the system. Fixes are planned from now on, like every other change |
-| **UL-7** | **The agent never merges.** Every PR is the developer's, to merge whenever they choose or not at all | Acceptance used to trigger the merge, and removing it appeared to leave the next phase with no base — which is why an earlier draft of this change invented a merge-at-hand-off permission step. UL-12 makes that unnecessary: a phase starts from the branch where the previous phase's code already is, so **no merge is needed for the pipeline to function.** Merging drops out of the harness entirely, and with it `mergePolicy`, `mergedUtc` and the permission question |
+| **UL-7** | **The agent never merges unasked, and never asks.** Every PR is the developer's, to merge whenever they choose or not at all — and the agent does merge on an explicit "merge P-3", because refusing a direct instruction about their own repo buys nothing | Acceptance used to trigger the merge, and removing it appeared to leave the next phase with no base — which is why an earlier draft of this change invented a merge-at-hand-off permission step. UL-12 makes that unnecessary: a phase starts from the branch where the previous phase's code already is, so **no merge is needed for the pipeline to function.** Merging drops out of the harness entirely, and with it `mergePolicy`, `mergedUtc` and the permission question |
 | **UL-8** | **Git is the truth; `state.json` is a cache.** Presence is checked by **content**, never by branch-merge status | The developer may merge or edit outside the harness, and should not have to report it. Squash and rebase merges make branch-based checks answer "not merged" when every line is in fact present. The harness already says this for the predecessor check; it just needs extending to merges the agent did not perform |
 | **UL-9** | **`HOW_TO_RUN.md`** (renamed from `HOW_TO_TEST.md`) — how to build and run the app, plus light testing orientation. Updated only when running the app changes | Removes a duplicated document and a rewrite-from-scratch at every hand-off. Testing detail moves next to the tick box, in `FEATURE_STATUS.md` |
 | **UL-10** | **Review reports; it never blocks.** No `reviewStatus`, no `remediated`, no `wholeBuild` object | The gate only ever fired for a developer who voluntarily ran Review. Findings still survive, via the change log the next run reconciles — the gate only changed *when* they were fixed, not *whether* |
 | **UL-11** | **Every hand-off report carries two counts**: features awaiting testing, and open review findings | With no gates, visibility is the whole defence. Two numbers, always in front of the developer |
 | **UL-12** | **Branch from the current branch, PR back at it, leave the developer on the new branch.** The agent names the branch and what it contains, in one line, before it starts | The developer's git state becomes the instruction, so nothing needs configuring. Whether they merged decides what happens next, with no rule about it: merged and standing on `dev` → the next phase starts clean; not merged → the next phase continues from the phase branch and stacks. Either way the predecessor's code is present, which is what makes UL-7 possible |
 | **UL-13** | **`prTarget` stays as a human note that no rule reads** | Where work lands is decided by the branch the developer stands on, not by a field. An earlier draft of §12 claimed setting `prTarget` kept `main` clean — it never could, once UL-12 replaced it. Keeping the field documents intent; reading it would resurrect the setting UL-12 removed |
-| **UL-14** | **"Work on this branch" is supported: no new branch, no PR** | Sometimes the developer wants the change where they are standing. Everything else is unchanged; `prUrls` stays `[]` and the PR body's history moves into the commit messages |
+| **UL-14** | **"Work on this branch" is supported: no new branch, no PR** | Sometimes the developer wants the change where they are standing. Everything else is unchanged; `prUrls` stays `[]` and the PR body's history moves into the commit messages. Per repo under a `split` layout |
+| **UL-15** | **Before branching, detect a branch that is already merged or gone from the remote, and propose the alternative** | UL-12 made the *unusual* path (never merging) frictionless and left the *common* one broken: the developer merges on the host, the host deletes the branch, their checkout stays on it, and every check in UL-8 still passes because the code is present. The next phase would then target a branch that no longer exists on the remote. This is the one place the branch-from-current rule needs the agent to look further than "what is checked out" |
 
 ## 4. Documents after the change
 
@@ -155,10 +156,23 @@ on `dev`, the next phase starts clean; if they didn't, it continues from the pha
 stacks. Merging is housekeeping the developer does on their own schedule, and the harness holds
 no state about it.
 
-**What that costs.** Never merging means phases can stack into a chain of open PRs, landed later
-bottom-up. The only mitigation is visibility: the hand-off report names the other phases whose
-PRs are still open. There is no setting for this — `context.repo.prTarget` records where work is
-headed and **no rule reads it**.
+**What that costs.** Never merging means phases can stack into a chain of open PRs. They are
+landed **oldest first**: merging the bottom PR makes the host re-point the one above it at the base
+branch, and so on until the chain is empty. The only mitigation is visibility — the hand-off report
+names the other phases whose PRs are still open. There is no setting for this:
+`context.repo.prTarget` records where work is headed and **no rule reads it**.
+
+**The spent-branch check (UL-15).** Branching from the current branch is right, but "current" is
+not enough on its own: after the developer merges a PR on the host, the host usually deletes that
+branch while their checkout stays on it. The code is still present, so the content check passes and
+nothing looks wrong — yet a PR opened against that branch targets something the remote no longer
+has. So before branching, the agent also asks *is this branch finished?* and, if so, names the
+branch it was merged into and waits:
+
+> "You're on `phase/P-2`, which is already merged into `dev` and gone from the remote. I'd branch
+> P-3 from `dev` instead — it has P-2's work. Confirm, or name another branch."
+
+It never pushes a deleted branch back up to make a PR fit.
 
 **Changed outside the harness.** The developer may merge, hand-fix a file, or resolve a conflict
 without telling anyone; nothing needs keeping in step, because nothing records merges. The agent
@@ -184,8 +198,10 @@ existing `lastProcessedReviewNumber` high-water mark. Nothing is blocked.
 - `reviews[].result`: `pass | changes-requested` → **`clean | findings`**, since a review is no
   longer a verdict on a target
 - **Removed:** `acceptedUtc`, `reviewStatus` (all three locations), the `wholeBuild` object
-- **Added:** nothing. `prUrls` may now legitimately be `[]` (the no-PR case, UL-14), and
-  `context.repo.prTarget` survives as a note no rule reads (UL-13)
+- **Added:** nothing. `prUrls` may now legitimately be `[]` (the no-PR case, UL-14),
+  `context.repo.prTarget` survives as a note no rule reads (UL-13), and so do
+  `repo.branchNaming`'s companions — PR target and required reviewers are recorded for humans,
+  since the agent targets the branch it branched from and does not merge unasked
 - **Unchanged:** `changeLog[]` (including its `origin` values), `progress` high-water marks,
   constraints, permanent IDs, append-only rules
 
@@ -235,7 +251,7 @@ two-prompt flow (DD-7); `AGENTS.md` always loaded (DD-8); Review as a separate r
 - **Untested code reaches a branch only when the developer merges it there.** The agent never
   merges (UL-7), so nothing lands on `main` without a human clicking Merge — there is no
   agent-side protection to rely on and no setting that changes this. The mirror-image cost is
-  that never merging leaves a chain of open PRs to land bottom-up later. The hand-off report
+  that never merging leaves a chain of open PRs, landed oldest first (§7). The hand-off report
   naming the other open PRs is the whole of the visibility.
 - **Two counts are the whole warning system.** They must appear in every hand-off report, or
   "no gates" becomes "no idea".

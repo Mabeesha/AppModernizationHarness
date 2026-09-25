@@ -74,7 +74,8 @@ Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 | **DD-8** | **`AGENTS.md` always loaded** | Stage rules only bind when a stage is invoked; most drift happens in ordinary chat |
 | **DD-9** | **`HOW_TO_RUN.md` (how to run it) + `FEATURE_STATUS.md` (what is built and tested)** | Per-phase test docs went stale, and one regenerated file duplicated the plan's own test guides. Splitting *how to run* from *what to check* leaves each written once: the run doc changes only when running changes, and each feature's check sits beside the column the developer ticks (R10) |
 | **DD-13** | **Testing is tracked per feature, not per phase** | A phase is a batch of work; a later phase can change what an earlier one delivered, and a phase-level mark cannot express that. A feature row can — it gains the new phase and resets to `untested` (R4.3, UL-5) |
-| **DD-14** | **Branch from the currently checked-out branch, PR back at it, and never merge** | The developer's git state becomes the instruction, so nothing needs configuring — and because the next phase starts from where the last one's code already is, *no merge is required for the pipeline to work*. That removes the merge trigger, the permission question, `mergePolicy` and `mergedUtc` in one go, and leaves merging entirely the developer's housekeeping (R11.2) |
+| **DD-14** | **Branch from the currently checked-out branch, PR back at it, and never merge unasked** | The developer's git state becomes the instruction, so nothing needs configuring — and because the next phase starts from where the last one's code already is, *no merge is required for the pipeline to work*. That removes the merge trigger, the permission question, `mergePolicy` and `mergedUtc` in one go. The agent still merges on an explicit "merge P-3", because refusing a direct instruction about the developer's own repo buys nothing (R11.2) |
+| **DD-17** | **Before branching, detect a branch that is already merged or gone from the remote, and propose the alternative** | Reading the current branch makes the *unusual* path (never merging) frictionless and the *common* one broken: the developer merges on the host, the host deletes the branch, their checkout stays on it, and every content check still passes because the code is present. Without this the next phase silently targets a branch that no longer exists (R11.5) |
 | **DD-15** | **Git is the truth; `state.json` is a cache** — presence checked by content, never by branch-merge status | The developer may merge or edit outside the harness and should not have to report it; squash and rebase merges make branch-based checks answer "not merged" when every line is present. Nothing records merges at all, so there is nothing to keep in step (R11.3) |
 | **DD-16** | **`prTarget` is kept as a human note that no rule reads** | Where work lands is decided by which branch the developer stands on, not by a field. Keeping the field documents intent; reading it would resurrect a setting the branching rule replaced |
 | **DD-10** | **Plan defaults to "no change"** | Churn burns the developer's review attention and destabilizes what they thought was coming next |
@@ -197,7 +198,7 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
 | R8 review | Stage 5 §Outcome; `reviews[]`; findings reconciled at Stage 4 Step 0b |
 | R9 governance | `AGENTS.md` invariants + authority ladder |
 | R10 testability | Stage 4 Step 2.3–2.4 (`FEATURE_STATUS.md`, `HOW_TO_RUN.md`); plan test guides |
-| R11 git | Stage 4 §Git Discipline, §Starting From the Right Base |
+| R11 git | Stage 4 §Git Discipline, §Starting From the Right Base (incl. the spent-branch check) |
 
 ## 10. Known trade-offs
 
@@ -208,10 +209,10 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
   trade that was made.
 - **Untested code reaches a branch only when the developer merges it there.** The agent never
   merges, so nothing lands on `main` without a human clicking Merge. The cost is the mirror
-  image: if they never merge, phases stack as a chain of open PRs, and landing them later means
-  merging bottom-up. The hand-off report names the other open PRs so the height of that stack is
-  at least visible — there is no setting that controls this, and no agent-side protection to
-  rely on.
+  image: if they never merge, phases stack as a chain of open PRs, landed later **oldest first**
+  (each merge makes the host re-point the PR above it at the base branch). The hand-off report
+  names the other open PRs so the height of that stack is at least visible — there is no setting
+  that controls this, and no agent-side protection to rely on.
 - **Prompt-only enforcement.** Every rule depends on the agent following instructions; there is
   no linter or schema validator on `state.json`. Mitigated by falsifiable exit criteria,
   `AGENTS.md` in every session, and an independent Stage 5.

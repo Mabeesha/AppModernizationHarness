@@ -381,7 +381,10 @@ the developer reports against an edit is forward work, exactly as for a phase �
 
 **Follow the repository conventions recorded in `PROJECT_CONTEXT §3`** (branch naming, PR
 target branch, commit conventions, required reviewers). The defaults below apply only where
-the context doesn't specify.
+the context doesn't specify. **Branch naming and commit conventions bind you; PR target branch
+and required reviewers are informational** — you target the branch you branched from, and you do
+not merge, so a reviewer requirement changes nothing you do. Name it in the PR body where it is
+set, so the developer knows their own merge needs a review.
 
 - **Branch out** for every unit of work, from **whatever branch is currently checked out**
   (§Starting From the Right Base). Name it for the work (e.g.
@@ -401,10 +404,15 @@ the context doesn't specify.
   otherwise. **Open the PR against the branch you started from.** If you branched from `dev` it
   targets `dev`; if you branched from `phase/P-2` because that is where the developer was
   standing, it targets `phase/P-2`.
-- **You never merge.** The PR is the developer's, to merge whenever they choose or not at all.
-  Nothing in this pipeline depends on a merge having happened: if they leave it open, the next
-  phase branches from this branch and continues from here. Never merge on your own initiative,
-  and never merge because it would be tidy.
+- **Never merge unless the developer asks you to, in those words.** The PR is theirs, to merge
+  whenever they choose or not at all. Nothing in this pipeline depends on a merge having
+  happened: if they leave it open, the next phase branches from this branch and continues from
+  here. So you never need a merge, never ask for one, and never perform one because it would be
+  tidy or because the stack is getting tall.
+  **When they do ask** — *"merge P-3"* — merge every PR in that item's `prUrls`, one per repo
+  under a `split` layout, and report what you merged. There is no field to update: nothing
+  records merges. Then note which branch they are now on, since the one they were standing on is
+  now spent (§Starting From the Right Base).
 
 **Repository layout is given by `PROJECT_CONTEXT §3` (`context.repo.layout`), never your
 call** — build to what it says and don't re-open it:
@@ -433,7 +441,7 @@ configuration at all**:
 
 1. **Read the branch that is currently checked out**, and name it in your report.
 2. **Branch from it**, do the work, and **open the PR back at it**.
-3. **Leave the developer on the branch you created**, and stop. **You never merge.**
+3. **Leave the developer on the branch you created**, and stop. **Never merge unasked.**
 4. **Unless they said to work on the current branch** — then create no branch and open no PR;
    commit there directly (below).
 
@@ -454,11 +462,22 @@ PR body. **No rule reads it** — not for branching, not for the PR target, not 
    files/symbols the previous phase delivered actually exist there. Branch names and PR state
    are unreliable: squash-merge and rebase workflows discard the predecessor's branch and commit
    ids entirely, so a branch holding every line of P-2 can still report "not merged".
-3. **Say what you found, in one line, before you start:**
+3. **Check whether the current branch is already finished** — its work merged into another
+   branch, or the branch itself gone from the remote. This is the **common** case, not an edge
+   one: the developer merges the previous phase's PR in the web UI, the host deletes the branch,
+   and their local checkout stays on it. Every other check here still passes, because the code is
+   present — the branch is simply spent. Branching off it produces a PR that targets a branch
+   which no longer exists on the remote, so the work stops flowing toward where it was headed.
+   **Say so and name the branch you would use instead**, then do what they say:
+   > "You're on `phase/P-2`, which is already merged into `dev` and gone from the remote. I'd
+   > branch P-3 from `dev` instead — it has P-2's work. Confirm, or name another branch."
+   Prefer the branch it was merged into. Never push a deleted branch back up to make a PR fit,
+   and never target a branch you know is spent.
+4. **Say what you found, in one line, before you start:**
    > "Branching P-3 from `phase/P-2`. It contains P-2's work. (Note: `dev` has 2 commits not in
    > this branch.)"
    This one line is what makes branching from wherever they stand safe rather than reckless.
-4. If the predecessor's work is **missing**, stop and ask — don't guess and never silently
+5. If the predecessor's work is **missing**, stop and ask — don't guess and never silently
    rebuild it. Offer the ways forward: they merge it or switch branch, you branch from the
    branch that does have it, or you build here anyway because they know why it's absent.
 
@@ -468,6 +487,10 @@ that: **no new branch, no PR.** Everything else is unchanged — small self-desc
 tests, docs, `FEATURE_STATUS.md`, `state.json`. Record the branch you committed to in `branch`
 and leave `prUrls` as `[]`. The PR body's history (initial task / reasoning / outcome) has
 nowhere to live, so put it in the commit messages, which already carry that duty.
+Under a **`split`** layout this applies **per repo**: commit on each repo's currently checked-out
+branch, touching only the repos the work needs. If those branches are not the same name, say so
+before you start — the unit of work is still one phase, and a reader later will want to know
+where each half landed.
 
 **Work merged or changed outside the harness is normal.** The developer may merge a PR in the
 web UI, hand-fix a file, or resolve a conflict while merging, and they are **not** required to
@@ -621,14 +644,16 @@ no plan test guide of its own and does not displace the current phase.
 - [ ] Code sits in the source tree LLD §3a specifies; no directory layout invented this run.
 - [ ] No hard-coded origins or environment-specific hosts — the runtime topology in
       `PROJECT_CONTEXT §3` is honored through LLD §7 config keys.
-- [ ] The **current branch** was read, checked **by content** for the predecessor's work, and
-      **named in the report** before any code was written.
+- [ ] The **current branch** was read, checked **by content** for the predecessor's work, checked
+      for being **already merged or deleted on the remote**, and **named in the report** before
+      any code was written. A spent branch was raised with a proposed alternative, not silently
+      built on.
 - [ ] **Branch created from the current branch, small commits made and pushed, tests + docs +
       `state.json` updated, PR opened against the branch it came from with a descriptive body
       (initial task / reasoning / outcome)** — or, where the developer asked to work on the
       current branch, committed there with no branch and no PR, and `prUrls` left `[]`.
-- [ ] **Nothing was merged.** The PR is left open for the developer, and any other phases' open
-      PRs are named in the report.
+- [ ] **Nothing was merged unless the developer asked in those words.** Otherwise the PR is left
+      open for them, and any other phases' open PRs are named in the report.
 - [ ] `branch` and `prUrls` recorded on the phase (or `edits[]` entry) — every repo's PR under a
       `split` layout, or `[]` where no PR was asked for; a minor edit is
       registered in `edits[]` with its own `E-<n>` id.

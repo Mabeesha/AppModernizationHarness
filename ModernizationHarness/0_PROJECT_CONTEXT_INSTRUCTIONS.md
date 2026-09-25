@@ -300,7 +300,11 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
   the hand-off report like any other default — both are expensive to change once Stage 2 has
   designed against them.
 - Branch naming, PR target branch, commit conventions, required reviewers. Stage 4 mandates
-  branch + small commits + PR; this is where it learns the house rules.
+  branch + small commits + PR; this is where it learns the house rules. **Branch naming and
+  commit conventions bind the agent. PR target branch and required reviewers are recorded for
+  humans only** — Stage 4 targets the branch it branched from, and never merges unasked, so
+  neither field changes what it does. Record them anyway: they tell the developer where work is
+  headed and whether their own merge needs a review.
 
 ## Step 4 — Write the Artifacts
 
