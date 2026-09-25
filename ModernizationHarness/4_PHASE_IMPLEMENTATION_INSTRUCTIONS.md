@@ -17,14 +17,20 @@ developer does not have to classify it for you:
   phase.
 
 Each run: **classify → reconcile → refresh the plan → implement → verify → hand off → stop.**
-Then the developer tests, the Review stage may audit, and the next run begins. Do
-**not** roll into the next phase on your own — the loop exists so a human accepts each increment.
+Then the developer merges when they choose, tests when they choose, the Review stage may audit,
+and the next run begins. Do **not** roll into the next phase on your own — the loop exists so
+each increment is small, reviewable and separately testable.
+
+> **Nothing in this stage blocks on the developer having tested anything.** Phases move
+> `pending → in progress → done`, forward only. Whether a human has walked the app is recorded
+> per feature in `FEATURE_STATUS.md`, and it gates nothing. Your exit criteria are the only
+> gate in the loop.
 
 > **Changes mid-flight are normal, not exceptional.** The plan covers remaining work only and is
 > refreshed at the start of most runs (Step 0c). When the design moves — even for something
 > delivered five phases ago — the response is: the design doc is updated (Stage 2), and the next
 > run re-plans a **retrofit phase** for it. There is no separate change-request procedure, and
-> `accepted` phases are never reopened to absorb a change.
+> `done` phases are never reopened to absorb a change — **what is built is built.**
 
 > **Golden rule: implement to the plan and honor the design's contracts exactly.** Don't
 > re-decide architecture, API shapes, data mappings, or scope. If the plan or design is wrong,
@@ -39,42 +45,28 @@ Then the developer tests, the Review stage may audit, and the next run begins. D
 1. **`PLAN_<AppName>.md`** — phases, tasks, developer test guides, exit criteria.
 2. **`state.json`** — the live state: `phases[]` (status/lineage), `changeLog[]`, `reviews[]`,
    `context` (constraints, stacks). **You read and update this every run.**
+2b. **`FEATURE_STATUS.md`** — the coverage ledger: what is built, how to check it, and what the
+   developer has tested. **You update rows at every hand-off**; you never write its `Tested`
+   column except on the developer's explicit word.
 3. **The phase or edit to perform** — from the prompt. If a phase isn't named, execute the
-   earliest `phases[]` entry that is `pending` **and** whose predecessor is `accepted` (not
-   merely `done`). Note that phase IDs are **not renumbered** when the plan is refreshed, so
-   "earliest" means earliest in the plan's stated **execution order**, not lowest ID. If the
-   predecessor is only `done`, the developer hasn't tested it — report and stop rather than
-   racing ahead.
+   earliest `pending` entry in `phases[]`. Note that phase IDs are **not renumbered** when the
+   plan is refreshed, so "earliest" means earliest in the plan's stated **execution order**,
+   not lowest ID.
 
-   **Route them back; don't offer a shortcut.** Do not ask "shall I mark it accepted?" as part
-   of a request to start the next phase — that turns a testing attestation into a reflexive
-   yes. Say instead:
-   > "P-2 is `done` but not accepted — I can't start P-3 until it is. If you tested it and it
-   > passed, say *accept P-2* and I'll merge the PR, record it, and start P-3."
+   **The predecessor's testing state is irrelevant here.** A phase that is `done` is built, and
+   that is all the next phase needs. Never ask the developer to accept, approve or sign off
+   anything before starting — there is no such mark. If they want to know what is outstanding,
+   the two counts in your hand-off report (Step 2.6) already tell them.
 
-   When they do say it, record the acceptance yourself (see §Recording Developer Decisions) —
-   they should never have to hand-edit `state.json`.
+   **Review findings do not block either.** Any unprocessed findings in `reviews[]` (above
+   `progress.lastProcessedReviewNumber`) are **reconciliation input** for this run — fold them
+   in at Step 0b like any other change. Severities tell you what to fix first, not whether you
+   may proceed. Where a finding is too large to absorb, say so and let Step 0c plan it; don't
+   stall the run.
 
-   **Un-remediated Blockers gate the next phase.** Scan `reviews[]` for any entry with
-   `result: "changes-requested"` and `blockerCount > 0` whose target is **in scope** — **any
-   phase** (not just the predecessor; reviews are independent runs and need not arrive in phase
-   order), **any `edits[]` entry**, or **`whole-build`** — and whose
-   target still shows `reviewStatus: "changes-requested"` (i.e. not yet `remediated`). That
-   field lives on the target's `phases[]` entry, its `edits[]` entry, or — for `whole-build` —
-   on the top-level `wholeBuild` object. If one exists, do **not** start the next phase: fix
-   those Blockers first as reconciliation, or report and stop. Whole-build and edit reviews
-   gate exactly as phase reviews do; a Blocker is a Blocker wherever it was found.
-
-   **Clearing the gate:** when you have fixed a review's Blockers, set that target's
-   `reviewStatus` to `remediated` — in the same place the gate read it, `wholeBuild` included —
-   and say so in your report, recommending a re-review. Nothing else clears it: a review left at
-   `changes-requested` blocks indefinitely, deliberately.
-
-   Majors without Blockers do not gate: fold them into this run's reconciliation and proceed.
-
-   **Then verify your base branch actually contains the predecessor's work** before writing
-   anything (see §Starting From the Right Base). A phase that branches off a base missing the
-   previous phase silently breaks "each phase builds on the last".
+   **Then check your branch actually contains the predecessor's work** before writing
+   anything, and say what you found (see §Starting From the Right Base). A phase built on a
+   branch missing the previous phase silently breaks "each phase builds on the last".
 4. **Reference — the design documents** (HLD + LLD). The LLD is the authoritative contract.
 5. **Reference — the three requirements files** — intent, business rules, exact values.
 6. **Reference — `PROJECT_CONTEXT.md`** — target stack, constraints by ID, CI/CD mode.
@@ -175,8 +167,10 @@ shape is a contract change; a hundred-line refactor behind a stable interface is
    - `changeLog[]` entries whose `id` is **greater than `progress.lastProcessedChangeLogId`**.
    - `reviews[]` whose `R-<n>` **number** is greater than `progress.lastProcessedReviewNumber`
      — compare `<n>` **numerically**, never as text (`R-10` sorts before `R-2` as a string).
-     Address any with `result: "changes-requested"`.
-   - `phases[]` and `edits[]` for reopened items or developer notes.
+     Address any with `result: "findings"`; severities tell you what to fix first, never
+     whether you may proceed.
+   - `phases[]` and `edits[]` for developer notes, and `FEATURE_STATUS.md` for rows the
+     developer has marked `failed` since the last run — each of those is work to schedule.
 
    You will advance both marks at hand-off (Step 2). Entries at or below the marks were folded
    in by a previous run — do not re-apply them.
@@ -186,9 +180,13 @@ shape is a contract change; a hundred-line refactor behind a stable interface is
    them to `changeLog[]`** (author `developer`) so the paper trail is complete.
 4. **Classify each change:**
    - **Affects already-built code** → apply the rework **first**, as preliminary
-     `[reconciliation]` tasks in this run. **Except where it invalidates code in an `accepted`
-     phase or edit** — that is not reconciliation, it is new work: leave it for Step 0c, which
-     plans it as a retrofit phase the developer approves before you build it.
+     `[reconciliation]` tasks in this run. **Except where it invalidates a design contract that
+     a delivered phase built to** — that is not reconciliation, it is new work: leave it for
+     Step 0c, which plans it as a retrofit phase the developer approves before you build it.
+     The test is *authority, not size* — the same test as 0a: a fix behind a stable contract is
+     reconciliation; a change to the contract itself is a retrofit.
+     Either way, **every `FEATURE_STATUS.md` row whose behavior you changed resets to
+     `untested`** and gains this phase (or edit) in its `Phase(s)` column.
    - **Affects the current phase** → update the phase's tasks/test guide/exit criteria in the
      plan, then build to the updated version.
    - **Affects future phases only** → update those phases in the plan; build none of it now.
@@ -218,13 +216,13 @@ building to it.** Present: what changed, which phases you would add/remove/reord
 you would run next. Do not apply it silently — a plan that shifts while the developer's
 attention is on testing the last phase is exactly how scope moves unnoticed.
 
-When the change invalidates code that is already `accepted`, the proposal is a **retrofit
-phase** (new ID, sequenced before anything that would build on the old contract) — **never** a
-reopened phase, and never a `[reconciliation]` task folded into this run (0b.4 bucket one stops
-at code that is not yet `accepted`). `accepted` means a human tested that increment; that stays
-true of what they tested, and the retrofit is new work with its own acceptance.
+When the change invalidates a **design contract a delivered phase built to**, the proposal is a
+**retrofit phase** (new ID, sequenced before anything that would build on the old contract) —
+**never** a reopened phase, and never a `[reconciliation]` task folded into this run. A `done`
+phase is history: its ID, its scope and its place in §2 Completed stay as written, and the
+retrofit is new work that supersedes its behavior.
 
-Once approved, apply the refresh per `3_PLAN_INSTRUCTIONS.md` (plan doc §1/§2/§3/§5/§7,
+Once approved, apply the refresh per `3_PLAN_INSTRUCTIONS.md` (plan doc §1/§2/§3/§5,
 `phases[]` sync, revision-history row, `changeLog` entry, `stages.plan.rerunCount`), then build
 the phase the developer named.
 
@@ -259,8 +257,8 @@ Set the phase `in progress` in `state.json`. **Create a working branch** for the
 2. **Implement** the smallest correct change satisfying the task's scope, honoring the LLD's
    contracts and the constraints. Match the conventions of the code built in earlier phases.
 3. **Test** — add/adjust automated tests for the behavior; cover edge cases from the requirements.
-4. **Verify** — run the build and tests; exercise the acceptance criteria (call the endpoint,
-   render the screen).
+4. **Verify** — run the build and tests; exercise the task's "done when" conditions (call the
+   endpoint, render the screen).
 5. **Confirm constraints** — every *Implement* obligation touching this task still holds.
 6. **Commit** this task as a small, self-describing commit (see §Git Discipline).
 7. **Move on** to the next unblocked task.
@@ -271,58 +269,77 @@ test guide where the change surface warrants.
 
 ## Step 2 — Hand Off
 
-1. **Run the phase's exit criteria** (the mechanical agent gate) — all must pass. You may only
+1. **Run the phase's exit criteria** — the only gate. All must pass. You may only
    mark `done` if they do.
 2. **Walk the developer test guide yourself** end to end; if a step is now wrong, fix it in the
    plan (don't leave it stale).
-3. **Regenerate `HOW_TO_TEST.md`.** There is **one** such file for the whole project, in the
-   documents location — not one per phase. Rewrite it at every hand-off so it always describes
-   the app **as it stands now**. Derive it from the plan's developer test guides, which stay the
-   source of truth. Structure:
+3. **Update `FEATURE_STATUS.md`** — the coverage ledger, one file for the whole project, in the
+   documents location. You **update rows in place**; you never regenerate it. For this run:
+
+   - Every row this phase **delivered**: set `Build` to `built in P-N`, add `P-N` to
+     `Phase(s)`, and fill `How to check` by distilling the phase's developer test guide into
+     1–3 concrete lines (a URL, a command, the expected result). This is the thing the
+     developer will actually walk, possibly weeks from now — make it stand alone.
+   - Every row whose behavior this phase **changed**: add `P-N` to `Phase(s)`, edit
+     `How to check` in place so it describes the new behavior, and **reset `Tested` to
+     `untested`**. Never leave a check describing something that no longer works, and never
+     leave a `passed` mark on behavior the developer has not seen.
+   - **Never write the `Tested` column** other than that reset. `passed` and `failed` come only
+     from the developer's explicit word (see §Recording Developer Decisions).
+
+4. **Update `HOW_TO_RUN.md` only if it is now wrong.** One file for the whole project, in the
+   documents location. It describes **how to build, run and configure the app as it stands**,
+   not what to test:
 
    ```markdown
-   # How to Test <AppName>
-   ## Prerequisites & how to run          <- exact build/run commands, ports, env, test data
-   ## New in <P-N>                        <- numbered steps for what this phase delivered
-   ## Regression — delivered so far       <- one terse line per prior check: action → expected
+   # Running <AppName>
+   ## Prerequisites            <- versions, tools, what must be installed
+   ## Build & run              <- exact commands per part, ports, URLs
+   ## Configuration            <- env vars, config files, where values come from
+   ## Test data & accounts     <- seeded data, dev users, how to reset to a clean state
+   ## Running the automated tests
+   ## How to test by hand      <- 5-10 lines of orientation; points at FEATURE_STATUS.md
    ```
 
-   - **`New in <P-N>`** is the full-detail walkthrough: numbered steps, each pairing an action
-     with its expected result, concrete commands/URLs/payloads. Replace the previous phase's
-     section — it moves down into Regression, condensed to one line per check.
-   - **Regression** accumulates, grouped by area (not by phase), one line each. It is the
-     human-walkable safety net that automated tests don't cover. Keep it terse enough that it
-     stays skimmable at phase 7.
-   - When this phase **changed** previously-delivered behavior, edit the affected Regression
-     lines **in place** so they describe the new behavior. Never leave a line describing
-     something that no longer works.
-   - Close with a note telling the developer to report the failing step by number (which feeds
-     a `P-N failed — <symptom>` reopen).
-
-   Git holds the history of this file; there is no need to preserve older versions by name.
+   - **Run the commands yourself** this run and fix whatever is stale. A run doc that doesn't
+     work is worse than none.
+   - **Do not rewrite it at every hand-off.** Touch it only when the way to build, run or
+     configure the app actually changed — new prerequisite, new port, new env var, new seed
+     step. Most phases change nothing here.
+   - It holds no per-feature checks. Those live in `FEATURE_STATUS.md`, next to the column the
+     developer ticks.
 4. **Update `state.json`:**
-   - Set the phase `status: "done"` — **not** `accepted`. That mark requires the developer to
-     have tested it and to say so explicitly; you write it only on that instruction (see
-     §Recording Developer Decisions), never at hand-off.
-   - Record the `branch` and `prUrls` on the phase (or on the `edits[]` entry, for an edit).
+   - Set the phase `status: "done"`. That is the terminal status — there is nothing further to
+     set and nothing to wait for. Whether a human has tested the work lives in
+     `FEATURE_STATUS.md`, per feature.
+   - Record the `branch` and `prUrls` on the phase (or on the `edits[]` entry, for an edit), and
+     `mergedUtc` once the work is merged.
    - **Advance the high-water mark** to **what this run actually folded in** — the highest
      `changeLog[].id` you reconciled, plus any entries you appended yourself; and
      `progress.lastProcessedReviewNumber` to the `<n>` of the last review you addressed. Do
      **not** simply take the highest id present: an entry a developer added mid-run that you
      never folded in would be marked processed and silently lost.
    - Ensure any task/guide edits are saved to the plan.
-5. **Open a Pull Request for the branch** (see §Git Discipline) with a descriptive body.
+5. **Open a Pull Request for the branch** (see §Git Discipline) with a descriptive body,
+   targeting the branch you started from.
 6. **Report to the developer:**
+   - Which branch you built on and what it contained (see §Starting From the Right Base).
    - What was reconciled in Step 0 (or "no changes"), and whether the plan was refreshed
      ("plan unchanged" or what was re-sliced); your classification (phase vs. minor edit).
    - What was built, task by task (brief), and how it was verified.
-   - The runnable state: exact commands to start, and a pointer to `HOW_TO_TEST.md`.
-   - **Which regression checks this phase put at risk** — name the `HOW_TO_TEST.md` regression
-     lines you changed or that cover behavior this phase touched, so the developer re-walks
-     those rather than the whole list.
-   - The PR link. Deviations, follow-ups, `OPEN QUESTION:`s and `ASSUMPTION:`s.
-   - The next phase's ID and one-line goal (what accepting this unlocks), and a suggestion to
-     run the **Review stage** if appropriate.
+   - The runnable state: exact commands to start, and a pointer to `HOW_TO_RUN.md`.
+   - **The two counts, every run, without being asked:**
+     1. **features awaiting testing** — `FEATURE_STATUS.md` rows that are `built in …` and
+        `untested`, with the count this phase added or reset;
+     2. **open review findings** — findings from `reviews[]` not yet fixed.
+     Nothing blocks on either number. They exist because nothing blocks on either number: they
+     are the only standing signal of how far ahead of verification the build has run.
+   - **Which `FEATURE_STATUS.md` rows this phase put at risk** — the rows you reset to
+     `untested`, so the developer re-walks those rather than the whole ledger.
+   - The PR link, and — under `mergePolicy: ask` — **ask permission to merge it** (see
+     §Git Discipline). Deviations, follow-ups, `OPEN QUESTION:`s and `ASSUMPTION:`s.
+   - The next phase's ID and one-line goal, and a suggestion to run the **Review stage** if
+     appropriate.
 7. **Stop.** Do not begin the next phase.
 
 ### Minor Edits
@@ -332,28 +349,27 @@ config value, a label, a log line, an obvious bug fix. Anything larger is a doc 
 by a phase (§When a Change Touches a Contract); do not stretch this category to avoid that.
 
 The shape is the same as a phase, minus phase-status transitions: branch, make the change with
-tests/docs/state updated, verify, regenerate `HOW_TO_TEST.md` if the change is visible to the
-developer, open a PR, report, stop.
+tests/docs/state updated, verify, update the ledger, open a PR, report, stop.
 
-**`HOW_TO_TEST.md` on an edit run.** An edit does not displace the phase the developer is
-testing, so it never opens a `New in <E-n>` section and never condenses `New in <P-N>` into
-Regression. Leave both sections where they are; edit in place any step or Regression line whose
-behavior this edit changed, and add a Regression line for a check it introduced. If the change is
-not visible to the developer, leave the file alone.
+**The documents on an edit run.** In `FEATURE_STATUS.md`, edit in place the `How to check` of
+any row whose behavior this edit changed, add `E-<n>` to its `Phase(s)`, and **reset its
+`Tested` to `untested`** — an edit changes delivered behavior exactly as a phase does. Add a row
+if the edit introduced a checkable feature. If the change is invisible to the developer, leave
+the ledger alone. Touch `HOW_TO_RUN.md` only if the edit changed how the app is built, run or
+configured.
 
 **Register every minor edit in `state.json edits[]`.** An edit ships code — it deserves an id,
 a status, and a reviewable identity, not just a change-log line. Append
 `{ "id": "E-<n>", "utc": ..., "summary": ..., "afterPhase": "<the phase it follows>",
-"status": "done", "branch": ..., "prUrls": [...], "acceptedUtc": null, "reviewStatus": "none",
-"notes": "" }`
+"status": "done", "branch": ..., "prUrls": [...], "mergedUtc": null, "notes": "" }`
 using the next unused `n`, and reference that id in the `editsAffected` field of any related
 `changeLog[]` entry.
 
-**Edits behave like phases for acceptance.** The developer accepts one the same way ("accept
-E-1"), reopens a failed one the same way ("E-1 failed — <symptom>"), and it can be handed to
-the Review stage as a target in its own right. A reopened edit goes back to `pending` and is
-re-run on **its existing branch and PR**, exactly as §Re-running a Phase That Failed Testing
-describes — read "phase" there as "phase or edit".
+**Edits behave like phases throughout.** Status moves forward only; merging follows the same
+policy; the developer records testing against the **feature rows** the edit touched, not against
+`E-1` itself; and it can be handed to the Review stage as a target in its own right. A failure
+the developer reports against an edit is forward work, exactly as for a phase — see
+§Re-running a Phase (or Edit) That Failed Testing.
 
 ---
 
@@ -363,24 +379,33 @@ describes — read "phase" there as "phase or edit".
 target branch, commit conventions, required reviewers). The defaults below apply only where
 the context doesn't specify.
 
-- **Branch out** for every unit of work — never build on the main/integration branch directly.
+- **Branch out** for every unit of work — never commit directly to the branch you were handed.
   Name it for the work (e.g. `phase/P-3-frontend-foundation`, `edit/add-department-filter`).
+  You branch from **whatever branch is currently checked out** (§Starting From the Right Base).
 - **Commit small, examinable steps** — ideally one commit per task, each message stating what
   changed and why, so history can be read later. Don't squash a whole phase into one commit.
 - **Update, in the same branch:** the **tests** (new/changed behavior is covered), the
-  **documentation** (READMEs, the plan's test guide, the project's single **`HOW_TO_TEST.md`**,
-  any doc the change affects), and **`state.json`** (statuses, change log).
+  **documentation** (READMEs, the plan's test guide, **`FEATURE_STATUS.md`**, and
+  **`HOW_TO_RUN.md`** if running the app changed), and **`state.json`** (statuses, change log).
 - **Open a PR** for the branch with a **descriptive body** that captures the history:
   1. **Initial task** — what was asked (the phase goal or the edit request).
   2. **Reasoning** — key decisions, and any reconciliation or plan-refresh handling done.
   3. **Outcome** — what was built, how it was verified, the runnable state, follow-ups.
 - **Commit and push the work branch** — pushing is required, since the PR cannot exist
-  otherwise. What you must **not** do is **merge at hand-off**: the PR is the developer's to
-  review.
-- **The one exception is acceptance.** When the developer says "accept P-2", merging that PR is
-  part of recording the acceptance (`AGENTS.md §Recording What the Developer Tells You`) —
-  because the next phase branches from a base that must contain it. That is the only case;
-  never merge on your own initiative.
+  otherwise. **Open the PR against the branch you started from**, not against `prTarget`: if you
+  branched from `dev` it targets `dev`; if you branched from `phase/P-2` because that is where
+  the developer was standing, it targets `phase/P-2` and stacks.
+- **Merging happens at hand-off, and `context.repo.mergePolicy` says how:**
+  - **`ask` (default)** — request permission in your hand-off report ("may I merge P-3?"), and
+    merge on the developer's word. If the run ends without an answer, the next run asks again
+    before it branches. **A decline is not a blocker**: the developer simply stays on this
+    branch, and the next phase branches from it and stacks.
+  - **`auto`** — merge at hand-off without asking, and say that you did.
+  - **Under either policy**, where the repository requires reviewers or green CI
+    (`PROJECT_CONTEXT §3`), **do not merge** — say the merge is theirs to do.
+  - Record the result in `mergedUtc`. Under a `split` layout, merge **every** PR in `prUrls`,
+    one per repo.
+- **Never merge anything you were not asked to merge**, and never merge someone else's branch.
 
 **Repository layout is given by `PROJECT_CONTEXT §3` (`context.repo.layout`), never your
 call** — build to what it says and don't re-open it:
@@ -403,23 +428,40 @@ changed, that is a Stage 0 rerun, not a decision you make mid-build.
 
 ### Starting From the Right Base
 
-Phases are built in sequence, so **each phase's branch must start from a base that already
-contains every accepted predecessor**. The developer merges each phase's PR as part of
-accepting it — but verify rather than assume:
+Phases are built in sequence, so a phase's branch must start from something that already
+contains the previous phase's work. **Branch from the branch that is currently checked out** —
+the developer's git state is the instruction, and it needs no configuration:
 
-1. Determine the base branch (`context.repo.prTarget`, default the repository's default branch)
-   — **per repo** under a `split` layout; each repo is checked and branched on its own.
-2. **Confirm the predecessor's work is present in it by content, not by name** — check that
-   files/symbols the previous phase delivered actually exist on the base, or that its merge
-   commit is an ancestor. Branch names and PR state are unreliable here: squash-merge and
-   rebase workflows discard the predecessor's branch and commit ids entirely.
-3. If the predecessor's work is **missing**, stop and report: that repo's PR is accepted but
-   unmerged.
-   Under the normal flow acceptance merges it, so this means either the repository requires
-   reviewers/CI (the merge is still theirs) or the acceptance was recorded without the merge.
-   Offer both ways forward: **they merge it**, or **they re-issue the acceptance** ("merge and
-   accept P-2") and you do it. Don't merge unasked, and don't branch off the predecessor's
-   unmerged branch unless they explicitly tell you to stack the work.
+- They merged the last phase and are back on `dev` → you branch from `dev`, clean.
+- They didn't merge and are still on `phase/P-2` → you branch from it, and the work **stacks**
+  automatically. Nothing about that is exceptional and nothing stalls.
+
+`context.repo.prTarget` names where the work is ultimately headed and belongs in the PR body.
+**It is not what you branch from.**
+
+**Git is the truth; `state.json` is a cache.** Before writing anything:
+
+1. Read the **current branch** — **per repo** under a `split` layout; each repo is read and
+   branched on its own.
+2. **Confirm the predecessor's work is present by content, not by name** — check that
+   files/symbols the previous phase delivered actually exist there. Branch names, PR state and
+   `mergedUtc` are unreliable: squash-merge and rebase workflows discard the predecessor's
+   branch and commit ids entirely, so a branch holding every line of P-2 can still report
+   "not merged". Where what you find disagrees with `state.json`, **git wins** — correct
+   `mergedUtc` and note it.
+3. **Say what you found, in one line, before you start:**
+   > "Branching P-3 from `phase/P-2`. It contains P-2's work. (Note: `dev` has 2 commits not in
+   > this branch.)"
+   This one line is what makes branching from wherever they stand safe rather than reckless.
+4. If the predecessor's work is **missing**, stop and ask — don't guess and never silently
+   rebuild it. Offer the ways forward: merge it first, branch from the branch that does have it,
+   or build here anyway if they know why it's absent.
+
+**Work merged or changed outside the harness is normal.** The developer may merge a PR in the
+web UI, hand-fix a file, or resolve a conflict while merging, and they are **not** required to
+report it. You find it by looking: record a merge you didn't perform in `mergedUtc`, append a
+`changeLog` entry (`author: developer`, `origin: out-of-band`) for code you didn't write, and
+reconcile it at Step 0b before building.
 
 Record the branch you created and the PRs you opened in the phase's `state.json` entry
 (`branch`, `prUrls`) so the next run and the developer can find them later. `prUrls` is always an
@@ -428,24 +470,36 @@ array: one element under a `single` layout, and under `split` **one per repo you
 
 ### Recording Developer Decisions
 
-The developer never hand-edits `state.json`. They tell you what happened; you write it and
-confirm. **The protocol — what each statement maps to, and the guards on acceptance — is
-defined in `AGENTS.md §Recording What the Developer Tells You`, which is loaded in every
-session. Follow it there; it is not restated here so the two cannot drift.**
+The developer never hand-edits `state.json` or `FEATURE_STATUS.md`. They tell you what
+happened; you write it and confirm. **The protocol — what each statement maps to — is defined
+in `AGENTS.md §Recording What the Developer Tells You`, which is loaded in every session.
+Follow it there; it is not restated here so the two cannot drift.**
 
 Two points specific to this stage:
 
-- Acceptance normally includes **merging that item's PR** — this is the explicit exception to
-  the "never merge" rule in §Git Discipline, and the only one.
-- After recording a failure, re-run the item per §Re-running a Phase That Failed Testing.
+- **Testing results are ledger writes, not status writes.** "accept P-2" ticks the
+  `FEATURE_STATUS.md` rows built in P-2; it does not change P-2's `status`, which stays `done`
+  because the code is still built. Nothing in this stage waits on it.
+- **A reported failure is work to schedule**, not a rewind. Record it on the row and handle it
+  per §Re-running a Phase (or Edit) That Failed Testing.
 
 ### Re-running a Phase (or Edit) That Failed Testing
 
-If the developer reopened a phase **or an edit** (`pending`, with failure notes) and asked you
-to run it again, **reuse the existing branch and PRs** — add commits to them. Do not create a
-second branch or open a second PR in the same repo; that splits one phase's history across two
-reviews. Append to the PR body describing what the failure was and what changed, and leave the
-phase `done` again at hand-off.
+When the developer reports that delivered behavior is broken, the phase **stays `done`** — the
+code is built, and rewinding a status would tell every later run that work is still pending.
+What happens instead:
+
+1. The `FEATURE_STATUS.md` row reads `failed <date> — <symptom>` (written per `AGENTS.md`).
+2. A `changeLog` entry records it (`author: developer`, `origin: developer-prompt`).
+3. The fix is **forward work**, classified at Step 0a like anything else: a **minor edit** if it
+   touches no contract, a **reconciliation task** folded into the next phase run if it is small
+   and the run is already happening, or a **new phase** if it is large or contract-touching.
+4. Whatever fixes it sets that row back to `untested` — the developer re-walks the check and
+   ticks it themselves.
+
+**Never** re-open the original phase, re-use its ID, or push fixes onto its merged branch. If
+its branch is still unmerged and the developer is standing on it, the fix naturally lands on
+top of it like any other work.
 
 ---
 
@@ -460,7 +514,7 @@ phase `done` again at hand-off.
 4. **Keep the baseline green.** The app builds and runs at every hand-off; previous phases'
    behavior survives except explicit replacements.
 5. **Verify every task before moving on.** A task isn't done until build compiles, relevant
-   tests pass, and acceptance criteria are met.
+   tests pass, and its "done when" conditions are met.
 6. **Write tests. Update docs. Update state.** Every run leaves all three current.
 7. **Idiomatic, clean code** for the target stack; honor the code-style constraint mechanically.
    **For UI work, build from the design language in LLD §3b** — use the shared components and
@@ -474,8 +528,8 @@ phase `done` again at hand-off.
 9. **You may re-slice the forward plan; you may not change what gets built.** Step 0c lets
    you add, remove, reorder, split, and merge **remaining** phases — with the developer's
    approval — and update statuses, tasks, and test guides. It does not let you change a design
-   contract, drop a Coverage Matrix row, or invent scope; those are the developer's and the
-   design agent's calls. Never renumber or reuse a phase ID, and never reopen an `accepted`
+   contract, drop a `FEATURE_STATUS.md` row, or invent scope; those are the developer's and the
+   design agent's calls. Never renumber or reuse a phase ID, and never reopen a `done`
    phase to absorb a change — that is what a retrofit phase is for.
 10. **No secrets in source**, and **no hard-coded origins**. The API base URL, allowed CORS
     origins, and anything else that differs between local and the deployment target come from
@@ -512,8 +566,13 @@ Stop and report (rather than improvising) if:
   schema that doesn't match the mapping; deferred auth specifics; unavailable connection
   config). Do what the obligation says for the blocked case if it specifies one; otherwise
   report and wait.
-- The predecessor phase is `done` but not `accepted` and you weren't told to proceed anyway.
+- The predecessor's work is **missing** from the branch you were handed and the developer has
+  not said to build there anyway (§Starting From the Right Base).
 - An external dependency, credential, or access is unavailable.
+
+**Not blockers** — never stop for these: a phase the developer hasn't tested, a
+`FEATURE_STATUS.md` row still `untested` or marked `failed`, an unmerged PR, or open review
+findings. The first three are recorded and reported; findings are reconciliation input.
 
 State the blocker, what you tried, and the options — let the developer decide. Record unresolved
 items as `OPEN QUESTION:` and assumptions as `ASSUMPTION:`.
@@ -534,35 +593,39 @@ no plan test guide of its own and does not displace the current phase.
       `3_PLAN_INSTRUCTIONS.md`. No re-slice was applied silently.
 - [ ] Nothing touching a requirement, design contract, or plan scope was implemented or
       doc-edited this run — such requests were routed to their owning stage and stopped on.
-- [ ] No `accepted` phase was reopened to absorb a change; retrofits were planned as new phases.
+- [ ] No `done` phase was reopened to absorb a change; retrofits were planned as new phases.
 - [ ] Every task completed and verified, or explicitly reported as blocked.
 - [ ] App is in the promised runnable state; the developer test guide was walked and is accurate.
-- [ ] **The single `HOW_TO_TEST.md` was regenerated** — prerequisites/run commands current, a
-      full `New in <P-N>` section, the previous phase condensed into Regression, and any
-      Regression line whose behavior changed this phase edited in place.
+- [ ] **`FEATURE_STATUS.md` updated in place** — rows delivered this run read `built in P-N`
+      with a concrete `How to check`; rows whose behavior changed gained this phase and were
+      **reset to `untested`**; no `Tested` value was invented; no row was deleted.
+- [ ] **`HOW_TO_RUN.md` is accurate** — its commands were run this session, and it was edited
+      only if building, running or configuring the app actually changed.
 - [ ] Previous phases' testable behavior still works (explicit replacements aside); the report
-      names which regression checks this phase put at risk.
+      names which ledger rows this phase put at risk.
 - [ ] Every constraint's *Implement* obligation (per `PROJECT_CONTEXT §4`) holds in the
       running app; no secrets in source.
 - [ ] Contracts built this run match the LLD exactly and are exercised by tests.
 - [ ] Code sits in the source tree LLD §3a specifies; no directory layout invented this run.
 - [ ] No hard-coded origins or environment-specific hosts — the runtime topology in
       `PROJECT_CONTEXT §3` is honored through LLD §7 config keys.
-- [ ] Base branch verified to contain the predecessor's work **before** any code was written;
-      no Blocker from the predecessor's review left open.
-- [ ] **Branch created, small commits made and pushed, tests + docs + `state.json` updated, PR
-      opened with a descriptive body (initial task / reasoning / outcome).** The PR is left
-      **unmerged** for the developer.
+- [ ] The **current branch** was read, checked **by content** for the predecessor's work, and
+      **named in the report** before any code was written.
+- [ ] **Branch created from the current branch, small commits made and pushed, tests + docs +
+      `state.json` updated, PR opened against the branch it came from with a descriptive body
+      (initial task / reasoning / outcome).** Merging followed `context.repo.mergePolicy`.
 - [ ] `branch` and `prUrls` recorded on the phase (or `edits[]` entry) — every repo's PR under a
       `split` layout; a minor edit is
       registered in `edits[]` with its own `E-<n>` id.
 - [ ] `progress.lastProcessedChangeLogId` and `lastProcessedReviewNumber` advanced to exactly
       what this run folded in (never blindly to the highest present).
-- [ ] Any review whose Blockers this run fixed has its target set to `reviewStatus:
-      "remediated"`, with a re-review recommended in the report.
-- [ ] Phase (or edit) `status` set to `done` in `state.json` — `accepted` only ever on the
-      developer's explicit instruction, never at hand-off; plan edits saved.
-- [ ] Blockers, open questions, and assumptions reported, not silently resolved.
+- [ ] Review findings folded in this run are named in the report; anything too large was
+      handed to Step 0c rather than stalling the run.
+- [ ] Phase (or edit) `status` set to `done` in `state.json` — the terminal status; plan edits
+      saved.
+- [ ] **The two counts are in the report** — features awaiting testing, and open review
+      findings — whether or not the developer asked.
+- [ ] Open questions and assumptions reported, not silently resolved.
 
 ---
 

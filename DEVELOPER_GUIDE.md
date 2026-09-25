@@ -9,7 +9,7 @@ up front, in a Project Context, and every later stage reads them from there.
 > **The load-bearing pieces**: a **Stage 0 Project Context** that parameterizes stacks /
 > CI/CD / constraints and forces a decision on load-bearing questions; a **`state.json`** file
 > that holds all machine state (statuses, lineage, change log) so the doc stays readable and
-> branching is tractable; **mechanical (falsifiable) phase acceptance**; an explicit
+> branching is tractable; **mechanical (falsifiable) exit criteria** as the only gate; an explicit
 > **rolling plan** that covers remaining work only and is refreshed before most build runs; and an
 > independent **Stage 5 Review/QA** that feeds findings back into the loop.
 
@@ -51,7 +51,7 @@ cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
 
 **`AGENTS.md` matters more than it looks.** Every safety rule in the stage files only applies
 when you explicitly invoke that stage. The moment you just chat — *"add a department filter"*,
-*"fix this test"*, *"mark P-3 accepted"* — none of them are in context, and the pipeline's
+*"fix this test"*, *"P-3 passed testing"* — none of them are in context, and the pipeline's
 state can drift from reality without anyone noticing. `AGENTS.md` loads every session and
 closes that gap: it carries the invariants, the authority ladder, and a routing rule that
 catches edits made outside a formal stage run (see §Working Outside a Stage).
@@ -83,15 +83,19 @@ somewhere else and you change that one line; nothing else moves.
       ▼  │
  [4] Phase Implementation ──┐        [5] Review / QA  (independent agent)
       ▲                     │              │
-      │  YOU test & accept  │◄─────────────┘  findings → state.json changeLog[]
-      │  Review audits      │
-      └─────────────────────┘   … repeat until the Coverage Matrix is fully delivered
+      │  YOU merge & (when   │◄─────────────┘  findings → state.json changeLog[]
+      │  you like) test      │
+      └─────────────────────┘   … repeat until FEATURE_STATUS.md is fully delivered
 ```
 
 Stages 0–2 are each **one agent run** producing documents. Stage 3 produces the plan and is then
 **re-entered from Stage 4's Step 0c** whenever the remaining phases need re-slicing. Stage 4 is a
 **loop** — one run per phase (or per minor edit), with you in between. Stage 5 (**Review**) runs
-independently, usually after you accept a phase, and its findings loop back into Stage 4.
+independently against any delivered work, and its findings loop back into Stage 4.
+
+**Nothing in this loop blocks on you.** You can run four phases before testing any of them. The
+only gate anywhere is a phase's own exit criteria, which the agent must pass before it may call
+the phase `done`.
 
 Every stage supports a **rerun with Additional Instructions** if you're not happy with the
 output — see §Reruns. **A design change mid-build is a rerun of Stage 2, not a special
@@ -104,13 +108,16 @@ procedure** — see §Changing the Design Mid-Build.
 The single source of truth for **progress, lineage, and change history**. The Markdown docs
 hold human-readable *content*; `state.json` holds *state*. Stage 0 initializes it; later stages
 read and append to it. **You never edit it by hand** — you tell the agent what happened
-("accept P-2", "P-2 failed") and it records the change and confirms.
+("merge P-3", "accept P-2", "P-2 failed") and it records the change and confirms.
+
+It holds **machine facts only**. What you have tested is *not* in here — that lives in
+`FEATURE_STATUS.md`, per feature, because a later phase can change what an earlier one built.
 
 - `context` — stacks, CI/CD mode, and the **constraints** (by ID, e.g. `C1`, `C2`).
 - `stages` — status + `rerunCount` for context/requirements/design/plan.
-- `phases[]` — each phase's `status` (`pending`/`in progress`/`done`/`accepted`),
-  `reviewStatus`, plus the `branch` and `prUrls` of its work (`prUrls` is always an array — one
-  per repo under a `split` layout). **IDs are permanent** — a plan
+- `phases[]` — each phase's `status` (`pending`/`in progress`/`done` — **forward only**, and
+  `done` is terminal), plus the `branch`, `prUrls` and `mergedUtc` of its work (`prUrls` is
+  always an array — one per repo under a `split` layout). **IDs are permanent** — a plan
   refresh may drop unstarted phases and append new ones, but never renumbers or reuses an ID.
 - `edits[]` — **minor** edits (`E-1`, `E-2`…): changes touching no contract. An edit ships code,
   so it gets an id, a status, and a branch/PR of its own — and can be reviewed independently,
@@ -118,12 +125,10 @@ read and append to it. **You never edit it by hand** — you tell the agent what
 - `changeLog[]` — **append-only** record of every mid-flight change (developer notes,
   reconciliations, review findings, out-of-band edits). This is what the Implement stage
   reconciles against.
-- `reviews[]` — one entry per Review run, with its verdict and `blockerCount`. A target's
-  `reviewStatus` goes `changes-requested` → `remediated` once Implement fixes the Blockers;
-  until then the next phase is gated.
-- `wholeBuild` — the `reviewStatus` of the build as a whole. A `whole-build` review has no
-  `phases[]` or `edits[]` entry of its own, so this is where its verdict lives and where the
-  gate is cleared.
+- `reviews[]` — one entry per Review run, with its outcome and `blockerCount`. **A review sets
+  no status on anything and blocks nothing**; its findings become `changeLog[]` entries the next
+  Implement run folds in, and `progress.lastProcessedReviewNumber` tracks what has been dealt
+  with.
 - `progress` — the **high-water mark** (`lastProcessedChangeLogId`,
   `lastProcessedReviewNumber`, both integers) telling the next Implement run which entries it
   has already folded in. Without it, every run would re-apply the whole change log.
@@ -223,16 +228,19 @@ Produces `PLAN_<App>.md` (each phase runnable & testable, with a developer test 
 **mechanical exit criteria**) and populates `state.json phases[]`.
 
 **The plan covers remaining work only** — it's a rolling forecast, not a fixed schedule.
-Accepted phases drop out of the phase list into a one-line §2 Completed entry, and the remaining
-phases are re-checked at the start of most Stage 4 runs. Two rules keep that safe:
+Delivered phases drop out of the phase list into a one-line §2 Completed entry — tested or
+not — and the remaining phases are re-checked at the start of most Stage 4 runs. Two rules keep
+that safe:
 
 - **Phase IDs are never reused or renumbered.** New phases take the next unused number, even
   when they run *before* lower-numbered ones. IDs will stop being sequential — that's expected.
   Execution order lives in the plan; identity lives in the ID.
-- **The Coverage Matrix (§7) is the real commitment.** Every requirement and design element has
-  a row with a status (`done in P-N` / `scheduled in P-N` / `unscheduled`). Refreshes may move
-  rows between phases but never delete one. The phase list is a forecast; **the matrix is what
-  proves the build is complete**, and whole-build Review fails on any `unscheduled` row.
+- **`FEATURE_STATUS.md` is the real commitment.** Stage 3 creates it: every requirement and
+  design element gets a row with how to check it, which phase(s) built it, and whether you have
+  tested it. Refreshes may move rows between phases but never delete one, and the ledger is
+  **never regenerated** — later runs update rows in place. The phase list is a forecast;
+  **the ledger is what proves the build is complete**, and whole-build Review flags any
+  `unscheduled` row.
 
 **Your job after:** sanity-check the slicing. Is P-1 genuinely small? Are the features you need
 to see early actually early? If not, say so now — it's cheapest before any code exists.
@@ -241,9 +249,13 @@ to see early actually early? If not, say so now — it's cheapest before any cod
 One run builds one phase **or** one minor edit — and **it classifies which itself**; you don't
 have to declare it. Every run: **classifies** the work, **reconciles** changes from
 `state.json`, **refreshes the forward plan** (Step 0c), implements on a **branch** with **small
-commits**, updates **tests + docs + state**, opens a **PR** with a descriptive body, marks the
-phase `done`, and **stops**. It never sets `accepted` (that's you) and never rolls into the next
-phase.
+commits**, updates **tests + docs + state + the ledger**, opens a **PR** with a descriptive
+body, marks the phase `done`, and **stops**. `done` is the end of the line — there is no further
+status, and nothing waits on you.
+
+**It branches from whatever branch you're standing on**, and targets the PR at it. Merge, and
+the next phase starts clean from your base branch; don't merge, and it stacks on top. Either
+way it tells you, in one line, which branch it used and what that branch contained.
 
 **Step 0c — the plan refresh.** Before building, it checks whether the remaining phases are
 still right. Default is **no change** ("plan unchanged — building P-6"). When something did
@@ -258,14 +270,16 @@ a contract is a document change followed by a phase (below), never an edit.
 ### Stage 5 — Review / QA  · `5_REVIEW_INSTRUCTIONS.md`
 An **independent** agent audits a phase, a minor edit (`E-1`), or the whole build on four
 axes — requirements coverage, tests, security, static performance — plus constraint compliance.
-It returns **PASS** or **CHANGES REQUESTED**; actionable findings become `changeLog[]` entries
-the next Implement run fixes. It changes no code.
+It returns **CLEAN** or **FINDINGS**; actionable findings become `changeLog[]` entries
+the next Implement run fixes. It changes no code, and it also reports **what's missing** —
+ledger rows asked for but never built — and **what's untested**.
 
-**Blockers gate, Majors don't.** A Blocker stops the next phase from starting — building on a
-known-broken foundation is what the loop exists to prevent — no matter whether it was found on a
-phase, an edit, or a whole-build review. The gate clears when Implement fixes them and marks the
-target `remediated`; a re-review then confirms. Majors ride along into the next run's
-reconciliation.
+**It reports; it never blocks.** A Blocker means *"I would not build anything further on this"*,
+said plainly and with reasons — but nothing enforces it, and you are free to carry on. The gate
+it used to hold only ever fired for someone who chose to run a review in the first place, and
+its findings already survived without it, through the change log. With no hard gates left in the
+pipeline, this stage is your main independent check: run it more often than you think you need
+to.
 
 ---
 
@@ -275,44 +289,59 @@ reconciliation.
 
 | Status | Meaning | Who sets it |
 |---|---|---|
-| `pending` | not started (or reopened by you) | planner / you |
+| `pending` | not started | planner |
 | `in progress` | agent is building it | agent |
-| `done` | built and self-verified against **mechanical exit criteria** | agent |
-| `accepted` | **you** tested it and approved | **you only** |
+| `done` | built and self-verified against **mechanical exit criteria** — terminal | agent |
 
-Two rules keep the loop safe: **only you authorize `accepted`**, and the agent **refuses to
-start phase N+1 while phase N is merely `done`**.
+**Forward only, and `done` is the end.** Nothing rewinds: a failure you report, or a design
+change that invalidates delivered work, becomes *new* work rather than a reopened phase. What is
+built is built.
 
-**You never hand-edit `state.json`.** You say what happened and the agent records it:
+**Whether you have tested something lives elsewhere** — in `FEATURE_STATUS.md`, one row per
+feature, because a later phase can change what an earlier one delivered and a phase-level mark
+can't express that.
+
+**You never hand-edit `state.json` or the ledger.** You say what happened and the agent records
+it:
 
 | You say | It writes |
 |---|---|
-| "accept P-2" | merges the PR, sets `accepted` + `acceptedUtc` |
-| "P-2 failed — search returns 500" | `pending` + your note, PR left open |
-| "accept E-1" | the same, for a minor edit |
+| "merge P-3" | merges every PR for it, sets `mergedUtc` |
+| "accept P-2" | ticks every ledger row P-2 built — `passed <today>`. P-2 stays `done` |
+| "accept P-2, P-3, P-4" | the same, for each in turn |
+| "search works" | ticks that one row |
+| "P-2 failed — search returns 500" | `failed` on the affected rows, plus a `changeLog` entry. The fix is planned forward |
 | "I hand-fixed the connection string" | a `changeLog` entry marked `out-of-band` |
 
-Acceptance is the one thing it won't do loosely: it must be **its own instruction naming the
-phase**. Ask to start P-3 while P-2 is only `done` and it will stop and point you back rather
-than offering to accept P-2 for you — because at that moment your goal is P-3, and a reflexive
-"yes" is exactly how untested work slips through. It also won't accept several phases at once.
+Accepting several at once is fine **when you name them** — deferring testing is a supported way
+to work. What gets challenged is the vague version: "accept everything so far" usually means
+nothing was tested, so the agent turns it into the explicit list and asks you to confirm. It
+also won't fold acceptance into another request, because when your mind is on the next phase,
+"yes" is reflexive.
 
 **When a phase lands on your desk (`done`):**
 
-1. **Test it** — follow the phase's Developer test guide in `PLAN_<App>.md`.
-2. **Decide:**
-   - **A. Good, no changes** → just say **"accept P-2"**. The agent merges the PR, sets
-     `accepted` + `acceptedUtc`, and confirms what it recorded — you never touch `state.json`.
-     (If your repo needs reviewers or green CI, it records the acceptance and leaves the merge
-     to you.) Then optionally run **Review**, and launch the next phase.
+1. **Merge it** — say **"merge P-2"**, or merge it yourself in the web UI; the agent checks the
+   branch by content and notices either way. (Say *"merge as you go from now on"* to stop being
+   asked.) If your repo needs reviewers or green CI, the merge is always yours.
+2. **Carry on, or test — your call.** Running the next phase needs nothing from you but the
+   word. When you do want to test: open `FEATURE_STATUS.md`, walk the rows marked `untested`,
+   and use `HOW_TO_RUN.md` to get the app up.
+3. **Tell the agent what you found:**
+   - **A. Good** → **"accept P-2"**, or several at once, or a single feature by name. It ticks
+     the rows and confirms — you never touch a file.
    - **B. Works, but you want a change** → ask for it. The agent decides what it is: if it
      touches **no** contract it's a **minor edit** (`E-n`) done on the spot; if it touches a
      requirement, design contract, or plan scope, it tells you which document owns it and stops
      — see §Changing the Design Mid-Build. You never have to classify it yourself.
-   - **C. Fails your testing** → say so — **"P-2 failed, search returns 500"**. The agent
-     reopens it to `pending` with your note and leaves the PR open. Re-run it on the same
-     phase; it reuses that branch and PR rather than opening a second one.
-3. **Repeat** until the final phase is `accepted` (and, if you want, whole-build Review is PASS).
+   - **C. Fails your testing** → say so — **"P-2 failed, search returns 500"**. The row is
+     marked `failed`, and the fix is scheduled as forward work: a minor edit, a reconciliation
+     task in the next run, or a new phase. P-2 itself stays `done` and is never reopened.
+4. **Repeat** until every ledger row reads `built` — and, ideally, `passed`.
+
+**Watch the two counts.** Every hand-off report ends with them: features awaiting your testing,
+and open review findings. With nothing blocking, those two numbers are the only standing signal
+that the build has run a long way ahead of anyone checking it.
 
 ---
 
@@ -343,25 +372,24 @@ Step 0c reads the revision-history row and proposes a re-slice: a **retrofit pha
 *P-8 — Migrate auth seam to OIDC*), sequenced **before** P-6 so nothing else gets built on the
 old contract, plus any adjustment to P-6/P-7. You approve; it builds P-8.
 
-Then test, `accept P-8`, and run the next phase. **The second prompt is the one you always
+Then run the next phase. **The second prompt is the one you always
 use** — so a mid-flight design change costs you exactly one extra prompt.
 
 **Three things that deliberately don't happen:**
 
-- **P-3 is never reopened.** `accepted` means *you tested that increment*, and that stays true
-  of what you tested. The retrofit is new work with its own acceptance.
+- **P-3 is never reopened.** What is built is built; the retrofit is new work that supersedes
+  it. The auth feature rows go back to `untested` so you know to re-check them.
 - **No phase is renumbered.** The retrofit is `P-8` even though it runs before `P-6`.
-- **No work silently disappears.** The Coverage Matrix rows for auth move from `done in P-3` to
-  `done in P-8`; they're never deleted.
+- **No work silently disappears.** The `FEATURE_STATUS.md` rows for auth move from
+  `built in P-3` to `built in P-8`; they're never deleted.
 
 **If the current phase is mid-run** with an open branch: don't stack two changes on one branch.
 Either land it as-is (if genuinely unaffected by the change), or reset that branch, do the
-retrofit, then redo it. Redoing an unaccepted, half-built phase is cheap — that's what the
-accept gate is for.
+retrofit, then redo it. Redoing a half-built phase is cheap — nothing depends on it yet.
 
 **When it's bigger than a retrofit.** If the change invalidates a foundational decision that
 everything is shaped around (monolith → microservices at P-6), no incremental path saves you:
-rerun Design, rerun Plan, and accept that much of the build is being redone. The agent will say
+rerun Design, rerun Plan, and take the hit that much of the build is being redone. The agent will say
 so rather than proposing a retrofit that can't work. This is rare — but when it happens, the
 honest answer is the expensive one.
 
@@ -419,8 +447,8 @@ rather than sit in a document nobody rebuilt against.
 - **The designs are the contract; the plan is a rolling forecast; `state.json` is the memory.**
   The agent re-slices the *remaining* plan with your approval, but never changes the design.
   Design changes are yours to make or commission — and they reach the code as a retrofit phase.
-- **Accepted is forever.** An `accepted` phase is never reopened to absorb a change; that mark
-  records that *you tested that increment*, which stays true. New work gets a new phase.
+- **Built is built.** A `done` phase is never reopened to absorb a change, and no status ever
+  rewinds. New work gets a new phase.
 - **Keep everything in git.** Commit docs, `state.json`, and code at each phase boundary. The
   agent uses git history to detect changes during reconciliation, and you get clean rollback
   points and reviewable PRs.
@@ -544,12 +572,17 @@ a missing obligation is a rule that silently won't be enforced.*
 
 > run stage 4
 
-*→ Agent builds P-1 on a branch, marks it `done`, opens a PR. You test it via the plan's P-1
-test guide, then simply say:*
+*→ Agent builds P-1 on the branch you're standing on, marks it `done`, opens a PR, and asks
+whether to merge. You say:*
+
+> merge P-1
+
+*→ It merges and records `mergedUtc`. You can start P-2 straight away. When you get round to
+testing, walk the `untested` rows in `FEATURE_STATUS.md` and say:*
 
 > accept P-1
 
-*→ It merges the PR, records `accepted` + `acceptedUtc`, and confirms — no JSON editing.*
+*→ It ticks those rows — no JSON editing, and nothing was waiting on it.*
 
 **Stage 5 — Review P-1** (independent run):
 
@@ -575,10 +608,10 @@ Then, exactly as always:
 
 *→ Step 0c reads the revision-history row and proposes: **add P-8 "Migrate auth seam to OIDC"**,
 run it **before P-6**, and adjust P-6/P-7 to build against bearer tokens. You approve; it builds
-P-8 on a branch, regenerates `HOW_TO_TEST.md` (with the auth regression lines rewritten), and
-opens a PR. P-3 stays `accepted` and is never reopened.*
+P-8 on a branch, rewrites the auth rows' checks in `FEATURE_STATUS.md` and resets them to
+`untested`, and opens a PR. P-3 is never reopened.*
 
-Then `accept P-8`, and run the next phase to get P-6.
+Then merge it and run the next phase to get P-6.
 
 **A change that touches nothing** — say a `department` filter the LLD already provides for — is
 just a minor edit; ask for it and the agent does it as `E-1` without any of the above.
@@ -599,11 +632,11 @@ stale so they get reconciled or rerun.*
 
 > rerun stage 3 — P-1 is too big; split the frontend out into its own later phase and keep P-1
 > to backend scaffold + DB validation + two endpoints only. Re-slice future phases only; leave
-> any accepted phases untouched.
+> any delivered phases untouched.
 
 ### Example D — Whole-build final review
 
-After the final phase is accepted:
+After the final phase is delivered:
 
 > run stage 5 on the **whole build**
 > Codebase is this repo. Emphasize security and requirements coverage. Write the report to `./out/`.
@@ -621,13 +654,12 @@ After the final phase is accepted:
 | 3 requirements docs | Stage 1 | to answer open questions | Stage 1 rerun only (Stage 4 may make a purely *clarifying* fix and log it) |
 | HLD / LLD | Stage 2 | **yes — design changes** | Stage 2 rerun only (same clarifying carve-out). Every rerun adds a §0 Revision History row |
 | `PLAN_<App>.md` — remaining phases | Stage 3 | say what you want; the agent re-slices | **Stage 4 Step 0c re-slices remaining phases with your approval**; statuses and test-guide fixes |
-| `PLAN_<App>.md` — Coverage Matrix | Stage 3 | no | rows move between phases; **never deleted** |
-| `HOW_TO_TEST.md` (one file) | Stage 4 | no | regenerated at every hand-off |
-| `state.json` phases[] | Stage 3 (init) | **no hand-editing** — you authorize, it writes | all fields, incl. `accepted` on your explicit instruction |
-| `state.json` edits[] | Stage 4 | **no hand-editing** — say "accept E-1" | appends each **minor** edit; `accepted` on your instruction |
+| `FEATURE_STATUS.md` | Stage 3 | **no hand-editing** — say "accept P-2" / "search works" | Stage 4 updates rows in place; rows **never deleted**, file **never regenerated** |
+| `HOW_TO_RUN.md` (one file) | Stage 4 | no | only when building/running/configuring the app changes |
+| `state.json` phases[] | Stage 3 (init) | **no hand-editing** | status (forward only), branch, PRs, `mergedUtc` |
+| `state.json` edits[] | Stage 4 | **no hand-editing** | appends each **minor** edit; same lifecycle as a phase |
 | `state.json` changeLog[] | Stage 0 (init) | tell it what you changed | your notes, reconciliations, review findings (append-only) |
 | `state.json` reviews[] | Review stage | no | Review appends |
-| `state.json` wholeBuild | Stage 0 (init) | no | Review sets the verdict; Stage 4 marks `remediated` |
 | `state.json` progress | Stage 0 (init) | no | Stage 4 advances the high-water mark |
 | Application code | Stage 4 | hotfixes → log them | yes (on a branch, via PR) |
 | Review reports | Stage 5 | no | yes |

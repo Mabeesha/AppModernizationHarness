@@ -7,9 +7,15 @@ against what the project *asked for*, and report findings the developer can act 
 **not the implementer** — this stage exists precisely because self-review is worthless. Run
 this as a **separate agent/run** from the one that built the code.
 
-You can be pointed at **one accepted phase** (the common case, run after the developer accepts
-a phase), a **minor edit** (`E-1`), or the **whole build** (a milestone or final review). You **do not fix anything** —
-you find, classify, and hand back a verdict. Fixes go through the Implement stage.
+You can be pointed at **any delivered phase** (`done` — whether or not a human has tested it),
+a **minor edit** (`E-1`), or the **whole build** (a milestone or final review). You **do not fix
+anything** — you find, classify, and hand back a report. Fixes go through the Implement stage.
+
+> **You report; you never block.** Nothing in this pipeline waits on a review: findings become
+> `changeLog[]` entries that the next Implement run folds in. That makes this stage the main
+> independent check on a build whose only other gate is the Implement stage's own exit
+> criteria — so grade honestly and say plainly what you would not build on. Reviewing work
+> nobody has tested yet is normal and expected, not a problem to flag.
 
 > **Golden rule: verify against the source of truth, don't re-litigate it.** The requirements,
 > design, and constraints are the bar. Judge the implementation against them. If you think the
@@ -20,11 +26,14 @@ you find, classify, and hand back a verdict. Fixes go through the Implement stag
 
 ## Inputs
 
-1. **`state.json`** — `phases[]` (what's built/accepted), `edits[]` (what each minor edit was
-   and where it landed), `wholeBuild` (the last whole-build verdict), `context.constraints`, and
-   prior `reviews[]`. Read the array your target lives in. You **append a new entry to
-   `reviews[]`**, **set the target's `reviewStatus`** in place, and, for each actionable finding,
-   append a `changeLog[]` entry so the Implement stage picks it up.
+1. **`state.json`** — `phases[]` (what's built), `edits[]` (what each minor edit was
+   and where it landed), `context.constraints`, and prior `reviews[]`. Read the array your
+   target lives in. You **append a new entry to `reviews[]`** and, for each actionable finding,
+   append a `changeLog[]` entry so the Implement stage picks it up. You write nothing else to
+   `state.json` — there is no status on a target for a review to set.
+1b. **`FEATURE_STATUS.md`** — the coverage ledger: what is built, how to check it, and what the
+   developer has tested. It is your coverage baseline and the source of the "untested" section
+   of your report. **Read-only to you**, like the code.
 2. **The three requirements documents** — the "what/why" bar.
 3. **The design documents** (HLD + LLD) — the contract bar.
 4. **`PROJECT_CONTEXT.md`** — constraints (by ID), target stack, NFRs, CI/CD mode.
@@ -66,18 +75,20 @@ what's wrong, why it matters, and the requirement/design/constraint it violates.
 ### 1. Requirements vs. implemented solution *(coverage)*
 - Cross-check the implementation against the requirements and design **in scope for the target**.
 - **Find missing points** — requirements/design elements that should be implemented by now (per
-  the plan's **Coverage Matrix**) but aren't, or are only partially done.
+  **`FEATURE_STATUS.md`**) but aren't, or are only partially done. Check the ledger against the
+  requirements and design too: a requirement with **no row at all** is a worse hole than a row
+  marked `unscheduled`, because nothing is tracking it.
 - **Judge against the right revision of the design.** Read the HLD/LLD `## 0. Revision History`.
   If a revision postdates the phase you are reviewing, check whether a later phase retrofitted
   the affected code. If the revision row names this phase as invalidated and no retrofit has
   landed, that is a **finding** — the code is running against a superseded contract. Do not
   grade a phase down for a contract that changed after it shipped **and** has a retrofit phase
   planned; do report it if the retrofit is nowhere in the plan.
-- **On a `whole-build` target, audit the Coverage Matrix itself.** Any row still marked
+- **On a `whole-build` target, audit `FEATURE_STATUS.md` itself.** Any row still marked
   `unscheduled` is a **Blocker** — the plan is a rolling forecast, so an unscheduled row is work
   that was never delivered and no longer has a phase that would deliver it. Also verify no row
-  present in an earlier version of the matrix has disappeared (`git log` on the plan); a
-  vanished row is work silently dropped by a refresh, and is likewise a Blocker.
+  present in an earlier version of the ledger has disappeared (`git log` on it); a
+  vanished row is work silently dropped, and is likewise a Blocker.
 - Find **divergences** — behavior that doesn't match the FR/BR or the LLD contract (wrong
   endpoint shape, missing validation, altered business rule, wrong field mapping).
 - Check the **parity stance** (`PROJECT_CONTEXT §1`): under strict parity, an "improvement"
@@ -177,29 +188,26 @@ context mode.
 
 ---
 
-## Verdict
+## Outcome
 
-- **PASS** — no Blockers and no Majors (Minors may remain, logged as follow-ups). The target is
-  good; the loop continues (next phase, or the build is done if this was a whole-build review).
-- **CHANGES REQUESTED** — one or more Blocker/Major findings. The target goes back to the
-  **Implement stage**: each actionable finding becomes a `changeLog[]` entry the next Implement
-  run reconciles and fixes. If a finding is actually a **design flaw** (the implementation
-  faithfully built a wrong design), say so explicitly and recommend rerunning the **Design**
-  stage rather than patching in Implement.
+- **CLEAN** — no Blockers and no Majors (Minors may remain, logged as follow-ups).
+- **FINDINGS** — one or more Blocker/Major findings. Each actionable one becomes a
+  `changeLog[]` entry the next Implement run reconciles and fixes. If a finding is actually a
+  **design flaw** (the implementation faithfully built a wrong design), say so explicitly and
+  recommend rerunning the **Design** stage rather than patching in Implement.
 
-**Blockers gate; Majors ride along.** Record `blockerCount` accurately, because the two
-severities have different consequences:
+**Severities are information, not a gate.** Record `blockerCount` accurately anyway — it is how
+the developer decides what to do next, and it drives the "open findings" count the Implement
+stage reports at every hand-off:
 
-- **Any Blocker ≥ 1** — the next phase **must not start** until it is resolved, whether this
-  review targeted a phase, an edit, or the whole build. Say so explicitly in your report:
-  building the next phase on a known-broken foundation is exactly what this loop exists to
-  prevent. The gate clears only when the Implement stage marks the target `remediated`.
-- **Majors with no Blockers** — the next phase may proceed; the findings ride along and get
-  fixed during that run's reconciliation. Stalling a sound build over non-critical findings
-  costs more than it saves.
+- **Blocker** — you would not build anything further on this. Say so in those words, and say
+  what breaks if they do. It is advice with your name on it, and the developer is free to
+  overrule it; nothing in the pipeline enforces it.
+- **Major** — worth fixing soon; fine to fold into the next run's reconciliation.
+- **Minor** — a follow-up, logged and left.
 
-Set the reviewed target's `reviewStatus` in `state.json` to `pass` or `changes-requested` — on
-its `phases[]` entry, its `edits[]` entry, or the `wholeBuild` object (see Output below).
+You do **not** set any status on the target. A review is a record and a report; the work it
+judged stays exactly as it was.
 
 ---
 
@@ -208,17 +216,15 @@ its `phases[]` entry, its `edits[]` entry, or the `wholeBuild` object (see Outpu
 ### 1. Append to `state.json reviews[]`
 ```json
 { "id": "R-<n>", "target": "P-3 | E-1 | whole-build", "utc": "<ISO-8601>",
-  "result": "pass | changes-requested", "blockerCount": <int>, "findingsCount": <int> }
+  "result": "clean | findings", "blockerCount": <int>, "findingsCount": <int> }
 ```
-Use the next unused `R-<n>`; ids are never reused. Set the target's `reviewStatus` to `pass` or
-`changes-requested` — on its `phases[]` entry, its `edits[]` entry, or, for a `whole-build`
-target, on the top-level `wholeBuild` object. Every target kind has exactly one such field, and
-it is the only thing the Blocker gate reads.
+Use the next unused `R-<n>`; ids are never reused. That entry is the **only** thing you write to
+`state.json` besides the change-log entries below.
 
-**On a re-review after remediation:** a target sitting at `reviewStatus: "remediated"` means
-the Implement stage fixed a previous review's Blockers. Verify those fixes specifically, then
-set `pass` or `changes-requested` as normal — `remediated` is a claim awaiting your
-confirmation, never a verdict in itself.
+**On a re-review:** read the earlier review's findings and the `changeLog[]` entries that
+followed them, and **verify those specific fixes first**. Say which previous findings are now
+resolved, which are not, and which have regressed. A claim in a hand-off report that something
+was fixed is a claim awaiting your confirmation, never a verdict in itself.
 
 For **each Blocker/Major** finding, also append a `changeLog[]` entry — **complete, with every
 field the schema requires**:
@@ -237,28 +243,34 @@ A Markdown report named **`REVIEW_<Rid>_<AppName>_<target>.md`** (e.g.
 filenames unique and ordered — two reviews of the same target never collide:
 ```markdown
 # Review: <AppName> — <target> — <date>
-## Verdict: PASS | CHANGES REQUESTED
+## Outcome: CLEAN | FINDINGS
 ## Summary
 - One paragraph: what was reviewed, the headline result.
+## Built vs. asked for
+- `FEATURE_STATUS.md` rows in scope, counted by `Build`: built / scheduled / unscheduled.
+- **Every row that is missing entirely** — asked for in the requirements or design and absent
+  from the ledger. These are the coverage holes the phase list cannot show you.
+- Requirements/design elements expected in this target: covered / missing / partial.
+- The design revision this target was judged against, and whether any later revision
+  supersedes it (and if so, whether a retrofit phase is planned or landed).
 ## Findings
 | # | Area | Severity | Location | Finding | Violates | Fix direction |
 |---|------|----------|----------|---------|----------|---------------|
 - Coverage / Tests / Security / Performance findings, most severe first.
-## Coverage Check
-- Requirements/design elements expected in this target: covered / missing / partial.
-- The design revision this target was judged against, and whether any later revision
-  supersedes it (and if so, whether a retrofit phase is planned or landed).
-- **`whole-build` only:** Coverage Matrix audit — count of rows by status, every `unscheduled`
-  row listed, and any row that disappeared from an earlier version of the matrix.
+## Untested
+- `FEATURE_STATUS.md` rows in scope that are `built` and still `untested`, and any marked
+  `failed`. Not a criticism — a list of what no human has confirmed, so the developer can
+  choose where to spend an hour.
 ## Constraint Compliance
 - One line per C#: honored / violated (+ evidence).
-## Follow-ups (non-gating Minors)
+## What I would fix before building further
+- Plain advice, naming the Blockers and why. Say it even though nothing enforces it.
+## Follow-ups (Minors)
 ```
 
-Do **not** modify application code, the design, or the requirements — reviewing is read-only on
-those. The only things you write are the **review record** in `state.json` — the `reviews[]`
-entry (appended), the target's `reviewStatus` (**set in place**, per §Output), and a
-`changeLog[]` entry per Blocker/Major (appended) — and the report itself.
+Do **not** modify application code, the design, the requirements, or `FEATURE_STATUS.md` —
+reviewing is read-only on all of them. The only things you write are the `reviews[]` entry
+(appended), a `changeLog[]` entry per Blocker/Major (appended), and the report itself.
 
 ---
 
@@ -272,8 +284,12 @@ entry (appended), the target's `reviewStatus` (**set in place**, per §Output), 
    stage fixes.
 5. **No load testing.** Performance is by static inspection only.
 6. **Severity honestly.** Don't inflate Minors to Blockers or bury a real Blocker as a Minor.
-7. **A clean pass is a valid, valuable result.** If it's good, say PASS plainly — don't
+7. **A clean review is a valid, valuable result.** If it's good, say CLEAN plainly — don't
    manufacture findings.
+8. **Never block, and never pretend to.** You have no status to set and no gate to hold. State
+   your advice in the strongest terms the evidence supports, then hand it over.
+9. **Untested work is not a finding.** Nothing in this pipeline requires a human to have tested
+   anything before you review it. Report what is untested; don't grade it down for being so.
 
 ---
 
@@ -283,14 +299,16 @@ entry (appended), the target's `reviewStatus` (**set in place**, per §Output), 
       compliance for every `C#`.
 - [ ] Build and tests actually run; results reported.
 - [ ] Every finding cites `path:line`, a severity, and what it violates.
-- [ ] Verdict decided (PASS / CHANGES REQUESTED) on the Blocker/Major rule.
-- [ ] `reviews[]` appended and the target's `reviewStatus` set in `state.json`; each
-      Blocker/Major finding appended to `changeLog[]` for the Implement stage.
+- [ ] Outcome decided (CLEAN / FINDINGS) on the Blocker/Major rule.
+- [ ] `reviews[]` appended in `state.json`; each Blocker/Major finding appended to
+      `changeLog[]` for the Implement stage. Nothing else in `state.json` was written.
+- [ ] **Built vs. asked for** reported, including rows missing from the ledger entirely.
+- [ ] **Untested** rows listed for the developer, without grading them down.
 - [ ] Design-level flaws (vs. implementation defects) called out and routed to the Design stage.
 - [ ] The design revision the target was judged against was identified, and any superseding
       revision checked for a landed or planned retrofit phase.
-- [ ] **`whole-build` only:** Coverage Matrix audited — no `unscheduled` rows, and no row
-      dropped since an earlier version of the plan. Either is a Blocker.
+- [ ] **`whole-build` only:** `FEATURE_STATUS.md` audited — no `unscheduled` rows, and no row
+      dropped since an earlier version. Either is a Blocker.
 - [ ] Review report written; no code/design/requirements modified.
 
 ---

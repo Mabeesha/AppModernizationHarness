@@ -78,11 +78,12 @@ A design or requirements change — even one affecting something delivered many 
    invalidates.
 2. **The next Stage 4 run's Step 0c re-plans**, proposing a **retrofit phase** for the
    invalidated code and adjusting the remaining phases. The developer approves it.
-3. **That phase is built and accepted like any other.**
+3. **That phase is built like any other**, and the `FEATURE_STATUS.md` rows it changes reset to
+   `untested`.
 
-Two things never happen: an `accepted` phase is **never reopened** to absorb a change (that
-attestation stays true of what was tested — the retrofit is new work with its own acceptance),
-and a phase ID is **never reused or renumbered**.
+Two things never happen: a `done` phase is **never reopened** to absorb a change (**what is
+built is built** — the retrofit is new work that supersedes it), and a phase ID is **never
+reused or renumbered**.
 
 ---
 
@@ -97,57 +98,69 @@ and a phase ID is **never reused or renumbered**.
    **The developer should never have to hand-edit `state.json`** — they tell you what happened
    and you record it (see §Recording What the Developer Tells You). Keep it valid JSON and
    report what you wrote.
-4. **Only the developer *authorizes* `accepted` — per item, explicitly.** That mark means a
-   human tested the increment, so you may write it **only** when they instruct you to accept a
-   named phase or edit ("accept P-2"). Never infer it, never bundle it into another request
-   (especially not "run the next phase"), and never accept several at once.
-   You may set `in progress` and `done` yourself as work proceeds. Set **`pending` only when
-   the developer reports a failure** — reopening an accepted item otherwise would discard a
-   human's attestation that they tested it.
-5. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR
+4. **Phase and edit status moves forward only: `pending` → `in progress` → `done`.** You set
+   all three yourself as work proceeds, and `done` is terminal — **what is built is built.**
+   Nothing rewinds a status: a failure the developer reports is recorded in
+   `FEATURE_STATUS.md` and fixed as forward work, never by reopening the phase that shipped it.
+5. **Only the developer *authorizes* a `Tested` value in `FEATURE_STATUS.md`.** `passed` and
+   `failed` mean a human ran the app, so you write them **only** on their explicit word (see
+   §Recording What the Developer Tells You). Never infer one, and never write one to clear a
+   row that is inconveniently `untested`. The one value you may write yourself is `untested` —
+   when work you just did changed that feature's behavior.
+   **That mark gates nothing.** No stage waits on it, and you never ask for it before doing
+   something else.
+6. **Merge only what you were asked to merge.** Follow `context.repo.mergePolicy` — under
+   `ask`, the developer's word; under `auto`, at hand-off. Where the repository requires
+   reviewers or green CI, never merge; say it is theirs to do.
+7. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR
    bodies. Connection strings, IdP config, and credentials come from environment or profiles.
-6. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, fix
+8. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, fix
    the mapping, never the database.
 
 ---
 
 ## Recording What the Developer Tells You
 
-**This section is normative and lives only here.** Acceptance often happens in ordinary chat,
+**This section is normative and lives only here.** These statements arrive in ordinary chat,
 where no stage file is loaded — so the protocol belongs in the file that always loads. The
 stage instructions point back at this section rather than restating it.
 
-The developer does not edit `state.json`. They state what happened in plain language; you
-translate it into the state and confirm what you wrote:
+The developer edits neither `state.json` nor `FEATURE_STATUS.md`. They state what happened in
+plain language; you translate it and confirm what you wrote:
 
 | They say | You write |
 |---|---|
-| "accept P-2" / "P-2 passed testing" | merge **every** PR in its `prUrls` (see below), `status: "accepted"`, `acceptedUtc: <now>` |
-| "P-2 failed — search returns 500" | `status: "pending"` + the failure note; **leave the branches and PRs open** for the re-run |
-| "accept E-1" | same as a phase, on the `edits[]` entry |
-| "E-1 failed — <symptom>" | same as a failed phase, on the `edits[]` entry |
+| "accept P-2" / "P-2 passed testing" | in `FEATURE_STATUS.md`, every row reading `built in P-2` → `Tested: passed <today>`. **Nothing in `state.json` changes** — P-2 stays `done` |
+| "search works" / "the export screen is fine" | the matching row(s) only → `passed <today>` |
+| "P-2 failed — search returns 500" | the affected row(s) → `failed <today> — search returns 500`, **plus** a `changeLog[]` entry (`author: developer`, `origin: developer-prompt`). P-2 stays `done`; the fix is forward work |
+| "merge P-3" | merge **every** PR in its `prUrls`, then `mergedUtc: <now>` |
+| "merge as you go from now on" | `context.repo.mergePolicy: "auto"`, plus a `changeLog[]` entry |
 | "I hand-fixed X myself" | a `changeLog[]` entry, `author: developer`, `origin: out-of-band` |
+| "I merged P-3 myself" | confirm by content, then `mergedUtc` — and you record this even when they *don't* say it, because you check (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From the Right Base`) |
 
 Phases and edits behave **identically** here: both are units of shipped work with a status, a
-branch, a PR, and a review status. Anything you can do to a phase you can do to an edit.
+branch and a PR, and both are tested through the feature rows they touched, never as units.
 
-**Three guards on acceptance** — it is the one mark that certifies a human tested something:
+**Three rules for recording testing:**
 
-1. **It must be its own instruction, naming the item.** If they ask for the next phase while the
-   current one is only `done`, **do not offer to accept it as part of that request** — their
-   goal in that moment is the next phase, which makes "yes" reflexive. Stop and route them back:
-   > "P-2 is `done` but not accepted — I can't start P-3 until it is. If you tested it and it
-   > passed, say *accept P-2* and I'll merge the PR, record it, and start P-3."
-2. **Never accept several at once.** "Accept everything so far" means nothing was tested —
-   challenge it and accept them one at a time.
-3. **Say what they are attesting to**, e.g. "Recording that you tested P-2 against its test
-   guide and it passed." They should register the claim, not just see a box ticked.
+1. **Several at once is fine, when they name them.** "accept P-2, P-3 and P-4" is a legitimate
+   thing to say — the developer may have deferred testing deliberately, and
+   `FEATURE_STATUS.md` is written so they can walk it all in one sitting. Tick the rows for each
+   phase in turn. What you do **not** accept is the vague bulk: "accept everything so far" gets
+   turned into the explicit list and read back for confirmation.
+2. **Say what they are attesting to**, per phase, not as a lump: *"Recording that you tested
+   P-2's two features and P-3's four against their checks in `FEATURE_STATUS.md`."* They should
+   register the claim, not just see boxes tick.
+3. **Never ask for it as a precondition.** Nothing waits on testing. Do not ask "shall I mark
+   P-2 tested?" as part of a request to do something else — that turns an attestation into a
+   reflexive yes, and there is no reason to ask, because nothing is blocked.
 
-**Merging:** accepting normally includes merging that item's PRs — **all of them**, one per repo
-under a `split` layout — because the next phase branches from a base that must contain the work,
-and that base check runs per repo. If the repository requires reviewers or green CI
-(`PROJECT_CONTEXT §3`), **do not merge** — record the acceptance, and tell them the merge is
-still theirs to do.
+**Merging** is separate from testing and claims nothing about it. Under
+`context.repo.mergePolicy: "ask"` (the default) you request permission at hand-off and merge on
+their word; under `auto` you merge at hand-off and say so. Merge **all** of an item's PRs, one
+per repo under a `split` layout. If the repository requires reviewers or green CI
+(`PROJECT_CONTEXT §3`), **do not merge** — tell them it is still theirs to do. A decline never
+blocks anything: the next phase simply branches from where they are standing and stacks.
 
 ---
 

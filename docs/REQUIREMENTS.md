@@ -18,7 +18,7 @@ runtime, no installer, no tooling to maintain.
 
 | Actor | Role |
 |---|---|
-| **Developer** | Drives the pipeline, tests each increment, and is the *only* one who can accept work |
+| **Developer** | Drives the pipeline, merges, and is the *only* one who can record that something was tested |
 | **Build agent** | Any LLM coding agent, running one stage per session |
 | **Review agent** | The same, in a *separate* session, auditing what the build agent produced |
 
@@ -57,36 +57,44 @@ and anything that modifies the legacy source (read-only in every stage).
 | 1 Requirements | Business / Functional / Technical requirements |
 | 2 Design | HLD + LLD (the LLD is the authoritative contract) |
 | 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]` |
-| 4 Implement | Code, a PR, a regenerated `HOW_TO_TEST.md` |
+| 4 Implement | Code, a PR, updated `FEATURE_STATUS.md` rows |
 | 5 Review | `REVIEW_<Rid>_<App>_<target>.md` + findings in `state.json` |
 
 - **R3.1** Every stage supports a **rerun with Additional Instructions**. Documents are amended
   in place with a Revision History row; git is the only version history.
 
-### R4 — Two-tier acceptance
+### R4 — One gate, and a testing record
 - **R4.1** The agent may set a phase `done` only when its **mechanical, falsifiable** exit
-  criteria all pass. Subjective criteria ("looks correct") are forbidden.
-- **R4.2** Only the developer sets `accepted` — per item, as its own explicit instruction naming
-  the item. Never inferred, never bundled into "run the next phase", never batched.
-- **R4.3** The next phase must not start while its predecessor is only `done`.
+  criteria all pass. Subjective criteria ("looks correct") are forbidden. **This is the only
+  gate in the pipeline.**
+- **R4.2** Phase and edit status moves **forward only** — `pending` → `in progress` → `done`.
+  Nothing rewinds; `done` is terminal. What is built is built.
+- **R4.3** Whether a human has tested the work is recorded **per feature** in
+  `FEATURE_STATUS.md`, never as a phase status, because a later phase can change what an
+  earlier one delivered.
+- **R4.4** Only the developer authorizes a `passed` or `failed` mark, and it **blocks nothing**.
+  Several may be recorded at once when they name them. An agent may write `untested` — and must,
+  for any row whose behavior it changed.
 
 ### R5 — Rolling plan
-- **R5.1** The plan covers **remaining work only**; accepted phases drop to a Completed line.
+- **R5.1** The plan covers **remaining work only**; `done` phases drop to a Completed line,
+  tested or not.
 - **R5.2** Stage 4 re-checks the remaining plan before most runs, and **defaults to no change**.
 - **R5.3** A re-slice must be **proposed and approved** before it is applied.
 - **R5.4** Phase IDs are **permanent** — never renumbered or reused. Execution order lives in
   the plan document, not in the IDs.
-- **R5.5** The **Coverage Matrix** holds one row per requirement, and rows are **never deleted**.
+- **R5.5** **`FEATURE_STATUS.md`** holds one row per requirement, and rows are **never
+  deleted** — the plan is a forecast, the ledger is the commitment.
 
 ### R6 — Changes mid-build
 - **R6.1** The agent classifies each request itself — **phase**, **contract change**, or **minor
   edit**. The test is *authority*, not size.
 - **R6.2** A change touching a requirement, design contract, or plan scope is **not implemented
   that run**: the agent names the owning document, recommends the stage, logs it, and stops.
-- **R6.3** Accepted phases are **never reopened** for a design change. The fix is a new
+- **R6.3** `done` phases are **never reopened** for a design change. The fix is a new
   **retrofit phase**, sequenced before anything that would build on the old contract.
 - **R6.4** Minor edits (`E-n`) get their own id, branch, PR, status, and review identity, and
-  behave exactly like phases for acceptance.
+  behave exactly like phases throughout.
 
 ### R7 — Machine state
 - **R7.1** `state.json` is the single source of truth for progress, lineage, and change history;
@@ -102,10 +110,11 @@ and anything that modifies the legacy source (read-only in every stage).
 ### R8 — Independent review
 - **R8.1** Review runs in a **separate session**; it never reviews code written in the same run.
 - **R8.2** It covers requirement coverage, automated tests, security, and static performance.
-- **R8.3** Findings are graded Blocker / Major / Minor. **Blockers gate the next phase**
-  (whether the target was a phase, an edit, or the whole build); Majors ride along.
-- **R8.4** The gate clears only when Implement marks the target `remediated`; a re-review is what
-  returns it to `pass`.
+- **R8.3** Findings are graded Blocker / Major / Minor. **Severities are information, never a
+  gate** — a review blocks nothing, whatever it finds.
+- **R8.4** Findings become `changeLog[]` entries the next Implement run reconciles and fixes;
+  `progress.lastProcessedReviewNumber` tracks what has been dealt with. A review reports what
+  is built vs. what was asked for, and what remains untested.
 - **R8.5** Review is read-only on code, design, and requirements.
 
 ### R9 — Always-on governance
@@ -117,17 +126,24 @@ and anything that modifies the legacy source (read-only in every stage).
 
 ### R10 — Testability hand-off
 - **R10.1** Every phase ends runnable and manually testable.
-- **R10.2** Exactly **one** `HOW_TO_TEST.md` exists, regenerated at every hand-off: *New in P-N*
-  in full detail, then an accumulating, condensed *Regression* section.
-- **R10.3** Changed behavior edits its Regression lines **in place** — no line may describe
-  something that no longer works.
-- **R10.4** The hand-off report names which regression checks this phase put at risk.
+- **R10.2** Exactly **one** `HOW_TO_RUN.md` exists — how to build, run and configure the app —
+  updated only when that actually changes, and its commands run by the agent at hand-off.
+- **R10.3** Per-feature checks live in `FEATURE_STATUS.md`, beside the tested column. Changed
+  behavior edits its check **in place** and resets the row to `untested` — no check may describe
+  something that no longer works, and no `passed` mark may outlive the behavior it vouched for.
+- **R10.4** Every hand-off report carries **two counts** — features awaiting testing, and open
+  review findings — plus the rows this phase put at risk.
 
 ### R11 — Git discipline
 - **R11.1** Branch per unit of work, small self-describing commits, a PR whose body records
   initial task / reasoning / outcome.
-- **R11.2** The agent **never merges** except as part of recording an acceptance — and not even
-  then if the repo requires reviewers or green CI.
+- **R11.2** The agent branches from **the currently checked-out branch** and targets its PR at
+  it, so not merging simply stacks the next phase. It merges at hand-off per
+  `context.repo.mergePolicy` (`ask` by default) — and never where the repo requires reviewers or
+  green CI.
+- **R11.3** Presence of work is checked **by content**, never by branch-merge status: git is the
+  truth and `state.json` is a cache. Work merged or edited outside the harness is detected, not
+  reported by the developer.
 
 ---
 
@@ -146,7 +162,7 @@ and anything that modifies the legacy source (read-only in every stage).
 1. Legacy source is **read-only**.
 2. `INTAKE.md` and the `*_TEMPLATE.md` files are **inputs, never written to**.
 3. `changeLog[]` and `reviews[]` are **append-only**.
-4. Only the developer authorizes `accepted`, one item at a time.
+4. Only the developer authorizes a `passed`/`failed` mark — and it gates nothing.
 5. **No secrets** in code, docs, state, commit messages, or PR bodies.
 6. Never mutate a reused database's schema — fix the mapping instead.
 
@@ -159,10 +175,10 @@ stateDiagram-v2
     state "in progress" as in_progress
     [*] --> pending
     pending --> in_progress : agent starts the phase
-    in_progress --> done : exit criteria all pass (agent gate)
-    done --> accepted : developer says "accept P-N" (human gate)
-    done --> pending : developer reports a failure (branch + PR stay open)
-    accepted --> [*]
+    in_progress --> done : exit criteria all pass (the only gate)
+    done --> [*]
 ```
 
-*An `accepted` phase is never reopened for a design change — that becomes a new retrofit phase.*
+*Forward only. `done` is terminal — a failure the developer reports, or a design change that
+invalidates the work, becomes new forward work, never a reopened phase. Whether a human has
+tested it is tracked separately, per feature, in `FEATURE_STATUS.md`.*

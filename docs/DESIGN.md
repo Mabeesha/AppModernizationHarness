@@ -17,7 +17,7 @@ of work, writes state, and stops.
 
 | File | Kind | Responsibility |
 |---|---|---|
-| `AGENTS_TEMPLATE.md` | template → `AGENTS.md` | Invariants, authority ladder, and the acceptance-recording protocol. Loads in **every** session |
+| `AGENTS_TEMPLATE.md` | template → `AGENTS.md` | Invariants, authority ladder, and the protocol for recording what the developer tells you. Loads in **every** session |
 | `0_INTAKE_TEMPLATE.md` | template → `INTAKE.md` | The 24 questions, their defaults, and which 6 are load-bearing |
 | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | stage | Resolve intake → `PROJECT_CONTEXT.md` + initialize `state.json` |
 | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | stage | Legacy code → business / functional / technical requirements |
@@ -41,17 +41,22 @@ flowchart TD
     REQ --> S2[2 · Design]
     S2 --> D[HLD + LLD]
     D --> S3[3 · Plan]
-    S3 --> PL[PLAN.md — remaining work<br/>+ Coverage Matrix]
+    S3 --> PL[PLAN.md — remaining work]
+    S3 --> FS[FEATURE_STATUS.md — one row<br/>per requirement, never deleted]
     PL --> S4[4 · Implement one phase]
-    S4 --> PR[Branch + PR + HOW_TO_TEST.md]
-    PR --> DEV{Developer tests it}
-    DEV -- accept P-N --> S4
-    DEV -- P-N failed --> S4
+    S4 --> PR[Branch + PR + HOW_TO_RUN.md]
+    S4 -->|rows built / reset to untested| FS
+    PR --> DEV{Developer — merges and<br/>tests whenever they choose}
+    DEV -- next phase --> S4
+    DEV -- accept P-N / P-N failed --> FS
     S4 -.->|Step 0c re-slices| S3
     PR --> S5[5 · Review · separate session]
-    S5 -->|findings| ST
+    S5 -->|findings, never a gate| ST
     ST -.->|reconciled at Step 0b| S4
 ```
+
+**Nothing on this diagram blocks.** The developer's testing and the Review stage both feed the
+loop without holding it: the only gate is a phase's own falsifiable exit criteria.
 
 Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 
@@ -62,14 +67,17 @@ Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 | **DD-1** | **Constraints carry per-stage obligations**, defined once in `PROJECT_CONTEXT §4` | Stage files hold zero project-specific rules, so a new constraint needs no edit to any stage file. This is what makes the harness stack-agnostic (R1) |
 | **DD-2** | **Split state from content**: `state.json` for machine state, Markdown for prose | Markdown status tables were unmergeable and drifted. JSON gives lineage, mechanical reconciliation, and diffable history (R7) |
 | **DD-3** | **High-water mark** rather than "diff everything" | A run must distinguish new change-log entries from ones it already applied, without re-reading history each time (R7.3) |
-| **DD-4** | **Two gates, different owners** — falsifiable exit criteria (agent) then `accepted` (human) | A self-check is only meaningful if it can fail; judgment stays with the person who ran the app (R4) |
+| **DD-4** | **One gate: falsifiable exit criteria.** Status moves `pending → in progress → done`, forward only | The acceptance gate cost the developer an hour of testing before any further building, so it forced a choice between working and claiming something untrue. Removing it leaves the self-check — which is meaningful only because it can fail (R4) |
 | **DD-5** | **Permanent phase IDs; order lives in the plan** | PRs, branches, and reviews keep meaning what they said, even after re-slicing (R5.4) |
-| **DD-6** | **Retrofit phases, never reopened accepted ones** | `accepted` is a human's attestation about what they tested; that stays true. The change is new work with its own acceptance (R6.3) |
+| **DD-6** | **Retrofit phases, never reopened `done` ones** | What is built is built: a delivered phase's ID, scope and place in history stay as written, and the change is new work that supersedes its behavior (R6.3) |
 | **DD-7** | **Contract changes are a two-prompt flow** (rerun Stage 2, then next phase) | The pause is the point — it's where the developer catches a design being amended into something they didn't intend |
 | **DD-8** | **`AGENTS.md` always loaded** | Stage rules only bind when a stage is invoked; most drift happens in ordinary chat |
-| **DD-9** | **One `HOW_TO_TEST.md`, regenerated each hand-off** | Per-phase test docs went stale. One file, always describing the app as it stands now |
+| **DD-9** | **`HOW_TO_RUN.md` (how to run it) + `FEATURE_STATUS.md` (what is built and tested)** | Per-phase test docs went stale, and one regenerated file duplicated the plan's own test guides. Splitting *how to run* from *what to check* leaves each written once: the run doc changes only when running changes, and each feature's check sits beside the column the developer ticks (R10) |
+| **DD-13** | **Testing is tracked per feature, not per phase** | A phase is a batch of work; a later phase can change what an earlier one delivered, and a phase-level mark cannot express that. A feature row can — it gains the new phase and resets to `untested` (R4.3, UL-5) |
+| **DD-14** | **Branch from the currently checked-out branch; the PR targets it** | The developer's git state becomes the instruction, so nothing needs configuring: merging returns them to the base branch and the next phase starts clean, not merging leaves them on the phase branch and it stacks. Removes both a config field and a stall (R11.2) |
+| **DD-15** | **Git is the truth; `state.json` is a cache** — presence checked by content, never by branch-merge status | The developer may merge or edit outside the harness and should not have to report it; squash and rebase merges make branch-based checks answer "not merged" when every line is present (R11.3) |
 | **DD-10** | **Plan defaults to "no change"** | Churn burns the developer's review attention and destabilizes what they thought was coming next |
-| **DD-11** | **Review is a separate session, read-only on code** | An agent cannot audit its own work; read-only keeps the verdict honest |
+| **DD-11** | **Review is a separate session, read-only on code, and never blocks** | An agent cannot audit its own work; read-only keeps the verdict honest. The gate it used to hold only ever fired for a developer who chose to run it, and its findings already survive through the change log — so it reports and advises instead (R8) |
 | **DD-12** | **Documents amended in place; git is the history** | No `_v2` filenames; Revision History rows plus commits give lineage |
 
 ## 5. Data model — `state.json`
@@ -83,21 +91,23 @@ erDiagram
     STATE ||--o{ EDIT : "edits[]"
     STATE ||--o{ CHANGELOG : "changeLog[] (append-only)"
     STATE ||--o{ REVIEW : "reviews[] (append-only)"
-    STATE ||--|| WHOLEBUILD : "wholeBuild"
     CONTEXT ||--o{ CONSTRAINT : "constraints[] C1..Cn"
     REVIEW }o--|| PHASE : targets
     REVIEW }o--|| EDIT : targets
-    REVIEW }o--|| WHOLEBUILD : targets
     CHANGELOG }o--o{ PHASE : phasesAffected
 
     CONSTRAINT { string id  string statement  string obligations_per_stage }
-    PHASE   { string id  string status  string reviewStatus  string branch  string[] prUrls  string acceptedUtc }
-    EDIT    { string id  string status  string reviewStatus  string afterPhase }
+    PHASE   { string id  string status  string branch  string[] prUrls  string mergedUtc }
+    EDIT    { string id  string status  string afterPhase  string mergedUtc }
     CHANGELOG { int id  string author  string origin  string summary }
     REVIEW  { string id  string target  string result  int blockerCount }
-    WHOLEBUILD { string reviewStatus }
     PROGRESS { int lastProcessedChangeLogId  int lastProcessedReviewNumber }
 ```
+
+`state.json` holds **machine facts only**. What a human has tested is not in it: that lives in
+`FEATURE_STATUS.md`, keyed by requirement ID, because a later phase can change what an earlier
+one delivered (DD-13). A review has no status to set on its target (DD-11), so there is no
+`reviewStatus` anywhere and no `wholeBuild` record.
 
 Rules that hold the model together:
 
@@ -119,46 +129,51 @@ sequenceDiagram
     participant D as Developer
     participant A as Build agent
     participant S as state.json
+    participant F as FEATURE_STATUS.md
     participant G as Git
 
     D->>A: "Next phase. Branch and open a PR."
     A->>S: read phases[], changeLog[] > mark, reviews[] > mark
+    A->>G: read CURRENT branch; check by content for predecessor's work
+    A-->>D: "Branching P-3 from <current>. Contains P-2's work."
     A->>A: 0a classify — phase / contract change / minor edit
-    alt un-remediated Blocker in scope
-        A-->>D: stop — fix Blockers first
-    else predecessor only `done`
-        A-->>D: stop — "say accept P-N first"
-    end
-    A->>A: 0b reconcile changes since last run
+    A->>A: 0b reconcile changes + review findings since last run
     A->>A: 0c refresh plan (default: unchanged)
     opt re-slice needed
         A-->>D: propose; wait for approval
     end
-    A->>G: branch, task-sized commits
-    A->>A: run exit criteria (agent gate)
+    A->>G: branch from current, task-sized commits
+    A->>A: run exit criteria (the only gate)
     A->>S: status=done, branch, prUrls, advance high-water mark
-    A->>G: push + open PR
-    A-->>D: report + HOW_TO_TEST.md + at-risk regression lines
-    D->>D: test it
-    D->>A: "accept P-N"
-    A->>G: merge PR
-    A->>S: status=accepted, acceptedUtc
+    A->>F: rows built in P-3; rows P-3 changed reset to untested
+    A->>G: push + open PR targeting the branch it came from
+    A-->>D: report + 2 counts + "may I merge P-3?"
+    D->>A: "merge P-3"
+    A->>G: merge
+    A->>S: mergedUtc
+    Note over D,F: testing happens whenever — "accept P-3" ticks rows, gates nothing
 ```
 
-## 7. The review gate
+## 7. Review, and why nothing blocks
 
 ```mermaid
 flowchart LR
     R[Review run] --> V{Findings}
-    V -->|no Blockers, no Majors| P[PASS<br/>loop continues]
-    V -->|Majors only| M[CHANGES REQUESTED<br/>next phase may proceed;<br/>fixed during reconciliation]
-    V -->|>= 1 Blocker| B[CHANGES REQUESTED<br/>next phase BLOCKED]
-    B --> F[Implement fixes them<br/>reviewStatus = remediated]
-    F --> RR[Re-review] --> V
+    V -->|none| C[CLEAN<br/>recorded in reviews - ]
+    V -->|Blocker / Major / Minor| F[FINDINGS<br/>severities are advice]
+    F --> CL[changeLog entries]
+    CL --> I[Next Implement run<br/>reconciles and fixes]
+    I --> RR[Re-review verifies<br/>those specific fixes] --> V
 ```
 
-`remediated` is a claim awaiting confirmation, never a verdict. Nothing else clears the gate —
-a review left at `changes-requested` blocks indefinitely, by design.
+The gate this stage used to hold only ever fired for a developer who **chose** to run a review —
+it punished the careful and protected nobody else. Its findings already survived without it, via
+the change log and the `lastProcessedReviewNumber` high-water mark; the gate only changed *when*
+they were fixed, not *whether*. So Review states plainly what it would not build on, and the
+developer decides.
+
+That leaves the pipeline with **no hard gate but a phase's own exit criteria**. The trade is
+recorded in §10.
 
 ## 8. Conflict resolution
 
@@ -176,17 +191,27 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
 | R1 stack-agnostic | DD-1 constraints + obligations; `context.currentStack` / `targetStack` |
 | R2 load-bearing questions | `0_INTAKE_TEMPLATE.md` defaults / hard-stops; Stage 0 Step 1 |
 | R3 document order | Stage files 0–5; `stages.<name>.status` |
-| R4 two-tier acceptance | Plan §Two-Tier Acceptance; `AGENTS.md` §Recording What the Developer Tells You |
-| R5 rolling plan | Plan §Refreshing the Plan; Stage 4 Step 0c; Coverage Matrix |
+| R4 one gate + testing record | Plan §The Only Gate; `FEATURE_STATUS.md`; `AGENTS.md` §Recording What the Developer Tells You |
+| R5 rolling plan | Plan §Refreshing the Plan; Stage 4 Step 0c; `FEATURE_STATUS.md` |
 | R6 mid-build change | Stage 4 §0a, §When a Change Touches a Contract; retrofit phases |
 | R7 machine state | `state.json` schema (Stage 0 Output 2); `progress` high-water mark |
-| R8 review | Stage 5 verdict rules; `reviews[]`; Blocker gate in Stage 4 §Inputs |
+| R8 review | Stage 5 §Outcome; `reviews[]`; findings reconciled at Stage 4 Step 0b |
 | R9 governance | `AGENTS.md` invariants + authority ladder |
-| R10 testability | Stage 4 Step 2.3 `HOW_TO_TEST.md`; plan test guides |
-| R11 git | Stage 4 §Git Discipline |
+| R10 testability | Stage 4 Step 2.3–2.4 (`FEATURE_STATUS.md`, `HOW_TO_RUN.md`); plan test guides |
+| R11 git | Stage 4 §Git Discipline, §Starting From the Right Base; `context.repo.mergePolicy` |
 
 ## 10. Known trade-offs
 
+- **No hard gates remain.** Nothing prevents a bad build from growing except the developer
+  reading the reports — the two counts at every hand-off, and Stage 5 when they run it.
+  Defensible for a modernization build with one user and nothing deployed; it would not be for
+  a team shipping to production, and whoever inherits this harness should know that is the
+  trade that was made.
+- **The base branch accumulates untested code**, since merging happens at hand-off rather than
+  after testing. The "just don't merge it" escape is gone: by the time a bad phase is found,
+  later phases sit on top of it and the only way out is forward. Largely mitigated by pointing
+  `context.repo.prTarget` at an integration branch, so `main` stays clean until the developer
+  sends work there.
 - **Prompt-only enforcement.** Every rule depends on the agent following instructions; there is
   no linter or schema validator on `state.json`. Mitigated by falsifiable exit criteria,
   `AGENTS.md` in every session, and an independent Stage 5.

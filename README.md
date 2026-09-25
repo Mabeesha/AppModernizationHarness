@@ -16,12 +16,14 @@ every increment.
                                                                     ▼
                         ┌──────────────────────────────────► [4] build one phase
                         │                                           │
-                        └── you test ◄── accept / report failure ◄──┘
+                        └── merge, next phase ◄──────────────────────┘
+                                    ├─► you test whenever you like
                                     └─► [5] review (separate chat, optional)
 ```
 
-Stages **0–3 run once each**, in order. Then **4 loops** — one phase, you test, you accept,
-repeat — until it's done. Every document and the `state.json` that tracks progress live in
+Stages **0–3 run once each**, in order. Then **4 loops** — one phase at a time, until it's
+done. **Nothing blocks:** you can run three phases before testing any of them, then test and
+tick them off together. Testing is tracked per feature in `FEATURE_STATUS.md`, not per phase. Every document and the `state.json` that tracks progress live in
 `./out/`; the code the agent writes goes to your target repo.
 
 ---
@@ -142,9 +144,9 @@ Read each output before moving on. Unhappy with one? **`rerun stage 2 — the AP
 not GraphQL`** — everything after the dash is what you want changed. Reruns are normal, not a
 sign something went wrong.
 
-The plan is a rolling forecast, not a fixed schedule: accepted phases drop off it, and the
-remaining ones get re-checked before most build runs. What *doesn't* move is the **Coverage
-Matrix** — every requirement has a row there, and rows are never deleted.
+The plan is a rolling forecast, not a fixed schedule: delivered phases drop off it, and the
+remaining ones get re-checked before most build runs. What *doesn't* move is
+**`FEATURE_STATUS.md`** — every requirement has a row there, and rows are never deleted.
 
 ## 4. Build it, one phase at a time
 
@@ -152,21 +154,25 @@ Matrix** — every requirement has a row there, and rows are never deleted.
 run stage 4
 ```
 
-Branching and opening a PR is built in — you don't ask for it. The agent builds the phase,
-opens the PR, and **stops**. Then you:
+Branching and opening a PR is built in — you don't ask for it. It branches from **whatever
+branch you're standing on** and targets the PR at it, so if you don't merge, the next phase
+just stacks on top. The agent builds the phase, opens the PR, asks whether to merge, and
+**stops**. Then you:
 
-1. **Test it** — follow `HOW_TO_TEST.md` (one file, always current: *New in P-N* first, then
-   the accumulated regression checks). The agent tells you which regression lines this phase
-   put at risk.
-2. **Say one of these:**
+1. **Merge it** — say `merge P-1`, or do it yourself in the web UI; the agent notices either
+   way. (Say `merge as you go from now on` and it stops asking.)
+2. **Run the next phase whenever you want.** Nothing waits on you having tested anything.
+3. **Test when it suits you** — open `FEATURE_STATUS.md`, walk the rows that say `untested`,
+   and use `HOW_TO_RUN.md` to get the app running. Every hand-off report tells you how many
+   features are waiting and which ones this phase put back on the list.
+4. **Say one of these when you have tested:**
 
    | | |
    |---|---|
-   | It works | **`accept P-1`** — records it and merges the PR (if your repo requires reviewers or green CI, it records the acceptance and leaves the merge to you) |
-   | It's broken | **`P-1 failed — search returns 500`** — reopens it, keeps the PR |
+   | It works | **`accept P-1`** — ticks every feature P-1 delivered. Several at once is fine: **`accept P-1, P-2, P-3`** |
+   | Part of it works | **`search works`** — ticks that one row |
+   | It's broken | **`P-1 failed — search returns 500`** — records it; the fix is planned as new work, never by reopening P-1 |
    | You want a change | describe it — the agent works out whether it's a minor edit or needs a design change first |
-
-3. **Repeat** for the next phase.
 
 Optionally, in a **separate chat**, audit a phase:
 
@@ -193,7 +199,8 @@ bearer tokens
 run stage 4
 ```
 → It proposes adding **P-8 "migrate auth to OIDC"**, to run *before* P-6. You approve; it
-builds it. P-3 stays accepted and is never reopened — the retrofit is new work.
+builds it. P-3 is never reopened — what is built is built, and the retrofit is new work. The
+feature rows it changes go back to `untested` so you know to re-check them.
 
 That's it. The second prompt is the one you always use, so a mid-build design change costs
 exactly one extra prompt.
@@ -202,11 +209,15 @@ exactly one extra prompt.
 
 ## Five things that'll trip you up
 
-- **Never edit `state.json` by hand.** Just say what happened — "accept P-2", "P-2 failed" —
-  and the agent writes it.
-- **Say "accept" as its own message, one item at a time.** Asking for the next phase won't
-  accept the current one, and "accept everything so far" gets challenged — both mean nothing
-  was actually tested. The agent stops and points you back. That's deliberate.
+- **Never edit `state.json` or `FEATURE_STATUS.md` by hand.** Just say what happened —
+  "accept P-2", "search works", "P-2 failed" — and the agent writes it.
+- **"accept" records testing; it unblocks nothing.** You can accept several at once when you
+  name them. What gets challenged is the vague version — "accept everything so far" — which
+  usually means nothing was tested; the agent turns it into the explicit list and asks you to
+  confirm.
+- **Watch the two counts** in every hand-off report: features awaiting your testing, and open
+  review findings. With nothing blocking, those numbers are your only warning that the build
+  has run a long way ahead of anyone checking it.
 - **Read the "Answered without you" list** after stage 0. Those are decisions you didn't make,
   and they propagate everywhere.
 - **Keep `./out/` and `state.json` in git.** The agent diffs them to work out what changed

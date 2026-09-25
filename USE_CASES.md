@@ -25,16 +25,16 @@ cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
 behave** — and it's the easiest to skip, because nothing visibly breaks when you do.
 
 Here's why it matters. Every rule in the six stage files applies **only while you are explicitly
-running that stage**. The moment you're just chatting — *"accept P-2"*, *"add a department
+running that stage**. The moment you're just chatting — *"merge P-2"*, *"add a department
 filter"*, *"why is this test failing?"* — not one of them is loaded. `AGENTS.md` is the file the
 agent reads in **every** session, and it carries the things that have to hold everywhere:
 
 | What it carries | Scenarios that depend on it |
 |---|---|
-| **The acceptance protocol** — what `accept P-3` means, and the three guards on it | 2, 4 |
+| **The recording protocol** — what `accept P-3`, `merge P-3` and `P-3 failed` each mean | 2, 4 |
 | **The routing rule** — what happens when an agent is about to edit code or a pipeline document outside a stage run | 5, 6, 18, 19 |
 | **The out-of-band recording rule** — your hand-fixes get logged | 18 |
-| **Six invariants** — legacy read-only, append-only history, only-you-accept, no secrets, templates are inputs, never mutate a reused schema | all of them |
+| **The invariants** — legacy read-only, append-only history, forward-only status, only you authorize a tested mark, merge only what you were asked to, no secrets, templates are inputs, never mutate a reused schema | all of them |
 | **The authority ladder** — who wins when sources contradict each other | Part 7 |
 
 Skip it and the pipeline still runs. What you lose is everything that happens *between* the
@@ -48,9 +48,10 @@ stage runs — which is exactly where drift comes from.
 |---|---|
 | **Phase** (`P-3`) | One planned increment of the build. Runnable and testable when it lands. |
 | **Minor edit** (`E-1`) | A small change that touches no requirement, design contract, or plan scope. Ships like a tiny phase. |
-| **`accepted`** | *You* tested a phase and approved it. Only you can authorize this mark. |
-| **`state.json`** | The agent's memory: statuses, branches, PRs, the change log, review verdicts. **You never edit it by hand.** |
-| **Retrofit phase** | A *new* phase that brings already-delivered code up to a changed design. Accepted phases are never reopened. |
+| **`done`** | Built, and the agent's mechanical checks passed. It is the **final** status — nothing rewinds, and nothing waits on you. |
+| **`FEATURE_STATUS.md`** | The ledger: one row per feature — how to check it, which phase built it, whether *you* have tested it. Only you authorize a `passed`/`failed` mark, and it blocks nothing. |
+| **`state.json`** | The agent's memory: statuses, branches, PRs, merges, the change log, review records. **You never edit it by hand.** |
+| **Retrofit phase** | A *new* phase that brings already-delivered code up to a changed design. `done` phases are never reopened. |
 | **`AGENTS.md`** | Your copy of `AGENTS_TEMPLATE.md`, in the project root. Loads in *every* session — it governs ordinary chat, not just stage runs. |
 
 **The three locations** every prompt refers to — name them once, they never change:
@@ -68,7 +69,8 @@ behind the scenes, and what is true afterwards. Prompts are copy-paste ready.
 |---|---|
 | Starting a brand-new project | Copy `AGENTS.md` and `INTAKE.md` into place, then run Stages 0→3 once each |
 | Build the next planned increment | `run stage 4` |
-| You tested it and it works | `accept P-3` |
+| Merge the phase you just got | `merge P-3` — or merge it yourself; it notices |
+| You tested it and it works | `accept P-3` — or `accept P-3, P-4` — or `search works` |
 | You tested it and it's broken | `P-3 failed — the search box returns 500` |
 | You want a small tweak | Just describe it. The agent decides if it's a minor edit. |
 | You want to change how something *works* | Rerun Stage 2 (design), then run the next phase |
@@ -85,7 +87,8 @@ This is 90% of your time. Two prompts per phase.
 
 ## Scenario 1 · Build the next phase
 
-**Situation:** P-2 is accepted. You want P-3.
+**Situation:** P-2 is built. You want P-3. (Whether you've tested P-2 is irrelevant — nothing
+waits on it.)
 
 **You send:**
 
@@ -100,65 +103,92 @@ agent works that out itself.
 **Behind the scenes**, before it writes a line of code:
 
 1. **Classifies** the work (Step 0a) — this matches a planned phase, so: a phase.
-2. **Checks the gates.** Is P-2 actually `accepted`, not just `done`? Is there an
-   un-remediated Blocker from any review in scope? Does the base branch *actually contain*
+2. **Checks its footing.** Which branch are you standing on, and does it *actually contain*
    P-2's code — checked by looking for the files and symbols P-2 delivered, not by trusting a
-   branch name?
+   branch name or a merge record. It tells you in one line:
+   *"Branching P-3 from `dev`. Contains P-2's work."* Nothing here is a gate: if P-2's work is
+   genuinely missing, it asks rather than guessing.
 3. **Reconciles** (Step 0b) — reads everything added to `state.json`'s change log and reviews
    since the last run, using a high-water mark so it never re-applies the same entry twice.
 4. **Refreshes the forward plan** (Step 0c) — the important one. It asks *"are the remaining
    phases still the right shape?"* With nothing new since last time, the answer is one line:
    **"plan unchanged — building P-3."** It will never silently re-slice.
 5. Branches, implements task by task with a commit each, writes tests, runs the phase's
-   **exit criteria** (mechanical checks it can genuinely fail), regenerates `HOW_TO_TEST.md`,
-   marks the phase `done`, opens a PR, and **stops**.
+   **exit criteria** (mechanical checks it can genuinely fail — the only gate in the pipeline),
+   updates the `FEATURE_STATUS.md` rows it delivered or changed, marks the phase `done`, opens a
+   PR against the branch it came from, asks whether to merge, and **stops**.
 
 **Afterwards you have:** a branch, an open PR, `P-3` at `done` in `state.json`, and a report
-telling you what was built, how to run it, and — usefully — **which regression checks this
-phase put at risk**, so you re-walk those rather than the whole list.
+telling you what was built, how to run it, **which ledger rows this phase put at risk**, and
+**two counts** — features awaiting your testing, and open review findings.
 
 > It will not roll into P-4. That's the whole point of the loop.
 
 ---
 
-## Scenario 2 · Accept a phase
+## Scenario 2 · Merge it, and record your testing
 
-**Situation:** you walked `HOW_TO_TEST.md`, it all worked.
+Two separate things, and **neither one blocks anything**.
 
-**You send** — on its own, as its own message:
+### Merging
+
+**Situation:** P-3 landed and you want it in your branch.
+
+```
+merge P-3
+```
+
+It merges every PR for that phase (one per repo under a `split` layout) and records `mergedUtc`.
+Or just merge it yourself in the web UI — the agent checks the branch **by content** on the next
+run and records what it finds, so you never have to tell it. Squash and rebase merges are fine:
+it looks for the code, not for a merge commit.
+
+Tired of being asked? **`merge as you go from now on`** switches `context.repo.mergePolicy` to
+`auto`. If your repo requires reviewers or green CI, the merge is always yours.
+
+**Declining is fine too.** Say nothing, or say no, and the next phase simply branches from the
+branch you're standing on and **stacks** on top. Nothing stalls.
+
+### Recording that you tested something
+
+**Situation:** you got round to walking the `untested` rows in `FEATURE_STATUS.md` and they
+worked.
 
 ```
 accept P-3
 ```
 
-**Behind the scenes:** it merges P-3's PR, sets `status: "accepted"` and `acceptedUtc`, and
-tells you plainly what you just attested to — *"recording that you tested P-3 against its test
-guide and it passed."* You never touch the JSON.
+It ticks every ledger row P-3 built — `passed <today>` — and tells you plainly what you just
+attested to. **P-3 stays `done`;** nothing in `state.json` changes, because the code was already
+built and this is a statement about *you*, not about the code.
 
-> **Where this rule actually lives:** `AGENTS.md` — not the stage files. Acceptance nearly always
+You have three shapes available:
+
+| You say | What it ticks |
+|---|---|
+| `accept P-3` | every row P-3 built |
+| `accept P-3, P-4, P-5` | the same, for each in turn — **deferring testing is supported** |
+| `search works` | that one row |
+
+> **Where this rule actually lives:** `AGENTS.md` — not the stage files. This nearly always
 > happens in ordinary chat: you type *accept P-3* between runs, when no stage document is loaded
 > at all. So the protocol has to sit in the file that is always there. Stage 4 points back to it
 > rather than restating it, precisely so the two can never drift apart.
 
 **Two things it deliberately won't do:**
 
-- **Accept as a side-effect.** Ask for P-4 while P-3 is only `done` and it stops:
-  > "P-3 is `done` but not accepted — I can't start P-4 until it is. If you tested it and it
-  > passed, say *accept P-3* and I'll merge the PR, record it, and start P-4."
-
-  That's not pedantry. Bundled into "start the next phase", *yes* becomes reflexive, and
-  acceptance is the one mark that certifies a human actually ran the thing.
-- **Accept in bulk.** "Accept everything so far" means nothing was tested. It'll push back and
-  take them one at a time.
-
-**If your repo requires reviewers or green CI**, it records the acceptance and leaves the merge
-to you — and the next phase's run will notice if that merge never happened (Part 7).
+- **Accept the vague bulk.** "Accept everything so far" usually means nothing was tested. It
+  turns that into the explicit list and asks you to confirm the count.
+- **Fold it into another request.** Ask for P-4 and it won't offer to tick P-3's rows along the
+  way — at that moment your goal is P-4, which makes *yes* reflexive. It has no reason to ask
+  anyway, because nothing is blocked.
 
 ---
 
 ## Scenario 3 · Audit a phase independently
 
-**Situation:** P-3 is accepted. Before building on it, you want a second opinion.
+**Situation:** P-3 is built. Before going further, you want a second opinion — whether or not
+you have tested it yourself.
 
 **You send — in a brand-new chat session**, not the one that built it:
 
@@ -201,12 +231,15 @@ P-3 failed — step 4, employee search returns a 500 when the query is empty
 run stage 4 — re-run P-3 with the failure note.
 ```
 
-It reuses **the same branch and the same PR** — adding commits and appending to the PR body
-describing what broke and what changed. It does not open a new PR: one phase, one reviewable
-history per repo.
+**P-3 stays `done`, and is never reopened** — the code is built, and rewinding a status would
+tell every later run that work is still pending. Instead the ledger row reads
+`failed — search returns 500`, a change-log entry records it, and the **fix is planned forward**:
+a minor edit if it touches no contract, a reconciliation task folded into the next phase run, or
+a new phase if it's large. Whatever fixes it puts that row back to `untested` for you to
+re-check.
 
 **Be specific about the symptom.** "P-3 failed" alone gives the agent nothing to reproduce.
-Naming the step number from `HOW_TO_TEST.md` is the cheapest thing you can do here.
+Naming the `FEATURE_STATUS.md` row and what you saw is the cheapest thing you can do here.
 
 ---
 
@@ -225,9 +258,11 @@ design contract, or plan scope? A label doesn't. So it's a **minor edit**:
 
 - gets its own id — `E-1` — in `state.json edits[]`, recorded against the phase it follows;
 - gets its own branch, its own small commits, its own PR;
-- gets `HOW_TO_TEST.md` regenerated if the change is visible to you;
-- and behaves **exactly like a phase for acceptance**: you say `accept E-1`, or
-  `E-1 failed — <symptom>`, and you can point Review at it as a target in its own right.
+- updates the `FEATURE_STATUS.md` rows it changed — including **resetting them to `untested`**,
+  because an edit changes delivered behavior exactly as a phase does;
+- and behaves **exactly like a phase** otherwise: same merge policy, and you can point Review at
+  it as a target in its own right. You record testing against the **feature rows** it touched,
+  not against `E-1` itself.
 
 **The test is authority, not size.** A one-line change to an endpoint's response shape is a
 contract change (Scenario 6). A hundred-line refactor behind a stable interface is not. If the
@@ -308,16 +343,16 @@ a document change land in the code — and **proposes a re-slice**:
 > to OIDC**, run **before P-6**, and adjusting P-6 and P-7 to build against bearer tokens.
 > Approve?"
 
-You approve. It builds P-8, regenerates `HOW_TO_TEST.md` with the auth regression lines
-rewritten in place, and opens a PR. Then `accept P-8`, and ask for the next phase to get P-6.
+You approve. It builds P-8, rewrites the auth rows' checks in `FEATURE_STATUS.md` and resets
+them to `untested`, and opens a PR. Merge it, and ask for the next phase to get P-6.
 
 **Three things that deliberately don't happen:**
 
 | | Why |
 |---|---|
-| **P-3 is never reopened** | `accepted` records that *you tested that increment* — which is still true of what you tested. The retrofit is new work with its own acceptance. |
+| **P-3 is never reopened** | What is built is built. The retrofit is new work that supersedes it, and the rows it changes go back to `untested`. |
 | **Nothing is renumbered** | The retrofit is `P-8` even though it runs before `P-6`. IDs are permanent so PRs, branches and review records keep meaning what they said. Execution order lives in the plan. |
-| **No work silently vanishes** | The Coverage Matrix rows for auth move from `done in P-3` to `done in P-8`. Rows move; they are never deleted. |
+| **No work silently vanishes** | The `FEATURE_STATUS.md` rows for auth move from `built in P-3` to `built in P-8`. Rows move; they are never deleted. |
 
 ---
 
@@ -348,10 +383,10 @@ report. After that, the next phase run plans the retrofit as usual.
 
 **Don't stack two changes on one branch.** Pick one:
 
-- **Land P-6 as-is** if it's genuinely unaffected — accept it, then do Scenario 7.
+- **Land P-6 as-is** if it's genuinely unaffected — merge it, then do Scenario 7.
 - **Reset the branch**, do the retrofit, then redo P-6.
 
-Redoing an unaccepted, half-built phase is cheap. That's exactly what the acceptance gate buys
+Redoing a half-built phase is cheap, because nothing depends on it yet. That's what the small
 you: nothing you'd have to unpick has been certified yet.
 
 ---
@@ -372,7 +407,7 @@ rerun stage 3 — re-slice the remaining work against the revised design.
 Existing plan + state in ./out/.
 ```
 
-…and accept that a lot of the build is being redone. This is rare. When it happens, an agent
+…and take the hit that a lot of the build is being redone. This is rare. When it happens, an agent
 that cheerfully proposed a small retrofit would be lying to you.
 
 **The agent will never unilaterally decide to redo large amounts of work.** Scope decisions
@@ -427,12 +462,12 @@ reconciled.
 ```
 rerun stage 3 — P-1 is too big; split the frontend out into its own later phase and keep
 P-1 to backend scaffold + DB validation + two endpoints only. Re-slice future phases only;
-leave any accepted phases untouched.
+leave any delivered phases untouched.
 ```
 
-**Behind the scenes:** the planner re-slices **remaining** phases only. Accepted phases are
+**Behind the scenes:** the planner re-slices phases that **haven't started**. Delivered phases are
 history — they live as one-line entries in the plan's §2 Completed and are never re-planned. New
-phases take the next unused IDs. The **Coverage Matrix** carries forward whole: rows may move to
+phases take the next unused IDs. **`FEATURE_STATUS.md`** carries forward whole: rows may move to
 different phases, but not one row is deleted.
 
 **Cheapest moment to do this is before any code exists.** Sanity-check the slicing when the plan
@@ -468,35 +503,45 @@ nobody rebuilt against.
 
 ## Scenario 14 · Review found a Blocker
 
-**Situation:** the P-3 review came back CHANGES REQUESTED with 1 Blocker — the frontend calls an
+**Situation:** the P-3 review came back FINDINGS with 1 Blocker — the frontend calls an
 endpoint shape the backend doesn't serve.
 
-**What's true immediately:** `P-3`'s `reviewStatus` is `changes-requested`, and **the next phase
-will not start.** Ask for P-4 and the build agent scans `reviews[]`, sees an un-remediated
-Blocker in scope, and stops.
+**What's true immediately:** nothing is blocked. A Blocker means *"I would not build anything
+further on this"* — said plainly, with reasons, in the report — but the pipeline does not enforce
+it. Ask for P-4 and you will get P-4. **The judgement is yours.**
 
-**You send:**
+The finding is not lost, though: Review wrote it into `state.json` as a change-log entry, and the
+next build run picks it up as reconciliation work whatever else that run is doing. Every hand-off
+report also counts open findings for you.
+
+**So you have two sensible moves.** Fix it first:
 
 ```
 run stage 4 — address the R-1 findings on P-3.
 ```
 
-**Behind the scenes:** the findings are already in `state.json` as change-log entries — Review
-put them there — so the run picks them up as reconciliation work, fixes them, sets P-3's
-`reviewStatus` to `remediated`, and recommends a re-review.
+…or carry on and let it ride along:
+
+```
+run stage 4
+```
+
+which builds P-4 **and** folds the R-1 fixes in as reconciliation, because unprocessed findings
+are input to every run. Fixing a broken foundation first is usually right; the harness just
+doesn't force it on you.
 
 **Then re-review, in a fresh session:**
 
 ```
-run stage 5 on P-3 — re-review after remediation.
+run stage 5 on P-3 — re-review after the R-1 fixes.
 ```
 
-`remediated` is **a claim awaiting confirmation, never a verdict**. Only a re-review returns the
-target to `pass`. And nothing else clears the gate — a review left at `changes-requested` blocks
-the next phase indefinitely, deliberately.
+A claim in a hand-off report that something was fixed is **a claim awaiting confirmation, never
+a verdict**. The re-review reads the earlier findings and verifies those specific fixes.
 
-> Blockers gate **wherever they were found** — on a phase, on a minor edit, or on a whole-build
-> review. A Blocker is a Blocker.
+> With no hard gates left in the pipeline, Review is your main independent check. Run it more
+> often than you think you need to — and read the *"what I would fix before building further"*
+> section, because nothing else will stop you.
 
 ## Scenario 15 · Review found Majors but no Blockers
 
@@ -522,7 +567,7 @@ Worth doing when an edit turned out bigger or more delicate than "a label".
 
 ## Scenario 17 · The final whole-build review
 
-**Situation:** the last phase is accepted. Is the build actually complete?
+**Situation:** the last phase is delivered. Is the build actually complete?
 
 ```
 run stage 5 on the whole build
@@ -530,11 +575,11 @@ Codebase is this repo. Emphasize security and requirements coverage. Write the r
 ```
 
 **Behind the scenes**, in addition to the four areas, a whole-build review does something no
-other target does: **it audits the Coverage Matrix itself.**
+other target does: **it audits `FEATURE_STATUS.md` itself.**
 
 - Any row still marked `unscheduled` is a **Blocker** — that's work that was never delivered and
   no longer has a phase that would deliver it.
-- Any row that existed in an earlier version of the matrix and has since **disappeared** is also
+- Any row that existed in an earlier version of the ledger and has since **disappeared** is also
   a Blocker — found by reading the plan's git history. That's work a refresh silently dropped.
 
 This is the check that makes "the plan is a rolling forecast" safe. The phase list is allowed to
@@ -612,7 +657,7 @@ must each *do* about it. That obligations list is the only place constraint-spec
 live — which is why adding one needs no edit to any stage file.
 
 **The part worth knowing:** a bar added late binds from the **next unstarted phase**, not
-retroactively. Already-accepted phases are not reopened to meet it. Bringing their code up to the
+retroactively. Delivered phases are not reopened to meet it. Bringing their code up to the
 bar is either a **retrofit phase** you approve at the next Step 0c, or an explicit scope-out
 recorded in the plan's Risks section — the constraint has to say which. And the agent may not
 lower the threshold, widen the exclusion list, or disable the gate to go green; if the bar can't
@@ -631,7 +676,7 @@ There are **two different homes** for that, and picking the wrong one costs you 
 | **How the agent should work with you** — house practices, a domain glossary, an extra check before hand-off | **your `AGENTS.md`** | Edit it directly. It's yours, and it loads in every session |
 
 **The one rule about editing `AGENTS.md`: add, don't remove.** Append your project specifics
-freely. Never delete the invariants, the acceptance-recording protocol, or the authority
+freely. Never delete the invariants, the recording protocol, or the authority
 ladder — the stage files deliberately point *back* at them instead of restating them, so cutting
 a section out of `AGENTS.md` leaves a hole rather than a relaxed rule. Stage 4's "Recording
 Developer Decisions" section, for instance, is deliberately a pointer rather than a copy — it
@@ -652,8 +697,8 @@ you asking a question at midnight:
    live in `PROJECT_CONTEXT §5`.
 3. **`changeLog[]` and `reviews[]` are append-only.** History is corrected by appending
    something that supersedes it, never by rewriting. And you never hand-edit `state.json` at all.
-4. **Only you authorize `accepted`** — per item, explicitly. Never inferred, never bundled into
-   another request, never batched.
+4. **Status moves forward only** — `pending` → `in progress` → `done`, and `done` is terminal.
+   **Only you authorize a `passed`/`failed` mark** in `FEATURE_STATUS.md`, and it blocks nothing.
 5. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR bodies.
    Connection strings and IdP config come from environment or profiles.
 6. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, you
@@ -670,10 +715,8 @@ These aren't failures. Each one is a specific trap the loop exists to prevent.
 
 | It stops because | What it says | What you do |
 |---|---|---|
-| Predecessor is `done`, not `accepted` | "I can't start P-4 until P-3 is accepted" | Test P-3, then `accept P-3` as its own message |
-| An un-remediated **Blocker** is in scope | "R-1 left 1 Blocker on P-3" | Fix the findings, get `remediated`, re-review (Scenario 14) |
+| The **branch is missing** the predecessor's work | "I'm on `experiment/x` and P-3's code isn't here" | Switch branch, merge P-3, or tell it to build here anyway |
 | Your request touches a **contract** | "This changes LLD §1 — rerun Stage 2" | Rerun the design, then the next phase (Scenarios 6, 7) |
-| The **base branch is missing** the predecessor's work | "P-3 is accepted but its PR was never merged" | Merge it yourself, or send `merge and accept P-3` |
 | A plan re-slice it proposed **hasn't been approved** | It builds the phase as it stands, or stops | Approve the proposal, or tell it to build as planned |
 | Sources **conflict** | "The plan says X, the LLD says Y" | Decide. It reports conflicts, it doesn't silently pick a side |
 | A **constraint** can't be honored | "Honoring C1 would break the endpoint contract" | Constraints win — this needs your decision or a design change |
@@ -696,12 +739,14 @@ files.
 
 1. **Copy `AGENTS.md` into your project root — and don't gut it.** It's the only thing governing
    the agent *between* stage runs, which is most of your session time.
-2. **Say `accept` as its own message.** Bundled into another request, it doesn't count.
+2. **Watch the two counts** in every hand-off report — features awaiting testing, and open
+   review findings. Nothing blocks, so those numbers are your only standing warning.
 3. **Never hand-edit `state.json`.** Say what happened; the agent writes it and confirms.
 4. **Keep `./out/` and `state.json` in git.** Documents are amended in place, so git is the
    *only* history of superseded designs and plans — and it's what reconciliation diffs against.
-5. **Read the report's at-risk regression lines.** That's the agent telling you which parts of
-   `HOW_TO_TEST.md` this phase could have broken. Cheaper than re-walking the whole file.
+5. **Read the report's at-risk rows.** That's the agent telling you which `FEATURE_STATUS.md`
+   rows this phase could have broken — it resets them to `untested` for you. Cheaper than
+   re-walking the whole ledger.
 6. **Expect phase IDs to stop being sequential.** A retrofit added as `P-8` may run before `P-6`.
    That's deliberate. The plan holds the running order; the ID holds the identity.
 
