@@ -38,7 +38,7 @@ tick them off together. Testing is tracked per feature in `FEATURE_STATUS.md`, n
 ```
 
 That creates `./out/`, writes `AGENTS.md` and `out/INTAKE.md` from their templates,
-installs the Angular agent skills into `.agents/skills/`, and adds `ModernizationHarness/`,
+installs the Angular and .NET agent skills into `.agents/skills/`, and adds `ModernizationHarness/`,
 `AGENTS.md` and `.agents/` to the target's `.gitignore` (creating it if there isn't one —
 entries already covered are left alone, and your existing content is never rewritten, only
 appended to). It is safe to re-run: identical files are left alone, and anything it would
@@ -50,23 +50,41 @@ Note `./out/` is deliberately **not** ignored — the agent diffs those document
 
 Useful flags (same meaning in both, `--flag` in bash, `-Flag` in PowerShell):
 `--target <dir>` to install somewhere other than the current directory, `--dry-run` to see
-what it would do, and `--update` to re-vendor the Angular skills (below).
+what it would do, and `--update` to refresh the vendored skills first (below).
 
-### The Angular skills
+### The agent skills
 
 `.agents/skills/` is where the [GitLab Duo Agent Platform](https://docs.gitlab.com/user/duo_agent_platform/customize/agent_skills)
 looks for agent skills, one directory per skill, each holding a `SKILL.md`.
 
-What gets installed is the Angular team's own [angular/skills](https://github.com/angular/skills)
-(MIT) — `angular-developer`, whose `SKILL.md` plus 40 reference files cover signals, forms,
-DI, routing, testing, ARIA, styling and the CLI; and `angular-new-app` for scaffolding. They
-are **vendored into `ModernizationHarness/skills/`** and committed, so installing works
+What gets installed comes from two official upstreams, and only from them:
+
+| Source | What is taken |
+|---|---|
+| The Angular team's [angular/skills](https://github.com/angular/skills) | `angular-developer` (its `SKILL.md` plus 40 reference files cover signals, forms, DI, routing, testing, ARIA, styling and the CLI) and `angular-new-app` for scaffolding |
+| The .NET team's [dotnet/skills](https://github.com/dotnet/skills) (MIT) | every skill in the `dotnet`, `dotnet-aspnetcore`, `dotnet-data` and `dotnet-test` plugins — C# refactoring, Web API, EF Core, and .NET testing. There is **no ASP.NET Core MVC / Razor views skill** upstream yet; write your own if you need one |
+
+They are **vendored into `ModernizationHarness/skills/`** and committed, so installing works
 offline and you can see exactly what your agents are being told.
 
-`--update` re-downloads them and rewrites those directories, so upstream changes arrive as a
-reviewable git diff. The upstream commit is recorded in `skills/.upstream-angular`, which is
-also the list of directories `--update` is allowed to replace — **any skill you write
-yourself is left untouched**, so this is where to put your own project conventions.
+To refresh them, run the updater (or pass `--update` to the installer, which runs it first):
+
+```bash
+./update-skills.sh                    # both sources; --source angular|dotnet for one
+./update-skills.sh --dry-run          # download and report, write nothing
+```
+```powershell
+.\update-skills.ps1                   # -Source angular|dotnet for one; -DryRun to preview
+```
+
+It asks GitHub which commit `main` is at, downloads exactly that commit over HTTPS (no
+redirects followed), and rewrites only the directories that source owns — so upstream
+changes arrive as a reviewable git diff. Each source's commit is recorded in
+`skills/.upstream-<source>`, which is also the list of directories the updater is allowed to
+replace — **any skill you write yourself is left untouched**, so this is where to put your own
+project conventions. If an upstream skill would land on a directory it doesn't own, the
+updater stops before changing anything. To take different .NET plugins, edit
+`DOTNET_PLUGINS` at the top of both `update-skills.sh` and `update-skills.ps1`.
 
 The six numbered stage files stay in `ModernizationHarness/` — you never copy those.
 
