@@ -149,7 +149,7 @@ and issuer are **configuration keys**, never compiled in. **No client secret in 
    the tenant's published signing keys.
 2. **Dev stub** — selected by a **local-only profile**, issuing a fixed set of test principals
    with configurable roles and bypassing Entra entirely. It exists so local testing and the
-   `HOW_TO_TEST.md` walkthrough need no Entra account. **It must be structurally incapable of
+   `FEATURE_STATUS.md` checks need no Entra account. **It must be structurally incapable of
    activating under the production profile** — not merely switched off by a default value.
 
 **Authorization model:** roles mapped from Entra **app roles / group claims**. Capture the

@@ -16,12 +16,14 @@ every increment.
                                                                     ▼
                         ┌──────────────────────────────────► [4] build one phase
                         │                                           │
-                        └── you test ◄── accept / report failure ◄──┘
+                        └── next phase ◄─────────────────────────────┘
+                                    ├─► you test whenever you like
                                     └─► [5] review (separate chat, optional)
 ```
 
-Stages **0–3 run once each**, in order. Then **4 loops** — one phase, you test, you accept,
-repeat — until it's done. Every document and the `state.json` that tracks progress live in
+Stages **0–3 run once each**, in order. Then **4 loops** — one phase at a time, until it's
+done. **Nothing blocks:** you can run three phases before testing any of them, then test and
+tick them off together. Testing is tracked per feature in `FEATURE_STATUS.md`, not per phase. Every document and the `state.json` that tracks progress live in
 `./out/`; the code the agent writes goes to your target repo.
 
 ---
@@ -36,7 +38,7 @@ repeat — until it's done. Every document and the `state.json` that tracks prog
 ```
 
 That creates `./out/`, writes `AGENTS.md` and `out/INTAKE.md` from their templates,
-installs the Angular agent skills into `.agents/skills/`, and adds `ModernizationHarness/`,
+installs the Angular and .NET agent skills into `.agents/skills/`, and adds `ModernizationHarness/`,
 `AGENTS.md` and `.agents/` to the target's `.gitignore` (creating it if there isn't one —
 entries already covered are left alone, and your existing content is never rewritten, only
 appended to). It is safe to re-run: identical files are left alone, and anything it would
@@ -48,23 +50,41 @@ Note `./out/` is deliberately **not** ignored — the agent diffs those document
 
 Useful flags (same meaning in both, `--flag` in bash, `-Flag` in PowerShell):
 `--target <dir>` to install somewhere other than the current directory, `--dry-run` to see
-what it would do, and `--update` to re-vendor the Angular skills (below).
+what it would do, and `--update` to refresh the vendored skills first (below).
 
-### The Angular skills
+### The agent skills
 
 `.agents/skills/` is where the [GitLab Duo Agent Platform](https://docs.gitlab.com/user/duo_agent_platform/customize/agent_skills)
 looks for agent skills, one directory per skill, each holding a `SKILL.md`.
 
-What gets installed is the Angular team's own [angular/skills](https://github.com/angular/skills)
-(MIT) — `angular-developer`, whose `SKILL.md` plus 40 reference files cover signals, forms,
-DI, routing, testing, ARIA, styling and the CLI; and `angular-new-app` for scaffolding. They
-are **vendored into `ModernizationHarness/skills/`** and committed, so installing works
+What gets installed comes from two official upstreams, and only from them:
+
+| Source | What is taken |
+|---|---|
+| The Angular team's [angular/skills](https://github.com/angular/skills) | `angular-developer` (its `SKILL.md` plus 40 reference files cover signals, forms, DI, routing, testing, ARIA, styling and the CLI) and `angular-new-app` for scaffolding |
+| The .NET team's [dotnet/skills](https://github.com/dotnet/skills) (MIT) | every skill in the `dotnet`, `dotnet-aspnetcore`, `dotnet-data` and `dotnet-test` plugins — C# refactoring, Web API, EF Core, and .NET testing. There is **no ASP.NET Core MVC / Razor views skill** upstream yet; write your own if you need one |
+
+They are **vendored into `ModernizationHarness/skills/`** and committed, so installing works
 offline and you can see exactly what your agents are being told.
 
-`--update` re-downloads them and rewrites those directories, so upstream changes arrive as a
-reviewable git diff. The upstream commit is recorded in `skills/.upstream-angular`, which is
-also the list of directories `--update` is allowed to replace — **any skill you write
-yourself is left untouched**, so this is where to put your own project conventions.
+To refresh them, run the updater (or pass `--update` to the installer, which runs it first):
+
+```bash
+./update-skills.sh                    # both sources; --source angular|dotnet for one
+./update-skills.sh --dry-run          # download and report, write nothing
+```
+```powershell
+.\update-skills.ps1                   # -Source angular|dotnet for one; -DryRun to preview
+```
+
+It asks GitHub which commit `main` is at, downloads exactly that commit over HTTPS (no
+redirects followed), and rewrites only the directories that source owns — so upstream
+changes arrive as a reviewable git diff. Each source's commit is recorded in
+`skills/.upstream-<source>`, which is also the list of directories the updater is allowed to
+replace — **any skill you write yourself is left untouched**, so this is where to put your own
+project conventions. If an upstream skill would land on a directory it doesn't own, the
+updater stops before changing anything. To take different .NET plugins, edit
+`DOTNET_PLUGINS` at the top of both `update-skills.sh` and `update-skills.ps1`.
 
 The six numbered stage files stay in `ModernizationHarness/` — you never copy those.
 
@@ -142,9 +162,9 @@ Read each output before moving on. Unhappy with one? **`rerun stage 2 — the AP
 not GraphQL`** — everything after the dash is what you want changed. Reruns are normal, not a
 sign something went wrong.
 
-The plan is a rolling forecast, not a fixed schedule: accepted phases drop off it, and the
-remaining ones get re-checked before most build runs. What *doesn't* move is the **Coverage
-Matrix** — every requirement has a row there, and rows are never deleted.
+The plan is a rolling forecast, not a fixed schedule: delivered phases drop off it, and the
+remaining ones get re-checked before most build runs. What *doesn't* move is
+**`FEATURE_STATUS.md`** — every requirement has a row there, and rows are never deleted.
 
 ## 4. Build it, one phase at a time
 
@@ -152,21 +172,26 @@ Matrix** — every requirement has a row there, and rows are never deleted.
 run stage 4
 ```
 
-Branching and opening a PR is built in — you don't ask for it. The agent builds the phase,
-opens the PR, and **stops**. Then you:
+Branching and opening a PR is built in — you don't ask for it. It branches from **whatever
+branch you're standing on**, points the PR back at that branch, leaves you on the new branch,
+and **stops**. **It never merges** — every PR is yours. Then you:
 
-1. **Test it** — follow `HOW_TO_TEST.md` (one file, always current: *New in P-N* first, then
-   the accumulated regression checks). The agent tells you which regression lines this phase
-   put at risk.
-2. **Say one of these:**
+1. **Merge it, or don't.** Nothing waits on it. If you leave the PR open, the next phase simply
+   continues from this branch; merge it and check out your base branch, and the next phase starts
+   from there instead. Either way the code is where the next phase needs it.
+2. **Run the next phase whenever you want.** Nothing waits on you having tested anything either.
+3. **Test when it suits you** — open `FEATURE_STATUS.md`, walk the rows that say `untested`,
+   and use `HOW_TO_RUN.md` to get the app running. Every hand-off report tells you how many
+   features are waiting, which ones this phase put back on the list, and which earlier PRs are
+   still open.
+4. **Say one of these when you have tested:**
 
    | | |
    |---|---|
-   | It works | **`accept P-1`** — records it and merges the PR (if your repo requires reviewers or green CI, it records the acceptance and leaves the merge to you) |
-   | It's broken | **`P-1 failed — search returns 500`** — reopens it, keeps the PR |
+   | It works | **`accept P-1`** — ticks every feature P-1 delivered. Several at once is fine: **`accept P-1, P-2, P-3`** |
+   | Part of it works | **`search works`** — ticks that one row |
+   | It's broken | **`P-1 failed — search returns 500`** — records it; the fix is planned as new work, never by reopening P-1 |
    | You want a change | describe it — the agent works out whether it's a minor edit or needs a design change first |
-
-3. **Repeat** for the next phase.
 
 Optionally, in a **separate chat**, audit a phase:
 
@@ -193,7 +218,8 @@ bearer tokens
 run stage 4
 ```
 → It proposes adding **P-8 "migrate auth to OIDC"**, to run *before* P-6. You approve; it
-builds it. P-3 stays accepted and is never reopened — the retrofit is new work.
+builds it. P-3 is never reopened — what is built is built, and the retrofit is new work. The
+feature rows it changes go back to `untested` so you know to re-check them.
 
 That's it. The second prompt is the one you always use, so a mid-build design change costs
 exactly one extra prompt.
@@ -202,11 +228,24 @@ exactly one extra prompt.
 
 ## Five things that'll trip you up
 
-- **Never edit `state.json` by hand.** Just say what happened — "accept P-2", "P-2 failed" —
-  and the agent writes it.
-- **Say "accept" as its own message, one item at a time.** Asking for the next phase won't
-  accept the current one, and "accept everything so far" gets challenged — both mean nothing
-  was actually tested. The agent stops and points you back. That's deliberate.
+- **Never edit `state.json` or `FEATURE_STATUS.md` by hand.** Just say what happened —
+  "accept P-2", "search works", "P-2 failed" — and the agent writes it.
+- **Merging is yours.** The agent never merges unless you say `merge P-3`, so untested code only
+  reaches `main` if you put it there. The flip side: if you never merge, phases stack as a chain
+  of open PRs — you land those **oldest first**, and GitHub re-points each remaining PR at your
+  base branch as the one below it merges. Watch the open-PR line in each report.
+- **After merging on GitHub, check out your base branch.** GitHub usually deletes the merged
+  branch, but your checkout stays on it — so the next phase would branch off something spent. The
+  agent notices and offers the right branch, but switching first saves the round trip.
+- **Want the change on the branch you're on?** Say *"do it on this branch"* — no new branch, no
+  PR, just commits where you are.
+- **"accept" records testing; it unblocks nothing.** You can accept several at once when you
+  name them. What gets challenged is the vague version — "accept everything so far" — which
+  usually means nothing was tested; the agent turns it into the explicit list and asks you to
+  confirm.
+- **Watch the two counts** in every hand-off report: features awaiting your testing, and open
+  review findings. With nothing blocking, those numbers are your only warning that the build
+  has run a long way ahead of anyone checking it.
 - **Read the "Answered without you" list** after stage 0. Those are decisions you didn't make,
   and they propagate everywhere.
 - **Keep `./out/` and `state.json` in git.** The agent diffs them to work out what changed

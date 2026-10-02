@@ -5,19 +5,15 @@
 #   ./install.sh [--target <dir>] [--update] [--dry-run]
 #
 # Creates ./out/, drops AGENTS.md and out/INTAKE.md from their templates,
-# installs the bundled agent skills into .agents/skills/ (GitLab Duo Agent
-# Platform layout), and adds the harness entries to .gitignore. Anything it
-# would overwrite is backed up first.
+# installs the vendored agent skills (Angular, .NET) into .agents/skills/
+# (GitLab Duo Agent Platform layout), and adds the harness entries to
+# .gitignore. Anything it would overwrite is backed up first.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_DIR="$SCRIPT_DIR/ModernizationHarness"
 SKILLS_DIR="$HARNESS_DIR/skills"
-MANIFEST="$SKILLS_DIR/.upstream-angular"
-
-ANGULAR_REPO="https://github.com/angular/skills"
-ANGULAR_TARBALL="https://codeload.github.com/angular/skills/tar.gz/refs/heads/main"
 
 # Appended to the target's .gitignore if not already covered.
 GITIGNORE_HEADER="# Modernization Harness"
@@ -38,11 +34,11 @@ usage() {
 
 Options:
   --target <dir>   Where to install. Default: the current directory.
-  --update         Before installing, re-vendor the official Angular skills from
-                   github.com/angular/skills into ModernizationHarness/skills/.
-                   Rewrites files in this repo, so the change shows up in git.
-                   Only directories listed in skills/.upstream-angular are
-                   replaced; skills you write yourself are left alone.
+  --update         Before installing, run ./update-skills.sh to re-vendor the
+                   official Angular and .NET skills into
+                   ModernizationHarness/skills/. Rewrites files in this repo,
+                   so the change shows up in git. Skills you write yourself
+                   are left alone.
   --dry-run        Print what would happen; change nothing.
   -h, --help       This text.
 USAGE
@@ -64,71 +60,14 @@ done
 
 [ -d "$HARNESS_DIR" ] || die "no ModernizationHarness/ next to this script ($HARNESS_DIR)"
 
-# --- re-vendor the official Angular skills ---------------------------------
+# --- refresh the vendored skills (update-skills.sh does the downloading) ----
 
-vendored_skills() {
-  [ -f "$MANIFEST" ] || return 0
-  grep '^skill=' "$MANIFEST" | cut -d= -f2-
-}
-
-update_angular_skills() {
-  command -v curl >/dev/null 2>&1 || die "--update needs curl on PATH"
-  command -v tar  >/dev/null 2>&1 || die "--update needs tar on PATH"
-
-  printf 'Re-vendoring the official Angular skills from %s\n' "$ANGULAR_REPO"
-  if [ "$DRY_RUN" -eq 1 ]; then note "(dry run) would rewrite $SKILLS_DIR"; return; fi
-
-  local tmp; tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
-
-  curl -fsSL "$ANGULAR_TARBALL" -o "$tmp/skills.tar.gz" \
-    || die "download failed — leaving the vendored copies alone"
-  [ -s "$tmp/skills.tar.gz" ] || die "downloaded an empty archive — leaving the vendored copies alone"
-  tar -xzf "$tmp/skills.tar.gz" -C "$tmp" || die "could not extract the archive"
-
-  local root
-  root="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d -name 'skills-*' | head -1)"
-  [ -n "$root" ] || die "unexpected archive layout — no skills-* directory"
-
-  # Drop only what we vendored last time; hand-written skills stay.
-  local old
-  while IFS= read -r old; do
-    [ -n "$old" ] || continue
-    rm -rf "${SKILLS_DIR:?}/$old"
-    note "removed    skills/$old (will be replaced)"
-  done < <(vendored_skills)
-
-  mkdir -p "$SKILLS_DIR"
-  local names=() name count
-  for dir in "$root"/*/; do
-    [ -f "$dir/SKILL.md" ] || continue
-    name="$(basename "$dir")"
-    cp -R "$dir" "$SKILLS_DIR/$name"
-    count="$(find "$SKILLS_DIR/$name" -type f | wc -l | tr -d ' ')"
-    note "vendored   skills/$name ($count file(s))"
-    names+=("$name")
-  done
-  [ "${#names[@]}" -gt 0 ] || die "the archive contained no SKILL.md directories"
-
-  local commit='unknown' built='unknown'
-  if [ -f "$root/BUILD_INFO" ]; then
-    built="$(sed -n '1p' "$root/BUILD_INFO")"
-    commit="$(sed -n '2p' "$root/BUILD_INFO")"
-  fi
-
-  {
-    printf '# Directories in this folder vendored from %s\n' "$ANGULAR_REPO"
-    printf '# Refresh with ./install.sh --update (or .\install.ps1 -Update). Do not hand-edit.\n'
-    printf 'source=%s\n' "$ANGULAR_REPO"
-    printf 'ref=main\n'
-    printf 'commit=%s\n' "$commit"
-    printf 'built=%s\n' "$built"
-    for name in "${names[@]}"; do printf 'skill=%s\n' "$name"; done
-  } > "$MANIFEST"
-  note "manifest   skills/.upstream-angular (upstream commit ${commit:0:12})"
-}
-
-if [ "$DO_UPDATE" -eq 1 ]; then update_angular_skills; fi
+if [ "$DO_UPDATE" -eq 1 ]; then
+  update_args=()
+  if [ "$DRY_RUN" -eq 1 ]; then update_args+=(--dry-run); fi
+  bash "$SCRIPT_DIR/update-skills.sh" ${update_args[@]+"${update_args[@]}"}
+  printf '\n'
+fi
 
 # --- install ---------------------------------------------------------------
 
@@ -158,7 +97,9 @@ install_file() {
     fi
   fi
 
-  if [ "$DRY_RUN" -eq 1 ]; then note "(dry run) write $rel"; else
+  if [ "$DRY_RUN" -eq 1 ]; then
+    if [ "$quiet_files" -eq 0 ]; then note "(dry run) write $rel"; fi
+  else
     mkdir -p "$(dirname "$dst")"
     cp "$src" "$dst"
     if [ "$quiet_files" -eq 0 ]; then note "installed  $rel"; fi
@@ -268,10 +209,10 @@ if [ -d "$SKILLS_DIR" ]; then
     fi
   done
   if [ "$found" -ne 1 ]; then
-    note "none vendored — run: ./install.sh --update"
+    note "none vendored — run: ./update-skills.sh"
   fi
 else
-  note "none vendored — run: ./install.sh --update"
+  note "none vendored — run: ./update-skills.sh"
 fi
 
 printf '\n.gitignore\n'

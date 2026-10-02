@@ -4,11 +4,16 @@
 pending
 in progress
 done
-accepted
 complete
 none
-pass
-changes-requested
+untested
+passed
+failed
+built
+scheduled
+unscheduled
+clean
+findings
 big-bang
 strangler
 parallel-run

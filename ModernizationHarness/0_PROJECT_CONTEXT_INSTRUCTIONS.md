@@ -161,9 +161,10 @@ target may have none of these; a DB-reuse migration will have the first):
     where a later one is chosen, say what happens to the earlier phases' code in the plan's
     **§6 Risks & Open Questions**.
   - *Plan (constraint added late).* If a Stage 0 rerun introduces this bar after phases are
-    already delivered, the binding phase is the **next unstarted phase**. Accepted phases are
-    never reopened to meet it (`AGENTS.md` §How a mid-flight change is handled): bringing their
-    code to the bar is either a **retrofit phase** the developer approves at the next Step 0c,
+    already delivered, the binding phase is the **next unstarted phase**. Phases already
+    `done` are never reopened to meet it (`AGENTS.md` §How a mid-flight change is handled):
+    bringing their code to the bar is either a **retrofit phase** the developer approves at the
+    next Step 0c,
     or an explicit scope-out recorded in the plan's **§6 Risks & Open Questions** — the
     constraint must say which. A plan refresh must never apply the bar retroactively to
     shipped code and call the result a plan.
@@ -299,7 +300,11 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
   the hand-off report like any other default — both are expensive to change once Stage 2 has
   designed against them.
 - Branch naming, PR target branch, commit conventions, required reviewers. Stage 4 mandates
-  branch + small commits + PR; this is where it learns the house rules.
+  branch + small commits + PR; this is where it learns the house rules. **Branch naming and
+  commit conventions bind the agent. PR target branch and required reviewers are recorded for
+  humans only** — Stage 4 targets the branch it branched from, and never merges unasked, so
+  neither field changes what it does. Record them anyway: they tell the developer where work is
+  headed and whether their own merge needs a review.
 
 ## Step 4 — Write the Artifacts
 
@@ -508,7 +513,6 @@ empty:
   "edits": [],
   "changeLog": [],
   "reviews": [],
-  "wholeBuild": { "reviewStatus": "none" },
   "progress": { "lastProcessedChangeLogId": 0, "lastProcessedReviewNumber": 0 }
 }
 ```
@@ -519,6 +523,13 @@ Field notes (the later stages depend on these; keep them exact):
   made **only in this stage**. Stages 2–4 read them to shape the internal API contract and the
   branch/PR flow; none of them decide or override. Changing either is a rerun of this stage
   plus a `changeLog` entry naming the downstream docs it invalidates.
+- **`repo.prTarget`** — the branch the work is ultimately for (e.g. `dev`, or the repository's
+  default branch). **Nothing reads it.** It is a note for humans and for PR bodies only: the
+  Implement stage branches from the branch that is currently checked out and points the PR back
+  at that same branch (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From the Right Base`),
+  and it never merges. Keep the field because it tells a reader where work is headed; never
+  write a rule that depends on it. If untested work should stay off `main`, the developer keeps
+  an integration branch checked out — that, not this field, is what decides where work lands.
 - **`repo.frontendRoot` / `repo.backendRoot`** — where each part's tree lives inside its repo.
   Set here when the developer states them; otherwise `null`, and **Stage 2 fixes them in the
   LLD source-tree section**, after which Stages 3–4 build to that and nothing invents a
@@ -540,31 +551,36 @@ Field notes (the later stages depend on these; keep them exact):
   increments each time a stage is rerun with additional instructions. For `plan`, it counts
   **substantive refreshes only** — a Step 0c check that left the phase list unchanged is not a
   rerun and writes nothing.
-- **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done|accepted", "branch": "<or null>", "prUrls": [], "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated", "notes": "" }`.
+- **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "notes": "" }`.
+  - **Status moves forward only:** `pending` → `in progress` → `done`. There is no `accepted`
+    status and nothing rewinds — **what is built is built.** A phase the developer reports as
+    broken keeps its `done` status; the failure is recorded in `FEATURE_STATUS.md` and fixed as
+    forward work (a minor edit or a new phase).
   - **IDs are permanent.** A refresh may drop `pending` entries and append new ones with the
     next unused number; it never renumbers or reuses an ID, and never rewrites a non-`pending`
     entry. IDs therefore stop matching execution order — the plan document holds the order.
   - `branch` / `prUrls` are written by the Implement stage so the work is findable later.
     `prUrls` is **always an array** — one element under a `single` layout, one per repo under
-    `split`. Never a bare string, so nothing downstream has to test its shape.
-  - `reviewStatus` moves `changes-requested` → **`remediated`** when the Implement stage has
-    fixed that review's **Blockers** (Majors ride along and do not change this field). Nothing else clears it, and the Blocker gate reads it — so a
-    review left at `changes-requested` blocks the next phase indefinitely, by design. A
-    re-review after remediation is what returns it to `pass`.
-  - `status: "accepted"` and `acceptedUtc` are written **only on the developer's explicit
-    per-phase instruction** ("accept P-2"); an agent records them then, never on its own.
+    `split`, and **empty where the developer asked for no PR**. Never a bare string, so nothing
+    downstream has to test its shape.
+  - **No stage records whether work was merged, and no stage depends on it.** A phase's branch
+    starts from the branch that is currently checked out, so the predecessor's code is there
+    whether or not anything was merged. Presence is always checked **by content**.
+  - **Whether a human has tested a phase's work is not recorded here.** That belongs to
+    `FEATURE_STATUS.md`, per feature, because a later phase can change what an earlier one
+    delivered and a phase-level mark cannot express that.
 - **`edits[]`** — **minor** edits, created by the Implement stage: changes that touch no
   requirement, design contract, or plan scope (a config value, a label, an obvious bug fix).
-  Anything that touches a contract is a doc change followed by a **phase**, not an edit. Each: `{ "id": "E-1", "utc": "...", "summary": "...", "afterPhase": "P-2", "status": "pending|in progress|done|accepted", "branch": "<or null>", "prUrls": [], "acceptedUtc": "<or null>", "reviewStatus": "none|pass|changes-requested|remediated", "notes": "" }`.
+  Anything that touches a contract is a doc change followed by a **phase**, not an edit. Each: `{ "id": "E-1", "utc": "...", "summary": "...", "afterPhase": "P-2", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "notes": "" }`.
   An edit is a **reviewable unit in its own right** — it ships code, so it can be a Review
-  target exactly like a phase.
+  target exactly like a phase. Its lifecycle fields behave exactly as a phase's do, including
+  forward-only status and `FEATURE_STATUS.md` owning whether a human tested it.
 - **`changeLog[]`** — the loop's memory. Each: `{ "id": <int>, "utc": "...", "author": "developer|implement-agent|review-agent", "origin": "developer-prompt|reconcile|review-<Rid>|out-of-band", "summary": "...", "docsTouched": ["requirements|design|plan|context"], "phasesAffected": ["P-3"], "editsAffected": ["E-1"] }`.
-- **`reviews[]`** — created by the Review stage. Each: `{ "id": "R-1", "target": "P-3 | E-1 | whole-build", "utc": "...", "result": "pass|changes-requested", "blockerCount": <int>, "findingsCount": <int> }`.
-- **`wholeBuild`** — the review status of the build as a whole: `{ "reviewStatus":
-  "none|pass|changes-requested|remediated" }`. A `whole-build` review has no `phases[]` or
-  `edits[]` entry to carry its status, so this object is its target record; it is **updated in
-  place**, exactly as a phase's `reviewStatus` is, and the Blocker gate reads it the same way.
-  Like a phase, it holds the outcome of the **latest** whole-build review.
+- **`reviews[]`** — created by the Review stage. Each: `{ "id": "R-1", "target": "P-3 | E-1 | whole-build", "utc": "...", "result": "clean|findings", "blockerCount": <int>, "findingsCount": <int> }`.
+  **A review never blocks anything.** Its findings become `changeLog[]` entries that the next
+  Implement run reconciles and fixes; `progress.lastProcessedReviewNumber` is what tracks
+  whether they have been dealt with. Severities are information for the developer, not a gate —
+  there is no `reviewStatus` field and no target record to update.
 - **`progress`** — the reconciliation **high-water mark**, written by the Implement stage at
   every hand-off. Both are **integers**, compared numerically:
   - `lastProcessedChangeLogId` — the highest `changeLog[].id` that run actually folded in.
@@ -582,7 +598,7 @@ Only ever **append** to `changeLog` and `reviews`; never rewrite history. Correc
 mistaken entry by appending a new one that supersedes it.
 
 `edits[]` is different: entries are appended and never deleted or renumbered, but an entry's
-lifecycle fields (`status`, `branch`, `prUrls`, `acceptedUtc`, `reviewStatus`) are **updated in
+lifecycle fields (`status`, `branch`, `prUrls`) are **updated in
 place**, exactly as a `phases[]` entry's are. An edit is a unit of shipped work, not a history
 record — see `AGENTS.md §Recording What the Developer Tells You`, which is normative for these
 writes.
@@ -654,8 +670,8 @@ actually changed.
   expectations are stated as a constraint.
 - [ ] The constraint set is written with stable IDs, in both `PROJECT_CONTEXT.md` and
   `state.json`.
-- [ ] `state.json` is initialized per schema, with `phases`, `edits`, `changeLog`, `reviews`
-  empty and `wholeBuild.reviewStatus` at `none`.
+- [ ] `state.json` is initialized per schema, with `phases`, `edits`, `changeLog` and `reviews`
+  empty.
 - [ ] Defaults and inferences are marked `ASSUMPTION:`; unresolved non-blockers are
   `OPEN QUESTION:`.
 - [ ] Every defaulted/inferred answer is listed explicitly in the hand-off report for the

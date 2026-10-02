@@ -1,8 +1,8 @@
-# Directories in this folder vendored from https://github.com/angular/skills
-# Refresh with ./install.sh --update (or .\install.ps1 -Update). Do not hand-edit.
+# Skill directories in this folder vendored from https://github.com/angular/skills
+# Refresh with ./update-skills.sh (or .\update-skills.ps1). Do not hand-edit.
 source=https://github.com/angular/skills
 ref=main
-commit=2b26aa64e0f4977d6712de189305bcc54f0865d7
-built=Wed Sep 16 19:23:20 UTC 2026
+commit=94a2db1317095ccfedcc024a4cca0a18fc259e72
+built=Thu Sep 24 19:45:04 UTC 2026
 skill=angular-developer
 skill=angular-new-app
