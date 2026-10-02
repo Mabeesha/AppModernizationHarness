@@ -40,10 +40,14 @@ only the slice you ask for. Commands: `summary` (**start every run here**), `get
 (entries above the `progress` marks), `add`, `set`, `drop`, `check`. **Run it with no command for
 the syntax** before your first write.
 
-- **A refusal is an invariant speaking** — a backward status, a write to `changeLog`/`reviews`, a
-  non-integer mark. Never work around it; correct the record by appending.
+- **Two kinds of refusal.** A malformed command — unknown path, wrong value type, bad syntax — is
+  yours: correct it and rerun. A rule refusal — a backward status, a write to
+  `changeLog`/`reviews`, a changed id, dropping a non-`pending` phase — is an invariant speaking:
+  never work around it, by hand edit or otherwise. Take the path the invariant gives: forward work
+  for a status (Invariant 4), an appended entry to correct history (Invariant 3).
 - **Stage 0 is the one exception:** it writes the initial file (and a rerun's `context` changes)
-  directly, then runs `check`. If Python is unavailable, edit by hand under the same rules, keep
+  directly, then runs `check`.
+- **If Python is unavailable, in any stage,** edit `state.json` by hand under the same rules, keep
   it valid JSON, and say so in the report.
 
 ---
@@ -61,7 +65,8 @@ front of the edit.
 
   If they choose "directly", **still append a `changeLog[]` entry** (author `developer`, origin
   `out-of-band`) naming what changed. Skipping the process is their call; skipping the record is
-  not — the next Implement run reconciles against this log.
+  not — the next Implement run reconciles against this log, and an unrecorded change makes its
+  baseline silently wrong.
 - **About to change a pipeline document** (requirements, HLD, LLD, plan) → **don't.** Name the
   stage that owns it and offer to rerun it; these documents are the contract later stages are
   judged against. This governs **ad-hoc requests outside a stage run**. A stage writes the
@@ -85,8 +90,8 @@ A design or requirements change — even one affecting something delivered many 
 3. **That phase is built like any other**, and the `FEATURE_STATUS.md` rows it changes reset to
    `untested`.
 
-A `done` phase is never reopened to absorb the change, and a phase ID is **never reused or
-renumbered**.
+A `done` phase is never reopened to absorb the change — the retrofit is new work that supersedes
+it — and a phase ID is **never reused or renumbered**.
 
 ---
 
@@ -151,10 +156,10 @@ branch and a PR, and both are tested through the feature rows they touched, neve
    and P-3's four against their checks in `FEATURE_STATUS.md`."* They should register the claim,
    not just see boxes tick.
 
-**Open each PR against the branch you branched from**, report the link, and stop. Where earlier phases' PRs are still open, name
-them in one line so the developer sees how much has stacked up — a report, not a request. They
-land such a chain **oldest first**: as each PR merges, the host re-points the one above it at the
-base branch.
+**Open each PR against the branch you branched from**, report the link, and stop. Where earlier
+phases' PRs are still open, name them in one line so the developer sees how much has stacked up —
+a report, not a request. They land such a chain **oldest first**: as each PR merges, the host
+re-points the one above it at the base branch.
 
 ---
 
