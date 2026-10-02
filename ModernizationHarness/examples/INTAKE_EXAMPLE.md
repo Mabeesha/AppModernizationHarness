@@ -266,9 +266,10 @@ directory layout.
 **Conventions:** TODO — branch naming, PR target branch, commit conventions, required
 reviewers. Write *defaults* for: feature branches per phase; PRs target the default branch.
 
-**17. Preferred phase count or slicing strategy?**
+**17. Phase sizing / slicing strategy.**
 
-**Answer:** Planner decides — 3–7 phases, consistent with the cutover strategy in Q12. Phase 1
+**Answer:** Default sizing — one coherent theme per phase, walkable in one sitting, roughly
+even, no fixed count, consistent with the cutover strategy in Q12. Phase 1
 proves the riskiest plumbing: **scaffold + Kerberos JDBC connectivity + entity mapping validated
 against the live schema + the auth seam with its dev stub**, behind one or two endpoints
 exercised through Swagger UI.

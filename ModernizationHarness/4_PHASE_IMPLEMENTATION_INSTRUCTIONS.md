@@ -205,7 +205,7 @@ whether the remaining phases are still the right slicing, per
 
 - a design or requirements doc gained a **Revision History** row since the last run;
 - a review left findings too large to fold into this phase;
-- the previous phase revealed the slicing was wrong;
+- the previous phase revealed the slicing was wrong — read its `sizeReport` in `state.json`;
 - the developer asked for a different shape.
 
 If none applies, report **"plan unchanged — building P-N"** and go to Step 1. This is the
@@ -314,6 +314,14 @@ test guide where the change surface warrants.
      `FEATURE_STATUS.md`, per feature.
    - Record the `branch` and `prUrls` on the phase (or on the `edits[]` entry, for an edit).
      `prUrls` stays `[]` where the developer asked for no PR.
+   - **Record `sizeReport` on the phase** — how its size held up, so a later refresh has
+     evidence to re-slice on. Lead with the objective signs, then your judgement:
+     `{ "unfinished": [<task IDs not completed or reported blocked>], "guideStepsNotWalked":
+     [<test-guide steps you could not walk>], "pushedLater": [<work moved to a later phase>],
+     "verdict": "right | too large | too small", "splitSuggestion": "<what should have been
+     its own phase, or null>" }`. Write *too large* whenever any of the three lists is
+     non-empty for reasons of scope rather than an external blocker — not only when it felt
+     large. Not written for a minor edit.
    - **Advance the high-water mark** to **what this run actually folded in** — the highest
      `changeLog[].id` you reconciled, plus any entries you appended yourself; and
      `progress.lastProcessedReviewNumber` to the `<n>` of the last review you addressed. Do
@@ -328,6 +336,8 @@ test guide where the change surface warrants.
    - What was reconciled in Step 0 (or "no changes"), and whether the plan was refreshed
      ("plan unchanged" or what was re-sliced); your classification (phase vs. minor edit).
    - What was built, task by task (brief), and how it was verified.
+   - **How the phase's size held up** — the `sizeReport` verdict, and the split you suggest if
+     it was too large.
    - The runnable state: exact commands to start, and a pointer to `HOW_TO_RUN.md`.
    - **The two counts, every run, without being asked:**
      1. **features awaiting testing** — `FEATURE_STATUS.md` rows that are `built in …` and
@@ -630,6 +640,8 @@ no plan test guide of its own and does not displace the current phase.
       doc-edited this run — such requests were routed to their owning stage and stopped on.
 - [ ] No `done` phase was reopened to absorb a change; retrofits were planned as new phases.
 - [ ] Every task completed and verified, or explicitly reported as blocked.
+- [ ] `sizeReport` recorded on the phase, its lists filled from what actually happened and its
+      verdict consistent with them, and stated in the report.
 - [ ] App is in the promised runnable state; the developer test guide was walked and is accurate.
 - [ ] **`FEATURE_STATUS.md` updated in place** — rows delivered this run read `built in P-N`
       with a concrete `How to check`; rows whose behavior changed gained this phase and were

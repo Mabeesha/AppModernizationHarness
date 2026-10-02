@@ -129,6 +129,12 @@ implicit in "it runs locally".
    describes**, not assume one `run` command exists. Where that arrangement needs a dev-server
    proxy or CORS settings to work, the phase that first makes the frontend call the backend
    owns standing it up; say so rather than leaving it to be discovered at test time.
+
+   **Each phase also gives the developer something new to check by hand:** new behavior, a
+   replaced part that must behave as before (e.g. the real IdP swapped in for the dev stub),
+   or a measurement (e.g. the hardening phase's performance results). A phase whose only
+   output is code no one can check by hand — internal classes not yet wired to an endpoint,
+   screen, or job — is merged into its neighbour.
 2. **Phase 1 is deliberately small** — the smallest thing that proves the riskiest plumbing
    (typically: scaffold + data-store connection + entity validation + one or two endpoints).
    Everything else waits.
@@ -226,21 +232,44 @@ later phase invents its own styling and the product drifts visually. Retrofittin
 system across finished screens costs far more than ordering it correctly once.
 
 Put the **riskiest, most foundational work earliest** (data mapping validation, auth seam,
-the trickiest business rule); defer polish (reports, exports, i18n, edge screens). Aim for
-**3–7 phases** (honor any count/strategy set in `PROJECT_CONTEXT`), adapting to app size.
+the trickiest business rule); defer polish (reports, exports, i18n, edge screens).
 
-A sensible default shape (adapt, don't copy blindly): (1) walking skeleton — scaffold +
-quality gate (formatter/linter, and any coverage gate) + data-store connection + entity
-validation + first endpoints; (2) auth + core backend; (3) frontend foundation + primary
-screens against the real API; (4..N) feature build-out; (final) completion & hardening +
-non-functional verification.
+**Size phases; don't count them** (honor any count/strategy set in `PROJECT_CONTEXT`, which
+overrides these rules). Each phase is one agent run that yields one developer-testable
+increment (Hard Rule 1):
+- **One coherent theme per phase.** Group small related feature areas into one phase; split a
+  large area across several. The goal states in one sentence without joining unrelated work
+  with "and also".
+- **Within one sitting.** Its developer test guide can be walked in one sitting, and its PR
+  read by a reviewer in one pass. A phase that fails either is split, however coherent its
+  theme.
+- **Roughly even.** Even in the amount of building and checking work — endpoints, screens,
+  business rules, and test-guide steps — not in task count. A phase markedly larger than the
+  others is split.
+
+Phase 1 (Hard Rule 2) is exempt from the theme and evenness rules. The final hardening phase is
+exempt from the theme rule only: it is where leftover work collects, so it stays bound by
+*within one sitting* and *roughly even*, and is split like any other phase. The phase count
+follows from the app's size under these rules — there is no fixed range. State the sizing
+rationale in §1 — what theme each phase carries and why that grouping or split — so a human
+reading the plan can challenge the scale before any phase is built. Sizing that a built phase
+shows to be wrong is corrected at refresh, not anticipated here — the evidence is the
+`sizeReport` the Implement stage records on each `done` phase in `state.json`.
+
+A sensible default shape (adapt, don't copy blindly; each item is one theme, and any may span
+several phases under the sizing rules): (1) **walking skeleton** — scaffold, quality gate
+(formatter/linter, and any coverage gate), data-store connection, entity validation, first
+endpoints; (2) **access control** — the auth seam and the backend rules that depend on who
+the user is; (3) **frontend foundation** — the shell and the LLD §3b design language, proven on
+the first primary screen against the real API; (4..N) **feature build-out**, one theme per
+phase; (final) **hardening** — completion and non-functional verification.
 
 ## Step 3 — Write the Plan, the Ledger & Populate state.json
 
 Produce the document per the template below, decomposing each phase into right-sized,
 dependency-ordered tasks. **Then write the phase list into `state.json` `phases[]`** — one
 entry per phase, all `status: "pending"`, `branch: null`,
-`prUrls: []`. The
+`prUrls: []`, `sizeReport: null`. The
 plan document holds the *content*; `state.json` holds the *status and lineage*.
 
 **Then write `FEATURE_STATUS.md`** (§`FEATURE_STATUS.md` below) — one row per requirement ID /
@@ -414,7 +443,7 @@ re-planned, tested or not. Refreshes come from two places:
 |---|---|
 | A design or requirements doc gained a Revision History row | Add a phase retrofitting the delivered code; adjust remaining phases to build against the new contract |
 | A review left findings too large to fold into the next phase | Add a phase for them |
-| The last phase revealed the slicing was wrong | Split, merge, or reorder what remains |
+| The last phase revealed the slicing was wrong (its `sizeReport` says *too large* or *too small*) | Split, merge, or reorder what remains |
 | The human asked for a different shape | Do what they asked, within the golden rule |
 
 If none applies, **make no edit** and report "plan unchanged". Churn is a real cost: it burns
@@ -457,7 +486,12 @@ and to a whole-build review.
 ## Definition of Done
 
 - [ ] Phase 1 is a genuinely small, runnable, locally testable increment — not half the app.
-- [ ] Every phase ends runnable and manually testable, with a concrete developer test guide.
+- [ ] Every phase ends runnable and gives the developer something new to check by hand (new
+      behavior, a replaced part, or a measurement), with a concrete developer test guide.
+- [ ] Phases are sized per Step 2 — one coherent theme each with a one-sentence goal, each
+      walkable in one sitting and reviewable in one pass, roughly even in building and
+      checking work, rationale stated in §1 — with Phase 1 and the hardening phase excepted
+      only as Step 2 allows; no phase count was imposed beyond what `PROJECT_CONTEXT` sets.
 - [ ] **`FEATURE_STATUS.md` complete and carried forward** — every design element and
       requirement ID has a row with a `Build` value (`built in P-N` / `scheduled in P-N` /
       `unscheduled`); no row from the previous version was dropped or regenerated; every
@@ -482,7 +516,7 @@ and to a whole-build review.
 - [ ] **Exit criteria are mechanical/falsifiable** for every phase — they are the only gate.
 - [ ] Each task has scope, "done when" conditions, and a verification step.
 - [ ] `state.json phases[]` is populated, every field initialized per the schema (all
-      `pending`; `branch` null, `prUrls` empty). On a
+      `pending`; `branch` null, `prUrls` empty, `sizeReport` null). On a
       refresh, existing non-`pending` entries are left untouched.
 - [ ] Risks and open questions listed, not silently resolved.
 - [ ] **No phase ID was reused or renumbered**; new phases took the next unused numbers.
