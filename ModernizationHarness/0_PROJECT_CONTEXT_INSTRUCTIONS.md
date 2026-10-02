@@ -459,7 +459,8 @@ keep their numbers — every other stage document references them by those numbe
 This is the **single source of truth for progress, lineage, and change history** across
 all stages. Markdown documents hold human-readable *content*; `state.json` holds
 *machine state*. Initialize it with the context filled in and the stage/phase machinery
-empty:
+empty. This stage writes the file directly — every later write goes through the state tool
+(`AGENTS.md §Reading and Writing state.json`) — so run the tool's `check` once it is written:
 
 ```json
 {
@@ -559,6 +560,8 @@ Field notes (the later stages depend on these; keep them exact):
   - **IDs are permanent.** A refresh may drop `pending` entries and append new ones with the
     next unused number; it never renumbers or reuses an ID, and never rewrites a non-`pending`
     entry. IDs therefore stop matching execution order — the plan document holds the order.
+    A dropped id is recorded in a top-level `droppedPhases[]` (created by the state tool on the
+    first drop; absent until then) so "next unused" still skips it.
   - `branch` / `prUrls` are written by the Implement stage so the work is findable later.
     `prUrls` is **always an array** — one element under a `single` layout, one per repo under
     `split`, and **empty where the developer asked for no PR**. Never a bare string, so nothing
@@ -674,7 +677,7 @@ actually changed.
 - [ ] The constraint set is written with stable IDs, in both `PROJECT_CONTEXT.md` and
   `state.json`.
 - [ ] `state.json` is initialized per schema, with `phases`, `edits`, `changeLog` and `reviews`
-  empty.
+  empty, and the state tool's `check` reports `ok`.
 - [ ] Defaults and inferences are marked `ASSUMPTION:`; unresolved non-blockers are
   `OPEN QUESTION:`.
 - [ ] Every defaulted/inferred answer is listed explicitly in the hand-off report for the

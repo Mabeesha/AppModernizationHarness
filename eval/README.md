@@ -75,6 +75,7 @@ Open the `report.md` path for the readable version.
 | See findings the baseline hides | `uv run run.py --set ../ModernizationHarness --det-only --baseline /dev/null` |
 | Write output somewhere specific | `uv run run.py --set ../ModernizationHarness --det-only --out results/today` |
 | Prove the checks still work | `uv run tests/fault_injection.py` |
+| Test the `state.json` tool (`ModernizationHarness/tools/state.py`) | `uv run tests/test_state_tool.py` |
 
 `--checks` accepts check ids (`B1`) and group letters (`B`), mixed freely. An
 unknown selector is an error, not a silent no-op — a typo in CI must not read as
