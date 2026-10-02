@@ -21,7 +21,9 @@ Nested objects or text with quotes: write a JSON object of fields to a UTF-8 fil
 repo and pass @FILE in place of the pairs. Never pipe JSON in: Windows PowerShell 5.1 turns
 non-ASCII characters into "?" on the way.
 Output is ASCII; a non-ASCII character prints as an escape such as \\u2014, and both k=v and
-@FILE turn that escape back into the character, so a copied value round-trips.
+@FILE turn that escape back into the character, so a copied value round-trips. (So k=v text
+cannot hold a literal backslash-u plus four hex digits; use @FILE with "\\\\u" for that.)
+Nothing is printed until the write has succeeded.
 Without --file, state.json is found by name under the current directory.
 
 Examples:
@@ -29,6 +31,8 @@ Examples:
   set progress lastProcessedChangeLogId=12 lastProcessedReviewNumber=3
   add changeLog author=developer origin=out-of-band "summary=..." phasesAffected=P-2
 """
+import contextlib
+import io
 import json
 import os
 import re
@@ -76,11 +80,19 @@ def load(path):
 
 def save(path, state):
     state["updatedUtc"] = now()
+    try:  # encode before touching disk, so a bad value writes nothing at all
+        data = (json.dumps(state, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+    except UnicodeEncodeError:
+        die("text contains a broken character (half of a \\ud83d\\ude00-style pair?); nothing written")
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(state, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "wb") as f:
+            f.write(data)
+        os.replace(tmp, path)
+    except OSError as e:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        die(f"could not write {path}: {e}; nothing written")
 
 
 def num(id_):
@@ -154,8 +166,9 @@ def parse_fields(args):
             if "=" not in arg:
                 die(f"expected key=value or @FILE, got {arg!r}")
             key, raw = arg.split("=", 1)
-            # \uXXXX is how output shows non-ASCII; decode it so a copied value round-trips
-            raw = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), raw)
+            # \uXXXX is how output shows non-ASCII; decode each run as JSON so a copied value
+            # round-trips, including two-code characters such as emoji (😀)
+            raw = re.sub(r"(?:\\u[0-9a-fA-F]{4})+", lambda m: json.loads(f'"{m.group(0)}"'), raw)
             fields[key] = None if raw == "null" else raw
     if not fields:
         die("nothing to write")
@@ -301,8 +314,12 @@ def main(argv):
         sys.exit(2)
     path = path or find_file()
     state = load(path)
-    if COMMANDS[argv[0]](state, argv[1:]):
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):  # hold the result back until the write succeeds
+        changed = COMMANDS[argv[0]](state, argv[1:])
+    if changed:
         save(path, state)
+    sys.stdout.write(out.getvalue())
 
 
 if __name__ == "__main__":

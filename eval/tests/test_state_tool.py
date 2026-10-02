@@ -59,10 +59,13 @@ class StateToolTest(unittest.TestCase):
         return res
 
     def refused(self, *args):
-        """Assert the command is refused and the file is left untouched."""
+        """Assert the command is refused, prints nothing that looks like success, and leaves
+        the file untouched with no stray temp file."""
         before = self.file.read_bytes()
         res = self.run_tool(*args, ok=False)
         self.assertEqual(self.file.read_bytes(), before, f"{args} changed the file on refusal")
+        self.assertEqual(res.stdout, "", f"{args} printed output although it was refused")
+        self.assertEqual(list(self.dir.rglob("*.tmp")), [], f"{args} left a temp file")
         return res.stderr
 
     def state(self):
@@ -224,6 +227,27 @@ class StateToolTest(unittest.TestCase):
         self.assertEqual(shown, '"a \\u2014 b"')
         self.run_tool("set", "phases.P-1", "notes=" + shown.strip('"'))  # an agent copies it back
         self.assertEqual(self.state()["phases"][0]["notes"], f"a {DASH} b")
+
+    def test_emoji_round_trips(self):
+        emoji = "\U0001F600"  # printed as two codes: \ud83d\ude00
+        self.run_tool("add", "phases", "name=A")
+        self.run_tool("set", "phases.P-1", self.write_payload({"notes": f"hi {emoji}"}))
+        shown = self.run_tool("get", "phases.P-1.notes").stdout.strip()
+        self.assertEqual(shown, '"hi \\ud83d\\ude00"')
+        self.run_tool("set", "phases.P-1", "notes=" + shown.strip('"'))
+        self.assertEqual(self.state()["phases"][0]["notes"], f"hi {emoji}")
+
+    def test_broken_half_character_is_refused_from_any_input(self):
+        self.run_tool("add", "phases", "name=A")
+        self.assertIn("broken character", self.refused("set", "phases.P-1", "notes=x \\ud83d"))
+        path = self.dir / "half.json"
+        path.write_text('{"notes": "x \\ud83d"}', encoding="ascii")
+        self.assertIn("broken character", self.refused("set", "phases.P-1", f"@{path}"))
+
+    def test_other_backslashes_are_left_alone(self):
+        self.run_tool("add", "phases", "name=A")
+        self.run_tool("set", "phases.P-1", "notes=C:\\new\\table \\x41 \\u12")
+        self.assertEqual(self.state()["phases"][0]["notes"], "C:\\new\\table \\x41 \\u12")
 
     def test_file_on_disk_stays_readable_utf8(self):
         self.run_tool("set", "stages.plan", self.write_payload({"notes": f"x {DASH} y"}))
