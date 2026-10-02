@@ -551,7 +551,7 @@ Field notes (the later stages depend on these; keep them exact):
   increments each time a stage is rerun with additional instructions. For `plan`, it counts
   **substantive refreshes only** — a Step 0c check that left the phase list unchanged is not a
   rerun and writes nothing.
-- **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "notes": "" }`.
+- **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "sizeReport": null, "notes": "" }`.
   - **Status moves forward only:** `pending` → `in progress` → `done`. There is no `accepted`
     status and nothing rewinds — **what is built is built.** A phase the developer reports as
     broken keeps its `done` status; the failure is recorded in `FEATURE_STATUS.md` and fixed as
@@ -563,6 +563,9 @@ Field notes (the later stages depend on these; keep them exact):
     `prUrls` is **always an array** — one element under a `single` layout, one per repo under
     `split`, and **empty where the developer asked for no PR**. Never a bare string, so nothing
     downstream has to test its shape.
+  - `sizeReport` is written by the Implement stage when it marks the phase `done` — how the
+    phase's size held up (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Step 2`). It is the
+    evidence a later plan refresh uses to re-slice; `null` until then.
   - **No stage records whether work was merged, and no stage depends on it.** A phase's branch
     starts from the branch that is currently checked out, so the predecessor's code is there
     whether or not anything was merged. Presence is always checked **by content**.
