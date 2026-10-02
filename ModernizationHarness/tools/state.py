@@ -6,17 +6,22 @@ Usage: python state.py [--file PATH] <command> ...
   summary                     one-screen overview: stages, phases, edits, marks, counts
   get [PATH]                  print the value at PATH (whole file if omitted)
   new                         changeLog / reviews entries above the progress high-water marks
-  add LIST k=v ... | -        append to changeLog, reviews, edits or phases; id and utc filled in
-  set PATH k=v ... | -        update fields on the object at PATH
+  add LIST k=v ... | @FILE    append to changeLog, reviews, edits or phases; id and utc filled in
+  set PATH k=v ... | @FILE    update fields on the object at PATH
   drop phases.P-<n>           remove a pending phase (plan refresh only)
   check                       validate the file against the harness rules
 
 PATH is dotted; a list segment matches an element by id, e.g. phases.P-3 or changeLog.12.
-A value is parsed as JSON when it parses (7, null, true) and kept as a string otherwise; quote
-the whole pair when it has spaces: "summary=fixed the export header". List fields (prUrls,
-docsTouched, phasesAffected, editsAffected) also accept a,b,c.
-Nested objects or text with quotes: pipe a JSON object and end the command with a lone "-":
-  '{"sizeReport": {"verdict": "right", ...}}' | python state.py set phases.P-4 -
+A value is text, except: null; the integer fields (progress marks, rerunCount, blockerCount,
+findingsCount); the true/false fields (sharedDataStore, sharedWithLegacy); the list fields
+(prUrls, docsTouched, phasesAffected, editsAffected), which take a,b,c; and sizeReport, which
+takes a JSON object. A wrong type is refused. Quote the whole pair when it has spaces:
+"summary=fixed the export header".
+Nested objects or text with quotes: write a JSON object of fields to a UTF-8 file outside the
+repo and pass @FILE in place of the pairs. Never pipe JSON in: Windows PowerShell 5.1 turns
+non-ASCII characters into "?" on the way.
+Output is ASCII; a non-ASCII character prints as an escape such as \\u2014, and both k=v and
+@FILE turn that escape back into the character, so a copied value round-trips.
 Without --file, state.json is found by name under the current directory.
 
 Examples:
@@ -26,12 +31,17 @@ Examples:
 """
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 
 STATUS_ORDER = ["pending", "in progress", "done"]
 STAGE_STATUSES = {"pending", "in progress", "complete"}
 LIST_FIELDS = {"prUrls", "docsTouched", "phasesAffected", "editsAffected"}
+INT_FIELDS = {"lastProcessedChangeLogId", "lastProcessedReviewNumber", "rerunCount",
+              "blockerCount", "findingsCount", "schemaVersion"}
+BOOL_FIELDS = {"sharedDataStore", "sharedWithLegacy"}
+OBJECT_FIELDS = {"sizeReport"}
 APPEND_ONLY = {"changeLog", "reviews"}
 PREFIX = {"reviews": "R-", "edits": "E-", "phases": "P-"}
 SKIP_DIRS = {".git", "node_modules", "bin", "obj", "target", "dist", "ModernizationHarness"}
@@ -93,34 +103,63 @@ def resolve(state, path):
     return node
 
 
-def parse_value(key, raw):
+def is_int(v):
+    return isinstance(v, int) and not isinstance(v, bool)  # bool is an int in Python
+
+
+def json_or_text(s):
     try:
-        value = json.loads(raw)
+        return json.loads(s)
     except ValueError:
-        value = raw
-    if key in LIST_FIELDS and not isinstance(value, list):
-        value = [v for v in str(raw).split(",") if v]
+        return s
+
+
+# field -> (convert text from k=v, accept the result, what it must be)
+RULES = {
+    **{k: (lambda s: int(s) if s.lstrip("-").isdigit() else s, is_int, "an integer")
+       for k in INT_FIELDS},
+    **{k: (lambda s: {"true": True, "false": False}.get(s, s), lambda v: isinstance(v, bool),
+           "true or false") for k in BOOL_FIELDS},
+    **{k: (lambda s: [v for v in s.split(",") if v], lambda v: isinstance(v, list), "a list")
+       for k in LIST_FIELDS},
+    **{k: (json_or_text, lambda v: v is None or isinstance(v, dict), "a JSON object or null")
+       for k in OBJECT_FIELDS},
+}
+
+
+def coerce(key, value):
+    """Give a field its schema type: text from k=v is converted; anything else must already fit."""
+    if key not in RULES:
+        return value
+    convert, ok, kind = RULES[key]
+    if isinstance(value, str):
+        value = convert(value)
+    if not ok(value):
+        die(f"{key} must be {kind}, got {value!r}")
     return value
 
 
 def parse_fields(args):
-    if args == ["-"]:
+    if len(args) == 1 and args[0].startswith("@"):
         try:
-            fields = json.loads(sys.stdin.buffer.read().decode("utf-8-sig"))  # PowerShell adds a BOM
-        except ValueError as e:
-            die(f"stdin is not valid JSON: {e}")
+            with open(args[0][1:], "rb") as f:
+                fields = json.loads(f.read())  # bytes: detects UTF-8/16/32 and a BOM itself
+        except (OSError, ValueError) as e:
+            die(f"cannot read {args[0][1:]}: {e}")
         if not isinstance(fields, dict):
-            die("stdin must be a JSON object")
-        return fields
-    fields = {}
-    for arg in args:
-        if "=" not in arg:
-            die(f"expected key=value, got {arg!r}")
-        key, raw = arg.split("=", 1)
-        fields[key] = parse_value(key, raw)
+            die(f"{args[0][1:]} must hold a JSON object")
+    else:
+        fields = {}
+        for arg in args:
+            if "=" not in arg:
+                die(f"expected key=value or @FILE, got {arg!r}")
+            key, raw = arg.split("=", 1)
+            # \uXXXX is how output shows non-ASCII; decode it so a copied value round-trips
+            raw = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), raw)
+            fields[key] = None if raw == "null" else raw
     if not fields:
         die("nothing to write")
-    return fields
+    return {k: coerce(k, v) for k, v in fields.items()}
 
 
 def check_status(kind, old, new):
@@ -137,7 +176,7 @@ def check_status(kind, old, new):
 def cmd_summary(state, _):
     p = state.get("progress", {})
     log, reviews = state.get("changeLog", []), state.get("reviews", [])
-    print(f"project: {state.get('project')}  updated: {state.get('updatedUtc')}")
+    print(f"project: {json.dumps(state.get('project'))}  updated: {state.get('updatedUtc')}")
     print("stages: " + ", ".join(f"{k}={v.get('status')}" for k, v in state.get("stages", {}).items()))
     for kind in ("phases", "edits"):
         rows = state.get(kind, [])
@@ -150,7 +189,7 @@ def cmd_summary(state, _):
 
 def cmd_get(state, args):
     value = resolve(state, args[0] if args else "")
-    print(json.dumps(value, indent=None if args else 2, ensure_ascii=False))
+    print(json.dumps(value, indent=None if args else 2))
 
 
 def cmd_new(state, _):
@@ -161,7 +200,7 @@ def cmd_new(state, _):
         "reviews": [r for r in state.get("reviews", [])
                     if num(r["id"]) > p.get("lastProcessedReviewNumber", 0)],
     }
-    print(json.dumps(out, ensure_ascii=False))
+    print(json.dumps(out))
 
 
 def cmd_add(state, args):
@@ -203,10 +242,10 @@ def cmd_set(state, args):
         check_status(top, target.get("status"), fields["status"])
     if top == "progress":
         for k, v in fields.items():
-            if not isinstance(v, int):
+            if not is_int(v):
                 die(f"progress.{k} must be an integer")
     target.update(fields)
-    print(json.dumps(target, ensure_ascii=False))
+    print(json.dumps(target))
     return True
 
 
@@ -238,7 +277,7 @@ def cmd_check(state, _):
         if s.get("status") not in STAGE_STATUSES:
             problems.append(f"stages.{name}: bad status {s.get('status')!r}")
     for k, v in state.get("progress", {}).items():
-        if not isinstance(v, int):
+        if not is_int(v):
             problems.append(f"progress.{k} must be an integer")
     if problems:
         die("\n".join(problems))
@@ -250,7 +289,8 @@ COMMANDS = {"summary": cmd_summary, "get": cmd_get, "new": cmd_new, "add": cmd_a
 
 
 def main(argv):
-    sys.stdout.reconfigure(encoding="utf-8")
+    for stream in (sys.stdout, sys.stderr):  # ASCII survives any console encoding
+        stream.reconfigure(encoding="ascii", errors="backslashreplace")
     path = None
     if argv[:1] == ["--file"]:
         if len(argv) < 2:
