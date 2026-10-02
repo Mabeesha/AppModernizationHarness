@@ -12,10 +12,17 @@ Usage: python state.py [--file PATH] <command> ...
   check                       validate the file against the harness rules
 
 PATH is dotted; a list segment matches an element by id, e.g. phases.P-3 or changeLog.12.
-A value is parsed as JSON when it parses (7, null, true, {...}) and kept as a string otherwise;
-list fields (prUrls, docsTouched, phasesAffected, editsAffected) also accept a,b,c.
-A lone "-" reads a JSON object from stdin instead of k=v pairs.
+A value is parsed as JSON when it parses (7, null, true) and kept as a string otherwise; quote
+the whole pair when it has spaces: "summary=fixed the export header". List fields (prUrls,
+docsTouched, phasesAffected, editsAffected) also accept a,b,c.
+Nested objects or text with quotes: pipe a JSON object and end the command with a lone "-":
+  '{"sizeReport": {"verdict": "right", ...}}' | python state.py set phases.P-4 -
 Without --file, state.json is found by name under the current directory.
+
+Examples:
+  set phases.P-4 "status=in progress"
+  set progress lastProcessedChangeLogId=12 lastProcessedReviewNumber=3
+  add changeLog author=developer origin=out-of-band "summary=..." phasesAffected=P-2
 """
 import json
 import os

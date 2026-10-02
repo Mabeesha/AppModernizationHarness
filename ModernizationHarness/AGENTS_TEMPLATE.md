@@ -4,8 +4,8 @@ The six numbered stage files live in **`ModernizationHarness/`**, relative to th
 working tree. *Keeping them somewhere else? Change that path here, once — it is the only place
 it is written down.*
 
-The developer should not have to remember filenames. Any of these names a stage; **load that
-file and follow it**:
+The developer need not remember filenames. Any of these names a stage — as does naming the file
+outright; neither form is more official. **Load that file and follow it:**
 
 | They say | You run |
 |---|---|
@@ -16,141 +16,102 @@ file and follow it**:
 | "stage 4", "next phase", "build P-4", "implement" | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` |
 | "stage 5", "review", "audit" | `5_REVIEW_INSTRUCTIONS.md` |
 
-Naming the file outright — *"Follow `3_PLAN_INSTRUCTIONS.md`"* — means exactly the same thing.
-Neither form is more official than the other.
-
-**How to read what follows the name:**
-
-- **"rerun stage 2 — use a modular monolith"** — everything after the stage name is that
-  stage's **Additional Instructions**. Reruns are normal; see the stage file's own §Rerunning
-  section for what it does with them.
+- **Everything after the stage name is that stage's Additional Instructions** ("rerun stage 2 —
+  use a modular monolith"). Reruns are normal; the stage file's §Rerunning says what to do.
 - **Stage 4 with no target** → the next planned phase. **Stage 5 with no target** → ask whether
   they mean a phase, a minor edit, or the whole build; don't pick one.
 - **Stage 0 on a first run** needs the intake path, the legacy app path, an app name, and where
-  to write. Every stage after it reads `context.locations` from `state.json` instead — **never
-  make the developer retype a path that `state.json` already holds.**
-- **"Run the next stage" is not specific enough to act on.** Say which one you believe is next,
-  and why, and let them confirm.
+  to write. Every later stage reads `context.locations` from `state.json` — **never make the
+  developer retype a path it already holds.**
+- **"Run the next stage" is not specific enough.** Say which one you believe is next and why,
+  and let them confirm.
 
-**Always open the file and work from it.** These instructions are detailed and change; a stage
-run that proceeds from memory of what the stage usually does is not a stage run.
+**Always open the file and work from it.** These instructions change; a stage run from memory
+of what the stage usually does is not a stage run.
 
 ---
 
 ## Reading and Writing state.json
 
-**Use the state tool, `tools/state.py` in the same folder as the stage files — never open,
-paste, or hand-edit `state.json`.** It returns only the slice you ask for, and it refuses the
-writes the invariants below forbid. Run it from the working-tree root as
-`python <stage folder>/tools/state.py <command>` (`python3` where `python` is absent). It finds
-`state.json` by name; pass `--file <path>` first when the prompt gives one.
+**Never open, paste, or hand-edit `state.json` — use the state tool,** `tools/state.py` beside
+the stage files: `python <stage folder>/tools/state.py <command>` from the working-tree root
+(`python3` where `python` is absent; `--file <path>` first when the prompt gives one). It returns
+only the slice you ask for. Commands: `summary` (**start every run here**), `get <path>`, `new`
+(entries above the `progress` marks), `add`, `set`, `drop`, `check`. **Run it with no command for
+the syntax** before your first write.
 
-| Command | Use it for |
-|---|---|
-| `summary` | **Start every run here** — stage statuses, phase/edit statuses, ids, marks |
-| `get <path>` | One slice, e.g. `get context.locations`, `get context.constraints.C3`, `get phases.P-4` |
-| `new` | `changeLog[]` / `reviews[]` entries above the `progress` marks — Stage 4 Step 0b |
-| `add <changeLog\|reviews\|edits\|phases> k=v …` | Append; `id` and `utc` are allocated for you and printed |
-| `set <path> k=v …` | Update fields, e.g. `set phases.P-4 "status=in progress"`, `set progress lastProcessedChangeLogId=12` |
-| `drop phases.P-<n>` | Remove a `pending` phase at a plan refresh; its id is retired, never reused |
-| `check` | Validate the file; run after any write you made without the tool |
-
-- **Paths** are dotted; inside a list, a segment matches an element's `id` (`changeLog.12`,
-  `reviews.R-3`).
-- **Values** are parsed as JSON when they parse (`7`, `null`, `true`) and kept as text otherwise.
-  Quote the whole pair when it has spaces: `"summary=fixed the export header"`. List fields
-  (`prUrls`, `docsTouched`, `phasesAffected`, `editsAffected`) also take `a,b,c`.
-- **Nested objects** (`sizeReport`, anything with quotes): pipe a JSON object instead of pairs
-  and end the command with `-`: `'{"sizeReport": {…}}' | python … set phases.P-4 -`.
-- **A refusal is the invariant speaking** — a backward status, a write to `changeLog`/`reviews`,
-  a non-integer mark. Do not work around it; correct the record by appending.
+- **A refusal is an invariant speaking** — a backward status, a write to `changeLog`/`reviews`, a
+  non-integer mark. Never work around it; correct the record by appending.
 - **Stage 0 is the one exception:** it writes the initial file (and a rerun's `context` changes)
-  directly, then runs `check`. If Python is unavailable, edit `state.json` by hand under the
-  same rules and say so in the report.
+  directly, then runs `check`. If Python is unavailable, edit by hand under the same rules, keep
+  it valid JSON, and say so in the report.
 
 ---
 
 ## Before you write anything
 
-Classify what you are about to do **at the moment you are about to write** — not when you read
-the prompt. Investigation frequently turns into editing partway through a conversation, and the
-gate belongs in front of the edit, not in front of the question.
+Classify what you are about to do **at the moment you are about to write**, not when you read
+the prompt — investigation often turns into editing partway through, and the gate belongs in
+front of the edit.
 
-- **Reading, explaining, diagnosing, running tests** → just do it. No gate, no ceremony.
-- **About to change target application code** → this is a phase or a minor edit. Stop and
-  ask:
+- **Reading, explaining, diagnosing, running tests** → just do it.
+- **About to change target application code** → this is a phase or a minor edit. Stop and ask:
   > "This changes built code. Run it through `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` — branch,
   > tests, docs, state, PR — or make the change directly?"
 
-  Then follow their answer.
-- **About to change a pipeline document** (requirements, HLD, LLD, or the plan) → **don't.**
-  Name the stage that owns it and offer to rerun that stage. These documents are the contract
-  that later stages are judged against; editing them casually breaks that contract.
-
-  **Carve-out:** this does not apply when you are executing a stage that owns those edits.
-  Stage 4 **owns the forward plan** — at Step 0c it may add, remove, reorder, split, and merge
-  the **remaining** phases (with the developer's approval), and it updates statuses, tasks, and
-  test guides. It may not change the design or requirements beyond a purely clarifying fix.
-  Stages 0–3 and 5 write the documents they own. The rule above governs **ad-hoc requests
-  outside a stage run** — that is where casual edits do the damage.
-
-**If they choose "directly", still append a `changeLog[]` entry** in `state.json` (author:
-`developer`, origin: `out-of-band`) naming what changed. Skipping the process is their call;
-skipping the record is not — the next Implement run reconciles against this log, and an
-unrecorded change makes its baseline silently wrong.
+  If they choose "directly", **still append a `changeLog[]` entry** (author `developer`, origin
+  `out-of-band`) naming what changed. Skipping the process is their call; skipping the record is
+  not — the next Implement run reconciles against this log.
+- **About to change a pipeline document** (requirements, HLD, LLD, plan) → **don't.** Name the
+  stage that owns it and offer to rerun it; these documents are the contract later stages are
+  judged against. This governs **ad-hoc requests outside a stage run**. A stage writes the
+  documents it owns, and Stage 4 owns the **forward plan**: at Step 0c it may add, remove,
+  reorder, split, and merge the **remaining** phases (with the developer's approval) and updates
+  statuses, tasks, and test guides — but changes design or requirements only by a purely
+  clarifying fix.
 
 ---
 
 ## How a mid-flight change is handled
 
 A design or requirements change — even one affecting something delivered many phases ago — has
-**one** path, and it needs no special ceremony:
+**one** path:
 
-1. **The owning stage amends its document** (normally a Stage 2 rerun for design, Stage 1 for
+1. **The owning stage amends its document** (normally Stage 2 for design, Stage 1 for
    requirements) and adds a `## 0. Revision History` row naming the delivered phases it
    invalidates.
 2. **The next Stage 4 run's Step 0c re-plans**, proposing a **retrofit phase** for the
-   invalidated code and adjusting the remaining phases. The developer approves it.
+   invalidated code; the developer approves it.
 3. **That phase is built like any other**, and the `FEATURE_STATUS.md` rows it changes reset to
    `untested`.
 
-Two things never happen: a `done` phase is **never reopened** to absorb a change (**what is
-built is built** — the retrofit is new work that supersedes it), and a phase ID is **never
-reused or renumbered**.
+A `done` phase is never reopened to absorb the change, and a phase ID is **never reused or
+renumbered**.
 
 ---
 
 ## Invariants — never violate these, in any stage or ad-hoc request
 
-1. **The legacy source is read-only.** Never modify, move, or delete it — in any stage, even
-   when it shares a repository with the target code. Build the new tree beside it.
+1. **The legacy source is read-only.** Never modify, move, or delete it — even when it shares a
+   repository with the target code. Build the new tree beside it.
 2. **`INTAKE.md` and the `*_TEMPLATE.md` files are inputs — never write to them.** Resolved
    answers belong in `PROJECT_CONTEXT.md §5`.
-3. **`state.json`'s `changeLog[]` and `reviews[]` are append-only.** Never rewrite or delete
-   history; correct the record by appending to it.
-   **The developer should never have to hand-edit `state.json`** — they tell you what happened
-   and you record it (see §Recording What the Developer Tells You). Keep it valid JSON and
-   report what you wrote.
-4. **Phase and edit status moves forward only: `pending` → `in progress` → `done`.** You set
-   all three yourself as work proceeds, and `done` is terminal — **what is built is built.**
-   Nothing rewinds a status: a failure the developer reports is recorded in
-   `FEATURE_STATUS.md` and fixed as forward work, never by reopening the phase that shipped it.
-5. **Only the developer *authorizes* a `Tested` value in `FEATURE_STATUS.md`.** `passed` and
-   `failed` mean a human ran the app, so you write them **only** on their explicit word (see
-   §Recording What the Developer Tells You). Never infer one, and never write one to clear a
-   row that is inconveniently `untested`. The one value you may write yourself is `untested` —
-   when work you just did changed that feature's behavior.
-   **That mark gates nothing.** No stage waits on it, and you never ask for it before doing
-   something else.
-6. **Never merge unless the developer asks you to, in those words.** Every PR is theirs, to
-   merge whenever they choose or not at all. Nothing in the pipeline depends on a merge having
-   happened, because a phase branches from the branch that is currently checked out and therefore
-   already has its predecessor's code. So you never need a merge, **never ask for one**, and never
-   perform one because it would be tidy. **When they do ask — "merge P-3" — do it**, merging every
-   PR in that item's `prUrls`, and report what you merged. Nothing records merges, so there is no
-   field to update.
-7. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR
-   bodies. Connection strings, IdP config, and credentials come from environment or profiles.
+3. **`state.json`'s `changeLog[]` and `reviews[]` are append-only.** Correct the record by
+   appending, never by rewriting or deleting.
+4. **Phase and edit status moves forward only: `pending` → `in progress` → `done`.** You set all
+   three as work proceeds; `done` is terminal — **what is built is built.** A reported failure is
+   recorded in `FEATURE_STATUS.md` and fixed as forward work, never by reopening what shipped it.
+5. **Only the developer authorizes `passed` or `failed` in `FEATURE_STATUS.md`** — they mean a
+   human ran the app. Write one only on their explicit word; never infer one or write one to clear
+   an inconvenient `untested`. The only value you may write yourself is `untested`, when your work
+   changed that feature's behavior. **That mark gates nothing:** no stage waits on it, so never
+   ask for it — least of all as a precondition for something else, which turns an attestation
+   into a reflexive yes.
+6. **Never merge, ask to merge, or offer to — unless the developer asks, in those words.** Every
+   PR is theirs, to merge whenever they choose or never. Nothing depends on a merge: a phase
+   branches from the branch currently checked out, which already has its predecessor's code.
+7. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR bodies.
+   Connection strings, IdP config, and credentials come from environment or profiles.
 8. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, fix
    the mapping, never the database.
 
@@ -158,12 +119,11 @@ reused or renumbered**.
 
 ## Recording What the Developer Tells You
 
-**This section is normative and lives only here.** These statements arrive in ordinary chat,
-where no stage file is loaded — so the protocol belongs in the file that always loads. The
-stage instructions point back at this section rather than restating it.
+**This section is normative and lives only here** — these statements arrive in ordinary chat,
+where no stage file is loaded; stage files point back here.
 
-The developer edits neither `state.json` nor `FEATURE_STATUS.md`. They state what happened in
-plain language; you translate it and confirm what you wrote:
+The developer edits neither `state.json` nor `FEATURE_STATUS.md`. They say what happened in
+plain language; you write it and confirm what you wrote:
 
 | They say | You write |
 |---|---|
@@ -172,60 +132,49 @@ plain language; you translate it and confirm what you wrote:
 | "P-2 failed — search returns 500" | the affected row(s) → `failed <today> — search returns 500`, **plus** a `changeLog[]` entry (`author: developer`, `origin: developer-prompt`). P-2 stays `done`; the fix is forward work |
 | "I hand-fixed X myself" | a `changeLog[]` entry, `author: developer`, `origin: out-of-band` |
 | "do it on this branch" / "no PR" | commit to the current branch; no new branch, no PR; `prUrls` stays `[]` |
-| "merge P-3" | merge every PR in its `prUrls`; report what you merged; **write nothing** — no field records merges |
-| "I merged P-3 myself" | nothing to write. Say which branch they are now on, since the merged one is spent |
+| "merge P-3" | merge every PR in its `prUrls` and report what you merged; **write nothing** — no field records merges |
+| "I merged P-3 myself" | nothing to write |
 
-**You never merge unasked, and never ask.** The developer merges, or doesn't, and either way you
-need nothing from them: the next phase starts from whatever branch they are standing on. The only
-thing worth telling them afterwards is that the branch they were on is now finished, so the next
-phase should start somewhere else (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From the
-Right Base`).
+After either merge, the one thing worth saying is which branch they are now on: the merged one is
+spent, so the next phase should start elsewhere (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting
+From the Right Base`).
 
 Phases and edits behave **identically** here: both are units of shipped work with a status, a
 branch and a PR, and both are tested through the feature rows they touched, never as units.
 
-**Three rules for recording testing:**
+**Recording testing:**
 
-1. **Several at once is fine, when they name them.** "accept P-2, P-3 and P-4" is a legitimate
-   thing to say — the developer may have deferred testing deliberately, and
-   `FEATURE_STATUS.md` is written so they can walk it all in one sitting. Tick the rows for each
-   phase in turn. What you do **not** accept is the vague bulk: "accept everything so far" gets
-   turned into the explicit list and read back for confirmation.
-2. **Say what they are attesting to**, per phase, not as a lump: *"Recording that you tested
-   P-2's two features and P-3's four against their checks in `FEATURE_STATUS.md`."* They should
-   register the claim, not just see boxes tick.
-3. **Never ask for it as a precondition.** Nothing waits on testing. Do not ask "shall I mark
-   P-2 tested?" as part of a request to do something else — that turns an attestation into a
-   reflexive yes, and there is no reason to ask, because nothing is blocked.
+1. **Several at once is fine, when they name them.** "accept P-2, P-3 and P-4" is legitimate —
+   they may have deferred testing deliberately. Tick each phase's rows in turn. The vague bulk
+   ("accept everything so far") is turned into the explicit list and read back for confirmation.
+2. **Say what they are attesting to**, per phase: *"Recording that you tested P-2's two features
+   and P-3's four against their checks in `FEATURE_STATUS.md`."* They should register the claim,
+   not just see boxes tick.
 
-**Never ask to merge, and never offer** — but do it when told. You open the PR against the branch
-you branched from, report the link, and stop. Where earlier phases' PRs are also still open, name
-them in one line so the developer can see how much has stacked up unlanded — that is a report, not
-a request. They land such a chain **oldest first**: as each PR merges, the host re-points the one
-above it at the base branch, and they repeat until the chain is empty.
+**Open each PR against the branch you branched from**, report the link, and stop. Where earlier phases' PRs are still open, name
+them in one line so the developer sees how much has stacked up — a report, not a request. They
+land such a chain **oldest first**: as each PR merges, the host re-points the one above it at the
+base branch.
 
 ---
 
 ## Constraints
 
 The project's constraints live in `PROJECT_CONTEXT.md §4`, each with a stable ID and its
-**per-stage obligations**. Honor every constraint that states an obligation for the work you are
-doing, and follow that obligation as written.
-
-Never re-derive constraint rules from first principles: if a constraint should change how
-something is done and no obligation says so, raise it as an `OPEN QUESTION:` rather than
-inventing the rule. A constraint with no obligation for your stage does not affect it.
+**per-stage obligations**. Honor every obligation for the work you are doing, as written. Never
+re-derive constraint rules from first principles: if a constraint should change how something is
+done and no obligation says so, raise an `OPEN QUESTION:` rather than inventing the rule. A
+constraint with no obligation for your stage does not affect it.
 
 ---
 
 ## Authority when sources conflict
 
 1. **A constraint in `PROJECT_CONTEXT.md §4` always wins.** If honoring it would break a design
-   contract, that is a blocker for a human to resolve — not a choice you may make.
-2. **For everything else**, in descending order: **plan → LLD → HLD → requirements → the rest of
+   contract, that is a blocker for a human — not a choice you may make.
+2. **Otherwise**, in descending order: **plan → LLD → HLD → requirements → the rest of
    `PROJECT_CONTEXT.md`**.
-3. **A material conflict is reported, not resolved.** Say what conflicts and stop; do not pick a
-   side silently.
+3. **A material conflict is reported, not resolved.** Say what conflicts and stop.
 
 ---
 
@@ -233,15 +182,14 @@ inventing the rule. A constraint with no obligation for your stage does not affe
 
 - `ASSUMPTION:` — anything inferred rather than observed or decided by a human.
 - `OPEN QUESTION:` — anything unresolved. Never resolve one by guessing.
-- Cite evidence as `path:line` (clickable), e.g. `src/data/UserRepository.cs:110`.
+- Cite evidence as `path:line`, e.g. `src/data/UserRepository.cs:110`.
 - Diagrams in Mermaid, fenced as ```mermaid, with a caption.
 
 ---
 
 ## When in doubt
 
-**Raise it; don't resolve it silently.** Across every stage the same rule holds: if the inputs
-are ambiguous, contradictory, or incomplete, say so and stop — state the blocker, what you
-tried, and the options, and let the developer decide. Flag problems rather than fixing them
-outside your scope, and never expand scope, redo completed work, or re-decide an upstream
-decision without explicit authorization.
+**Raise it; don't resolve it silently.** If the inputs are ambiguous, contradictory, or
+incomplete, say so and stop — state the blocker, what you tried, and the options, and let the
+developer decide. Flag problems outside your scope rather than fixing them, and never expand
+scope, redo completed work, or re-decide an upstream decision without explicit authorization.
