@@ -173,7 +173,8 @@ and cutover boundary, writes `PROJECT_CONTEXT.md`, and initializes `state.json`.
 
 **The six load-bearing questions** (these block the pipeline until answered): current stack,
 target stack, DB reuse vs. new schema, **legacy coexistence**, **cutover strategy**, and auth
-(where the app is access-controlled). The last two are architecture-defining — a strangler-fig
+(where the app is access-controlled) — plus data migration when Q7 chooses a new schema.
+**Legacy coexistence and cutover strategy** are architecture-defining — a strangler-fig
 cutover or a still-live legacy writer changes the design and how phases are sliced, so neither
 can be safely defaulted.
 
@@ -491,8 +492,8 @@ agent each one, even when they're the same place:
 If the legacy source sits inside the repo you're building in (common for a POC), **say so** —
 the agent then adds the new tree alongside it and still refuses to touch legacy files.
 
-**Two structural answers Stage 0 owns.** Q16 also asks whether frontend and backend live in
-**one repo or two**, and whether they are **shipped together or released independently**. Both
+**Two structural answers Stage 0 owns.** Q16b asks whether frontend and backend live in
+**one repo or two**, and Q13 asks whether they are **shipped together or released independently**. Both
 are settled once, in Stage 0; Design, Plan, and Implement read them and never re-decide.
 Unanswered, they default to one repo shipped as one unit — and the default is reported back to
 you like any other. Changing either later means rerunning Stage 0 and redoing the design that

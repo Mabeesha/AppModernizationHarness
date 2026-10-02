@@ -27,8 +27,14 @@ may it fix and improve? Name anything specifically off-limits to change.
 ## B. Stacks
 
 **4. Current stack?**  ⚠️ **LOAD-BEARING**
-Languages, frameworks, UI technology, and data store of the legacy app.
-*The agent can infer this from the legacy source — but confirm it.*
+Languages, frameworks, UI technology, and data store of the legacy app. Include any logic that
+lives **in the database rather than the application source** — stored procedures, triggers,
+views, database-scheduled jobs — and say where its definitions can be read. That logic is
+behavior the target must reproduce, and it is invisible to an extraction that reads only the
+application code.
+*The agent can infer the application stack from the legacy source — but confirm it.
+Database-resident logic is inferable only if its definitions are supplied; otherwise it is
+flagged as `OPEN QUESTION:`.*
 
 **Answer:**
 
@@ -38,10 +44,15 @@ it here.)*
 
 **Answer:**
 
-**6. Licensing or component constraints?**
+**6. Licensing, component, or package-source constraints?**
 Paid legacy components needing a replacement (grid controls, report engines, charting), or
 license restrictions on what the target may use (e.g. no GPL, no commercial JDK).
-*Default: none stated; paid legacy components found during extraction are flagged as
+Also state **where dependencies may come from**: public registries (Maven Central, npm,
+NuGet, PyPI), only an internal mirror/proxy (give its URL or config location), or an approved
+list of packages. Say whether the build environment has internet access at all. An agent that
+assumes it may pull any public package fails at the first build in a locked-down environment.
+*Default: none stated; public registries are reachable and any permissively licensed package
+may be used. Paid legacy components found during extraction are flagged as
 `OPEN QUESTION:`.*
 
 **Answer:**
@@ -56,8 +67,19 @@ redesigned.
 
 **Answer:**
 
-**8. If reusing: is data migration in scope, or connect as-is?**
-*Default: connect as-is, no migration.*
+**8. Data migration — what moves, and how?**  ⚠️ **LOAD-BEARING if Q7 is a new schema**
+The answer depends on Q7:
+- **Reusing the existing database** — usually nothing moves: the target connects as-is. Say
+  so, or name any data that must still be transformed or back-filled.
+- **New schema** — existing data must be moved into it, and this question decides how. State:
+  **who builds the migration** (a build phase in this pipeline, or a separate team/tool);
+  **one-time or repeated** (a single load at cutover, or a recurring sync while both systems
+  run — see Q9 and Q12); **how it is verified** (row counts, checksums, sampled record
+  comparison, a reconciliation report); and **what happens to data that fails to migrate**
+  (reject and report, default it, or block cutover). Name any data that is deliberately left
+  behind.
+*Default when reusing: connect as-is, no migration. No default for a new schema — a blank
+answer there is a hard stop, because an unplanned migration is discovered only at cutover.*
 
 **Answer:**
 
@@ -87,10 +109,21 @@ preserved with a fixed contract.*
 
 ## E. Auth
 
-**11. How does the app authenticate today, and should the target keep it?**
+**11. How does the app authenticate and authorize today, and should the target keep them?**
 ⚠️ **LOAD-BEARING** where the app is access-controlled.
-E.g. keep real AD/SSO, or build an auth seam + dev stub with the real IdP deferred.
-*Inferable from the legacy source — confirm.*
+Two parts — answer both, because they are different questions:
+- **Authentication** (proving who the user is) — e.g. keep real AD/SSO, or build an auth
+  seam + dev stub with the real IdP deferred.
+- **Authorization** (deciding what each user may do) — the roles and permissions, and
+  **where they are defined today**: hard-coded checks in the source, tables in the database,
+  directory groups (AD/LDAP), or claims from the identity provider. Say whether the target
+  must reproduce the role model **exactly**, or may consolidate it. Name any rule finer than a
+  role — row-level or ownership checks ("users see only their own region's orders"),
+  field-level hiding, approval limits — because those are scattered through legacy code and
+  are the easiest behavior to lose.
+*Inferable from the legacy source — confirm. Default for authorization: the legacy role model
+is reproduced exactly, captured in portable terms (role → group/claim); permission rules found
+during extraction whose source cannot be traced are flagged as `OPEN QUESTION:`.*
 
 **Answer:**
 
@@ -107,23 +140,39 @@ design and how the plan slices phases:
 - **Parallel run** — both live, outputs reconciled before the switch. Needs a comparison
   harness.
 
+**Also state the rollback plan:** if the target fails after go-live, can traffic return to the
+legacy app, and within what window? Rollback is only possible if the legacy app can still read
+everything the target has written — so a target that evolves the schema, or writes data the
+legacy app does not understand, may make rollback impossible. If rollback must stay possible,
+say so: it constrains the design as hard as Q9 does.
+*Default for rollback: none required — once cut over, the target stays live and failures are
+fixed forward.*
+
 **Answer:**
 
-**13. Deployment target, deployable units, and runtime topology?**
-Three answers, because they are decided together and each shapes the build:
+**13. Deployment target, deployable units, release model, and runtime topology?**
+Four answers, because they are decided together and each shapes the build. The release model
+is **settled here and nowhere else** — Design, Plan, and Implement read it and never re-open
+it:
 - **Target** — on-prem VM / container / Kubernetes / a specific cloud / serverless / app
   server. Shapes configuration, secrets, health checks, and statelessness.
 - **Deployable units** — what actually ships: **one artifact** holding both parts (e.g. the
   backend serves the built frontend bundle), or **two artifacts** deployed separately (an API
-  process plus a static bundle on a web server/CDN). This is what Q16's release model looks
-  like concretely, and it is independent of how many repos you have.
+  process plus a static bundle on a web server/CDN). Independent of how many repos you have.
+- **Release model** — are the parts **shipped together** as one versioned unit, or **released
+  independently**, each deployable on its own cadence? This is architectural, not operational:
+  independent release obliges the design to give the internal API a versioning and
+  backward-compatibility story; shipped-together frees it from one. Two artifacts do **not**
+  settle this on their own — two artifacts can still be versioned and shipped as one release —
+  so answer it even when the units answer seems to imply it.
 - **Runtime topology** — how the frontend reaches the backend once deployed: **same origin**
   (one host/port; the backend or a fronting web server serves both) or **separate origins**
   (different hosts/ports — which obliges CORS, a configurable API base URL, and a decision on
   cookies vs. bearer tokens). Note the local dev arrangement too where it differs, e.g. a
   dev-server proxy standing in for same-origin.
-*Default: the same deployment model the legacy app uses today; one deployable unit serving the
-frontend from the backend at the same origin, with a dev-server proxy locally.*
+*Default: the same deployment model the legacy app uses today; one deployable unit, shipped
+together as one versioned release, serving the frontend from the backend at the same origin,
+with a dev-server proxy locally.*
 
 **Answer:**
 
@@ -143,7 +192,11 @@ pipeline files) / **Generate** (a phase wires up pipeline files) / **None**.
 **Answer:**
 
 **16. Locations, repository layout, and conventions.**
-Name all three locations explicitly — they are often, but not always, the same place:
+Three parts. Answer each under its own label — they are separate decisions that happen to be
+recorded together.
+
+**16a. Locations.** Name all three explicitly — they are often, but not always, the same
+place:
 - **Legacy source** — where the app being modernized lives. **Read-only in every stage**,
   whether or not it shares a repo with anything else. Need not be under version control.
 - **Documents** — where `PROJECT_CONTEXT.md`, the requirements/design/plan docs, and
@@ -153,28 +206,30 @@ Name all three locations explicitly — they are often, but not always, the same
   explicitly if this is the same repo that holds the legacy source** — the agent must know
   whether it's adding a new tree alongside a frozen legacy one. Legacy files stay read-only
   either way.
+*Default: documents and target code both in the current working repository; legacy source
+read-only wherever it sits.*
 
-Then two structural decisions. **They are settled here and nowhere else** — Design, Plan, and
-Implement read them and never re-open them:
-- **Repository layout** — do frontend and backend live in **one repo** together, or in
-  **separate repos**? If separate, give both paths and say which holds which. Either way,
-  give the **root directory of each part** (e.g. `./frontend` and `./backend`, or the module
-  names in a multi-module build) if you have a preference — otherwise Design fixes the source
-  tree once, in the LLD, and every phase builds to it.
-- **Release model** — are the two **shipped together** as one versioned unit, or **released
-  independently**, each deployable on its own cadence? This is architectural, not operational:
-  independent release obliges the design to give the internal API a versioning and
-  backward-compatibility story; shipped-together frees it from one. Answer it even when the
-  layout is a single repo — one repo can still ship two independently deployed artifacts.
+**16b. Repository layout.** **Settled here and nowhere else** — Design, Plan, and Implement
+read it and never re-open it. Do frontend and backend live in **one repo** together, or in
+**separate repos**? If separate, give both paths and say which holds which. Either way, give
+the **root directory of each part** (e.g. `./frontend` and `./backend`, or the module names in
+a multi-module build) if you have a preference — otherwise Design fixes the source tree once,
+in the LLD, and every phase builds to it. Layout is independent of the release model (Q13):
+one repo can still ship two independently released artifacts.
+*Default: single repo holding frontend and backend together, in sibling `frontend/` and
+`backend/` roots.*
 
-Plus conventions: branch naming, which branch PRs target, commit message conventions, required
-reviewers.
-*Default: single repo holding frontend and backend together, shipped as one unit, with the
-two parts in sibling `frontend/` and `backend/` roots; documents and target code both in the
-current working repository; legacy source read-only wherever it sits; feature branches per
-phase; PRs target the default branch.*
+**16c. Conventions.** Branch naming, which branch PRs target, commit message conventions,
+required reviewers.
+*Default: feature branches per phase; PRs target the default branch.*
 
 **Answer:**
+
+*16a — Locations:*
+
+*16b — Repository layout:*
+
+*16c — Conventions:*
 
 **17. Phase sizing / slicing strategy.**
 How big each phase should be. The phase count follows from the sizing — it is not fixed up
@@ -192,7 +247,15 @@ in Q12, and re-slices at refresh when a built phase proves the sizing wrong.*
 **18. Other sources of truth besides the code.**
 Existing automated tests, written specs, runbooks, or available subject-matter experts. Legacy
 tests are often the best behavioral specification available.
-*Default: code-only extraction; note if tests exist and whether they pass.*
+
+Also state **whether the legacy app can be built and run** — locally or in an environment the
+developer can reach — so its behavior can be observed rather than only read. And state
+**whether the legacy source is complete**: missing modules, binary-only dependencies with no
+source, or configuration held outside the repository all leave gaps extraction cannot close
+on its own.
+*Default: code-only extraction; note if tests exist and whether they pass. The legacy app is
+assumed not runnable and the source assumed complete; gaps found during extraction are flagged
+as `OPEN QUESTION:`.*
 
 **Answer:**
 
@@ -221,7 +284,13 @@ non-gating Minor.*
 **20. Non-functional priorities — rank your top 3.**
 From: performance, security, availability, accessibility, scalability, observability,
 maintainability, i18n.
-*Default: security, maintainability, performance.*
+
+**Accessibility, if it is required at all** — whether ranked or mandated by policy — name the
+standard and level (e.g. WCAG 2.1 AA). "Accessible" without a standard cannot be checked, and
+Review will treat it as unmeasurable.
+*Default: security, maintainability, performance. No accessibility standard — the target
+stack's components are used with their built-in accessibility behavior intact, but no level is
+verified.*
 
 **Answer:**
 
@@ -260,6 +329,11 @@ frame), a table/list view, a form including required markers and validation erro
 every state, and one modal.
 
 **Also state:** must it be **responsive**? Is **dark mode** required? Any **i18n/RTL** need?
+Which **browsers and devices** must be supported (e.g. current Chrome/Edge only, or a named
+older browser, or tablets)? Legacy apps are sometimes tied to one browser, and users may still
+be on it — the target stack's supported-browser list must cover them.
+*Default for browsers: the current versions of the major evergreen browsers (Chrome, Edge,
+Firefox, Safari) on desktop.*
 
 > **Boundary — this governs appearance only.** A UI reference never changes *behavior*.
 > Screens, fields, validation, and flows still come from the requirements. If the sample
@@ -316,6 +390,22 @@ Governs scope and nothing wider.
 only) and its per-stage obligations differ, so it keeps its own question. Don't answer it twice.
 
 *Default: none supplied. Each stage picks idiomatic defaults for the target stack.*
+
+**Answer:**
+
+---
+
+## J. Ownership
+
+**25. Who decides, and who signs off?**
+The pipeline stops at gates and raises `OPEN QUESTION:` items that only a person can settle —
+a legacy bug to keep or fix, an ambiguous rule, an exclusion from a coverage bar. Name:
+- **Decision owner(s)** — who answers open questions, split by kind where it differs
+  (business rules → a product owner or SME; technical choices → a tech lead).
+- **Phase sign-off** — who approves a finished phase before the next one starts.
+- **Expected turnaround** — how quickly open questions are answered, so the plan can sequence
+  around ones that will be slow.
+*Default: the developer running the pipeline owns every decision and every sign-off.*
 
 **Answer:**
 

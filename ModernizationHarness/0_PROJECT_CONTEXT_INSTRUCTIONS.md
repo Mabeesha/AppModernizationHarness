@@ -63,6 +63,13 @@ from their file is a blank, not an omission you may skip. For each:
    `ASSUMPTION: (default applied)`.
 3. If blank and the question is marked **load-bearing (hard-stop)**, **stop and ask**. Do
    not proceed to Stage 1 without it — these determine the entire shape of the migration.
+   A question marked load-bearing **only under a condition** (e.g. Q8, "if Q7 is a new
+   schema") is a hard stop when that condition holds, and takes its default otherwise.
+   Where a load-bearing question states a default for **one of its parts** (e.g. Q4's
+   database-resident logic, Q11's authorization model, Q12's rollback plan), that part takes
+   its default when blank, applied exactly as that default states (some mark an
+   `ASSUMPTION:`, some raise an `OPEN QUESTION:`) and reported like any other default. The
+   hard stop applies only to the parts without one.
 4. If the legacy app is available and lets you infer an answer, propose it as
    `ASSUMPTION:` and still let the human confirm.
 
@@ -102,6 +109,17 @@ target may have none of these; a DB-reuse migration will have the first):
   or data migration; ORM validates against the live schema." If chosen, the data model
   must later be captured **exactly** (verbatim table/column names). If the target instead
   gets a fresh schema, say so — it changes how requirements capture the data model.
+- **Data migration** — where Q7 is a new schema, Q8 says how existing data moves into it.
+  Record who builds it, one-time vs. repeated, the verification method, and the handling of
+  records that fail to migrate. Where this pipeline builds it, obligations should require:
+  *Requirements* — a source-to-target mapping for every migrated entity, including data
+  deliberately left behind; *Design* — the migration as a component with its own
+  verification step; *Plan* — a phase that builds and verifies the migration **before** the
+  phase that needs migrated data, never at the end; *Implement* — the stated verification runs
+  and its result is reported; *Review* — counts or checksums reconcile, and failed records are
+  handled as stated, never dropped silently. Where another team builds it, record that as the
+  boundary and raise the interface (format, timing, handover) as an `OPEN QUESTION:` if Q8
+  does not state it.
 - **Legacy coexistence** — if the legacy app keeps writing to the same data store (Q9), this
   is a *stronger* constraint than DB reuse alone: no schema evolution whatsoever, shared
   identity/sequence ranges, and both systems tolerating each other's concurrent writes.
@@ -110,12 +128,28 @@ target may have none of these; a DB-reuse migration will have the first):
 - **Cutover strategy** — big-bang, strangler fig, or parallel run (Q12). For strangler fig,
   the obligation set must require a routing facade and phases sliced by route/feature; for a
   parallel run, a reconciliation/comparison harness. Big-bang needs no special obligation.
+- **Rollback** — where Q12 requires that traffic can return to the legacy app after go-live,
+  raise it as its own constraint: the target must never write anything the legacy app cannot
+  read for the stated window. Obligations should require: *Design* — no schema evolution and
+  no data shape the legacy app cannot consume, for as long as rollback must stay possible;
+  *Review* — any write the legacy app could not read back is a **Blocker**. Where no rollback is
+  required (the default), state "fix forward" in §3 and raise no constraint.
 - **Integration contracts** — where an external system's contract is **fixed** (Q10), the
   target must conform exactly; record which integrations are frozen, which are negotiable,
   and which are being retired.
-- **Authentication / authorization** — e.g. "Keep real AD-based auth" vs. "auth seam + dev
-  stub, real IdP deferred." Capture the *authorization model* in portable terms (roles →
-  groups/claims) regardless.
+- **Authentication / authorization** (Q11) — e.g. "Keep real AD-based auth" vs. "auth seam +
+  dev stub, real IdP deferred." Capture the *authorization model* in portable terms (roles →
+  groups/claims) regardless, plus where the legacy app defines it (source, database tables,
+  directory groups, IdP claims) and whether it is reproduced exactly or may be consolidated.
+  Where Q11 names rules finer than a role — row-level or ownership checks, field-level hiding,
+  approval limits — the obligations should require *Requirements* to inventory every such rule
+  with its legacy location, and *Review* to treat a missing one as a **Blocker**: an
+  authorization rule lost in migration is a security defect, not a gap.
+- **Dependency sources** (Q6) — where dependencies may only come from an internal mirror or
+  an approved list, or the build has no internet access, raise a constraint: *Design* — choose
+  only libraries available from the permitted source; *Implement* — resolve dependencies only
+  from it, and stop and ask rather than add a registry or vendor a package to get around it;
+  *Review* — any dependency outside the permitted source is a **Blocker**.
 - **Code style / quality gate** — e.g. "Backend follows the Google Java Style Guide,
   enforced by a formatter in the build." Name the guide and the enforcement mechanism.
 - **Unit test coverage threshold** *(Q19 — declare this constraint only if the developer set a
@@ -250,6 +284,8 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
   run, neither for big-bang.
 - Whether the legacy app keeps running against the same data store, and for how long. If it
   does, state the concurrency expectations explicitly — this constrains every later stage.
+- The rollback plan (Q12): whether traffic can return to the legacy app after go-live, and for
+  how long — or "fix forward" where none is required.
 
 **Deployment & environments**
 
@@ -280,7 +316,7 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
   the **target code repository** (where Stage 4 branches, commits, and opens PRs). State
   explicitly if the target repo is the same one holding the legacy source — the agent must
   know whether it is adding a new tree beside a frozen legacy one.
-- **Repository layout — decided here, once.** State whether frontend and backend live in a
+- **Repository layout (Q16b) — decided here, once.** State whether frontend and backend live in a
   **single repo** or in **separate repos**, and give every target path involved. Record it in
   `context.repo.layout` (and, when split, the second path in `context.locations`). Later
   stages read this decision and never re-open it. *Default when unanswered: single repo.*
@@ -290,7 +326,7 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
   in §3 that **Stage 2 fixes the source tree in the LLD and every later stage builds to it** —
   what must not happen is each phase inventing its own. *Default when unanswered: `null`,
   decided by Design.*
-- **Release model — decided here, once.** State whether the two are **shipped together** as
+- **Release model (Q13) — decided here, once.** State whether the two are **shipped together** as
   one versioned unit or **released independently**, in `context.repo.release`. It is
   architecture, not rollout: independent release obliges Stage 2 to design a versioned,
   backward-compatible internal API and Stage 4 to keep the parts separately deployable;
@@ -343,14 +379,19 @@ many times across a build — so **state each fact once and cross-reference; nev
 
 ## 2. Stacks
 - **Current stack:** languages, frameworks, UI tech, runtime/versions, data store,
-  notable libraries. (Confirmed from the legacy app where possible — cite what you saw.)
+  notable libraries. (Confirmed from the legacy app where possible — cite what you saw.) Plus
+  any database-resident logic (Q4) — stored procedures, triggers, views, DB-scheduled jobs —
+  and where its definitions can be read, or an `OPEN QUESTION:` if they were not supplied.
 - **Target stack:** frontend, backend, runtime/versions, build tool, data layer, auth
   libraries, anything mandated. This is the authoritative statement of "what we build in".
 - **Licensing / component constraints** (Q6): paid legacy components needing replacement,
   and any license restrictions on the target.
+- **Dependency sources** (Q6): public registries, an internal mirror (with its location), or an
+  approved list — and whether the build has internet access. Name the constraint ID if one was
+  raised.
 - **UI reference** (Q23): the sample/mockup/design-system path if supplied, and whether it is
-  used as a **reference** or **literally**; plus responsive, dark-mode, and i18n/RTL
-  expectations. Appearance only — never a licence to change behavior.
+  used as a **reference** or **literally**; plus responsive, dark-mode, i18n/RTL, and
+  supported browsers/devices. Appearance only — never a licence to change behavior.
 - **Reference implementations** (Q24): one table row per area supplied — area, path, mode
   (*reference* / *literal*), and the **Governs scope copied from the intake row unchanged**.
   Each row also has a constraint in §4 carrying its per-stage obligations; name the constraint
@@ -369,6 +410,10 @@ many times across a build — so **state each fact once and cross-reference; nev
   structurally.
 - **Legacy coexistence:** whether the legacy app keeps writing to the same data store, for
   how long, and the resulting concurrency expectations.
+- **Rollback:** whether traffic can return to the legacy app after go-live, and for how long —
+  or "fix forward". Name the constraint ID if one was raised.
+- **Data migration:** none (connect as-is), or who builds it, one-time vs. repeated, and how it
+  is verified (Q8). Name the constraint ID if one was raised.
 - **Deployment target:** where the target runs.
 - **Deployable units:** one artifact holding both parts, or separate artifacts — and which
   process serves the frontend bundle.
@@ -420,7 +465,8 @@ A **provenance ledger** — one row per question, terse. Do **not** restate deta
 ## 6. Non-Functional / Quality Requirements (initial)
 - Performance, scalability, availability, security posture, accessibility, i18n,
   observability, data-residency — as far as known now, **one line each**. (Requirements Stage
-  deepens these; this section only seeds them.)
+  deepens these; this section only seeds them.) Accessibility names its standard and level
+  (Q20) where one was given, or says "no standard stated — not verified" where none was.
 - Where an item is already an obligation (§4) or an open question (§7), **name it and
   cross-reference** — don't re-tell it here.
 
@@ -428,6 +474,9 @@ A **provenance ledger** — one row per question, terse. Do **not** restate deta
 - Anything unresolved that isn't a hard-stop but should be answered before it compounds.
   Prefix `OPEN QUESTION:`. **This is the single home for each open question** — other sections
   point here by name rather than restating it.
+- **Decision owners** (Q25): who answers open questions (split by kind where it differs), who
+  signs off a finished phase, and the expected turnaround. Tag each open question above with
+  the owner it routes to.
 
 ## 8. Integrations & External Systems
 | System | Direction | Contract | Disposition |
@@ -441,6 +490,9 @@ A **provenance ledger** — one row per question, terse. Do **not** restate deta
 ## 9. Other Sources of Truth
 - Existing tests (and whether they pass), specs, runbooks, available SMEs (Q18). The
   Requirements stage should use these alongside the code, not just the code.
+- Whether the legacy app can be built and run for observation, and where (Q18).
+- Whether the legacy source is complete — and any known gaps: missing modules, binary-only
+  dependencies, configuration held outside the repository (Q18).
 
 ## 10. Performance Baseline
 - Measurable current behavior the target must match or beat, **as supplied by the human**
@@ -628,8 +680,9 @@ each is answered:
 | 4 | Current stack | Everything downstream reads it |
 | 5 | Target stack | Everything downstream reads it |
 | 7 | Reuse the existing database, or new schema? | Determines how the data model is captured |
+| 8 | Data migration — what moves, and how? | Load-bearing **only where Q7 is a new schema**; an unplanned migration surfaces only at cutover |
 | 9 | Does the legacy app keep writing to the same data store? | A concurrent writer constrains every stage |
-| 11 | Current auth, and whether to keep it | Load-bearing **only where the app is access-controlled** |
+| 11 | Current authentication and authorization, and whether to keep them | Load-bearing **only where the app is access-controlled** |
 | 12 | Cutover strategy | Architecture-defining; shapes design and phase slicing |
 
 To change the *questions* for all future projects, edit `0_INTAKE_TEMPLATE.md`. To change
@@ -656,8 +709,9 @@ actually changed.
 ## Definition of Done
 
 - [ ] Every load-bearing questionnaire item is answered (not defaulted); no hard-stop is
-  outstanding — current stack, target stack, DB reuse, **legacy coexistence**,
-  **cutover strategy**, and auth (where the app is access-controlled).
+  outstanding — current stack, target stack, DB reuse, data migration (where Q7 is a new
+  schema), **legacy coexistence**, **cutover strategy**, and auth (where the app is
+  access-controlled).
 - [ ] Current stack and target stack are stated authoritatively.
 - [ ] The CI/CD mode is one of respect / generate / none, with specifics.
 - [ ] Repository layout (single / split) and release model (together / independent) are both
@@ -674,6 +728,11 @@ actually changed.
   reconciliation harness / none) expressed as constraint obligations where they bind.
 - [ ] Legacy coexistence is settled; if a second live writer exists, its concurrency
   expectations are stated as a constraint.
+- [ ] Rollback is settled — a constraint where Q12 requires it, "fix forward" in §3 where it
+  does not.
+- [ ] The authorization model is recorded with where the legacy app defines it, and any rule
+  finer than a role is carried in the auth constraint's obligations.
+- [ ] Decision owners and phase sign-off (Q25) are recorded in §7.
 - [ ] The constraint set is written with stable IDs, in both `PROJECT_CONTEXT.md` and
   `state.json`.
 - [ ] `state.json` is initialized per schema, with `phases`, `edits`, `changeLog` and `reviews`

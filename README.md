@@ -95,8 +95,8 @@ still works.
 
 ## 2. Answer six questions
 
-Open `out/INTAKE.md`. It has 24 questions — **six block the pipeline**, the rest have sensible
-defaults. Answer these and you're done:
+Open `out/INTAKE.md`. It has 25 questions — **six block the pipeline** (plus Q8 if you choose a new database
+schema), the rest have sensible defaults. Answer these and you're done:
 
 | Q | |
 |---|---|
@@ -104,7 +104,7 @@ defaults. Answer these and you're done:
 | 5 | What's the target stack? |
 | 7 | Reuse the existing database, or new schema? |
 | 9 | Will the old app keep writing to that database? |
-| 11 | How does it authenticate today — keep it, or stub it? |
+| 11 | How does it authenticate and authorize today — keep it, or stub it? |
 | 12 | Cutover: big-bang, strangler fig, or parallel run? |
 
 Fill in more if you know it. Leave the rest blank — the agent applies defaults and **tells you
@@ -117,7 +117,7 @@ load-bearing questions of your own (the template invites this at its close) for 
 no question — a no-shared-files boundary, an API-documentation standard. Copy it to
 `out/INTAKE.md` per app and edit only what's marked.
 
-**Worth doing too:** Q16 says where the legacy code, the docs, and the **target repo** live. Get
+**Worth doing too:** Q16a says where the legacy code, the docs, and the **target repo** live. Get
 it right and you never type a path again (see below).
 
 **Got a sample UI?** Answer Q23 with a path to some HTML/CSS, a mockup, or your design system.

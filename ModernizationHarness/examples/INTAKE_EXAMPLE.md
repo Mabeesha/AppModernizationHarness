@@ -52,13 +52,18 @@ business reconciles against). Write *nothing beyond the above* if there is none.
 **4. Current stack?**  ⚠️ **LOAD-BEARING**
 
 **Answer:** Extract this from the legacy source; do not ask me for it. Inspect the legacy app
-at the path given in Q16 and record languages, frameworks, UI technology, runtime versions,
+at the path given in Q16a and record languages, frameworks, UI technology, runtime versions,
 data store, and notable libraries — citing the files read as evidence. Record every inferred
 value as `ASSUMPTION:` (inferred), list them in the hand-off report under *"Answered without
 you — confirm or override"*, and **proceed without hard-stopping**. A one-line summary is
 enough; the full inventory is Stage 1's Technical document, not this question.
 
 If the legacy source path is missing or unreadable, *then* stop and ask.
+
+**Database-resident logic:** TODO — the apps share an MS SQL database, so stored procedures,
+triggers, and views are likely carrying behavior. Give the path to their definitions (a schema
+export or DDL scripts), or write *none supplied* to have each one the code calls flagged as
+`OPEN QUESTION:`.
 
 **5. Target stack?**  ⚠️ **LOAD-BEARING**
 
@@ -68,19 +73,23 @@ If the legacy source path is missing or unreadable, *then* stop and ask.
 |---|---|
 | Frontend | **Angular 22**, built and tooled on **Node 22**. Node is a **build-time runtime only** — no Node server process ships. |
 | Frontend packaging | Static bundle served by nginx in its own container (see Q13). |
-| Backend | **Java 21**, built with **Maven**. Framework: TODO — Spring Boot? (Q26's springdoc answer presumes it.) |
+| Backend | **Java 21**, built with **Maven**. Framework: TODO — Spring Boot? (Q27's springdoc answer presumes it.) |
 | Backend build | **Maven.** All gates are Maven plugins bound to the build lifecycle so they fail `mvn verify`, not just a separate command: Spotless (format), JaCoCo (coverage, Q19). |
 | Persistence | **JPA / Hibernate**, with **explicit hand-written entity↔table mapping**. The schema is inherited and not ours to redesign (Q7): every `@Table` / `@Column` name is written out to match the live schema exactly, never left to a naming strategy. **Schema generation is off** — `ddl-auto` is `validate` locally and `none` in deployed environments; Hibernate may never create, alter, or drop anything. |
 | Data store | **Existing Microsoft SQL Server**, reached over JDBC (`mssql-jdbc`) using **integrated Kerberos authentication** (`authenticationScheme=JavaKerberos`). No SQL logins, and no password ever in a connection string. |
-| API documentation | **springdoc-openapi**, code-first — see Q26. |
+| API documentation | **springdoc-openapi**, code-first — see Q27. |
 
 *(Auth libraries are Q11, not here.)*
 
-**6. Licensing or component constraints?**
+**6. Licensing, component, or package-source constraints?**
 
 **Answer:** TODO — paid legacy components needing replacement (grid controls, report engines,
 charting) and any license restrictions on the target. Write *none stated* if there are none;
 paid components found during extraction are then flagged as `OPEN QUESTION:`.
+
+**Package sources:** TODO — do Maven and npm resolve from public registries, or only from an
+internal mirror (give its location, e.g. the `settings.xml` / `.npmrc` to use)? Does the build
+environment have internet access? This is set once for the whole modernization set.
 
 ---
 
@@ -98,9 +107,10 @@ of the schema. That makes "the entity mapping validates against the live schema"
 phase exit criterion rather than a self-assessment — the application context fails to start on
 any mismatch. It depends on Q14 having a reachable database; if none exists, say so there.
 
-**8. If reusing: is data migration in scope, or connect as-is?**
+**8. Data migration — what moves, and how?**
 
-**Answer:** Connect as-is. No data migration.
+**Answer:** Nothing moves. The database is reused (Q7), so the target connects as-is. No data
+migration, transformation, or back-fill.
 
 **9. Will the legacy application keep running against the same data store?**  ⚠️ **LOAD-BEARING**
 
@@ -135,7 +145,7 @@ extraction and assumed preserved with a fixed contract.
 
 ## E. Auth
 
-**11. How does the app authenticate today, and should the target keep it?**  ⚠️ **LOAD-BEARING**
+**11. How does the app authenticate and authorize today, and should the target keep them?**  ⚠️ **LOAD-BEARING**
 
 **Answer:**
 
@@ -154,7 +164,12 @@ and issuer are **configuration keys**, never compiled in. **No client secret in 
 
 **Authorization model:** roles mapped from Entra **app roles / group claims**. Capture the
 legacy role model in portable terms (role → group/claim) during requirements extraction,
-independent of either provider.
+independent of either provider. The role model is reproduced **exactly** — no roles merged or
+renamed.
+
+**Finer-grained rules:** TODO — any row-level or ownership checks, field-level hiding, or
+approval limits, and where the legacy app enforces them (code, a permissions table, stored
+procedures). Write *none known* to have extraction inventory every permission check it finds.
 
 **Legacy side:** extract how the legacy app authenticates today (Windows/AD integrated, forms
 auth against a table, etc.) and record the role model it implies. Mark inferred values
@@ -171,7 +186,14 @@ extracted.
 sliced by route/feature) / **parallel run** (needs a reconciliation harness). This is
 architecture-defining, not a rollout detail — it changes how the plan slices phases.
 
-**13. Deployment target, deployable units, and runtime topology?**
+**Rollback:** TODO — must traffic be able to return to the legacy app after go-live, and for how
+long? Write *fix forward* if not.
+
+> With the schema already frozen by Q7, rollback costs little here: the target cannot evolve
+> the schema anyway. What it still forbids is writing values the legacy app cannot read — new
+> status codes, longer strings in a column the legacy code truncates, and similar.
+
+**13. Deployment target, deployable units, release model, and runtime topology?**
 
 **Answer:**
 
@@ -180,6 +202,15 @@ architecture-defining, not a rollout detail — it changes how the plan slices p
   - *Frontend chart:* the built Angular bundle served by **nginx** in its own container.
   - *Backend chart:* the Java API process.
   - Each has its own image, values file, probes, and release lifecycle.
+- **Release model:** TODO — *shipped together* as one versioned unit, or *released
+  independently*?
+
+  > Two Helm charts does **not** settle this. Independent release obliges Stage 2 to design a
+  > versioned, backward-compatible internal API and Stage 4 to keep each part separately
+  > deployable; shipped-together frees both from that. Given the charts deploy separately,
+  > *independent* is the likely answer — but say it deliberately, because it is expensive to
+  > change once Stage 2 has designed against it.
+
 - **Runtime topology: same origin.** A **single ingress host** fronts both services:
   - `/api/*` → backend service
   - everything else → frontend service
@@ -232,7 +263,7 @@ architecture-defining, not a rollout detail — it changes how the plan slices p
 
 **Answer:**
 
-**Locations** — TODO, all three, even where they coincide:
+*16a — Locations:* TODO, all three, even where they coincide:
 
 | | Path |
 |---|---|
@@ -240,7 +271,7 @@ architecture-defining, not a rollout detail — it changes how the plan slices p
 | **Documents** (`PROJECT_CONTEXT.md`, requirements/design/plan, `state.json`) | TODO `<path>` — keep in git; reconciliation diffs it |
 | **Target code repository** | TODO `<path>` — state explicitly whether this is the same repo as the legacy source |
 
-**Repository layout:** **single repo** holding frontend and backend.
+*16b — Repository layout:* **single repo** holding frontend and backend.
 
 **Source tree roots:** fixed here, not by Design:
 
@@ -255,15 +286,7 @@ Record these in `context.repo.frontendRoot` / `backendRoot`. They are **not** `n
 reproduces this tree in LLD §3a verbatim and every phase builds to it. No phase invents a
 directory layout.
 
-**Release model:** TODO — *shipped together* as one versioned unit, or *released independently*?
-
-> Two Helm charts does **not** settle this. Independent release obliges Stage 2 to design a
-> versioned, backward-compatible internal API and Stage 4 to keep each part separately
-> deployable; shipped-together frees both from that. Given the charts deploy separately,
-> *independent* is the likely answer — but say it deliberately, because it is expensive to
-> change once Stage 2 has designed against it.
-
-**Conventions:** TODO — branch naming, PR target branch, commit conventions, required
+*16c — Conventions:* TODO — branch naming, PR target branch, commit conventions, required
 reviewers. Write *defaults* for: feature branches per phase; PRs target the default branch.
 
 **17. Phase sizing / slicing strategy.**
@@ -283,6 +306,10 @@ exercised through Swagger UI.
 **Answer:** TODO — existing automated tests (and whether they pass), written specs, runbooks,
 available SMEs. Legacy tests are often the best behavioral specification available — name them
 if they exist. Write *code-only extraction* if there are none.
+
+TODO — can the legacy app be built and run somewhere a developer can reach, so its behavior can
+be observed? Is the source complete (no missing modules, binary-only dependencies, or
+configuration held outside the repository)? Write *not runnable; source complete* if unsure.
 
 **19. Code style / quality gates the target must enforce?**
 
@@ -321,6 +348,9 @@ one**, so Review grades them independently:
 **Answer:** **1. Security · 2. Maintainability · 3. Performance.** TODO — adjust if this app
 ranks differently.
 
+**Accessibility standard:** TODO — name one (e.g. WCAG 2.1 AA) if policy requires it, or write
+*none stated*.
+
 **21. Performance baseline.**
 
 **Answer:** TODO — measurable current behavior the target must match or beat. Write *none
@@ -340,7 +370,8 @@ then say plainly that it has no numeric bar.
 
 **Answer:** TODO — give the path and say **reference** (recommended — extract a visual language
 and build with Angular Material/CDK themed to match) or **literal** (reproduce the markup
-as-is). Also state: responsive? dark mode? i18n/RTL?
+as-is). Also state: responsive? dark mode? i18n/RTL? Which browsers and devices — and is any
+user still on a browser older than Angular 22 supports?
 
 Write *no reference* to have Design pick idiomatic Angular defaults and record them as the
 design language anyway, so screens stay consistent across phases.
@@ -369,9 +400,20 @@ every project otherwise rewrites badly from scratch.
 
 ---
 
+## J. Ownership
+
+**25. Who decides, and who signs off?**
+
+**Answer:** TODO — per app: the business decision owner (product owner or SME) for open
+questions about rules and legacy bugs; the technical decision owner (tech lead) for design
+choices and coverage exclusions; who signs off a finished phase; and the expected turnaround
+for an open question.
+
+---
+
 ## Project-specific questions *(appended per the template's closing note)*
 
-**25. Cross-boundary file sharing between frontend and backend?**  ⚠️ **LOAD-BEARING**
+**26. Cross-boundary file sharing between frontend and backend?**  ⚠️ **LOAD-BEARING**
 
 **Answer:** **No file is shared between the frontend and backend roots.**
 
@@ -390,14 +432,14 @@ Stage 0 must raise this as a constraint with these obligations:
   across the boundary.
 - *Review:* **any** cross-root import, symlink, or build-path reference is a **Blocker**.
 
-**26. API documentation expectation?**
+**27. API documentation expectation?**
 
 **Answer:** **Code-first OpenAPI 3**, generated from the backend by **springdoc-openapi**.
 
 - Document served at `/v3/api-docs`; **Swagger UI at `/swagger-ui`**, enabled in non-production
   profiles only (path and gating are configuration keys in LLD §7).
 - **Code-first, explicitly — not spec-first.** Spec-first would put generated clients or server
-  stubs somewhere, and under Q25 a generated TypeScript client must live **entirely inside the
+  stubs somewhere, and under Q26 a generated TypeScript client must live **entirely inside the
   frontend root** and be regenerated there. No shared codegen module, ever.
 
 Stage 0 must raise this as a constraint with these obligations:
@@ -413,7 +455,7 @@ Stage 0 must raise this as a constraint with these obligations:
 - *Review:* generated document diffed against LLD §1 — an endpoint in one and not the other is a
   finding.
 
-**27. Which Entra app registration / service principal does this app use?**  ⚠️ **LOAD-BEARING**
+**28. Which Entra app registration / service principal does this app use?**  ⚠️ **LOAD-BEARING**
 
 **Answer:** TODO — app registration (name + client ID), the app roles or security groups that
 map to this app's roles, and the service account whose keytab the backend uses for Kerberos. Not
@@ -424,7 +466,7 @@ inferable from code, and different for every app in the set.
 ## Appendix — constraints this intake is expected to produce
 
 A checklist for the Stage 0 hand-off, not an input to it. Most map to a documented archetype;
-the last three do not, which is why they are spelled out above with their obligations.
+rows 12–14 do not, which is why they are spelled out above with their obligations.
 
 | # | Constraint | Source |
 |---|---|---|
@@ -439,6 +481,8 @@ the last three do not, which is why they are spelled out above with their obliga
 | 9 | Style/format gates fail the build (both sides) | Q19 (archetype) |
 | 10 | Design language / UI consistency across phases | Q23 (archetype — declare even with no sample) |
 | 11 | One constraint **per** reference-implementation row supplied | Q24 (archetype) |
-| 12 | **No shared files between frontend and backend roots** | Q25 — no archetype; obligations above |
-| 13 | **Code-first OpenAPI, Swagger UI non-prod only** | Q26 — no archetype; obligations above |
-| 14 | **Fixed source tree roots** (`<app>-modernized/frontend` and `/backend`) | Q16 — recorded in `context.repo.*`, not a constraint; verify Stage 0 set both non-`null` |
+| 12 | **No shared files between frontend and backend roots** | Q26 — no archetype; obligations above |
+| 13 | **Code-first OpenAPI, Swagger UI non-prod only** | Q27 — no archetype; obligations above |
+| 14 | **Fixed source tree roots** (`<app>-modernized/frontend` and `/backend`) | Q16b — recorded in `context.repo.*`, not a constraint; verify Stage 0 set both non-`null` |
+| 15 | Rollback — no value the legacy app cannot read | Q12 (archetype) — **only if rollback is required** |
+| 16 | Dependencies resolved only from the internal mirror | Q6 (archetype) — **only if Q6 restricts package sources** |

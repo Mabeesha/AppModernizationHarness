@@ -706,7 +706,7 @@ There are **two different homes** for that, and picking the wrong one costs you 
 
 | The rule is… | It belongs in | How it gets there |
 |---|---|---|
-| A **repository convention** — branch naming, commit format | `PROJECT_CONTEXT §3` | Answer intake **Q16**, rerun Stage 0. Stage 4 reads its Git Discipline defaults from there and honors yours instead. (PR target branch and required reviewers are recorded for **you**, not the agent — it targets the branch it branched from and never merges unasked) |
+| A **repository convention** — branch naming, commit format | `PROJECT_CONTEXT §3` | Answer intake **Q16c**, rerun Stage 0. Stage 4 reads its Git Discipline defaults from there and honors yours instead. (PR target branch and required reviewers are recorded for **you**, not the agent — it targets the branch it branched from and never merges unasked) |
 | **How the agent should work with you** — house practices, a domain glossary, an extra check before hand-off | **your `AGENTS.md`** | Edit it directly. It's yours, and it loads in every session |
 
 **The one rule about editing `AGENTS.md`: add, don't remove.** Append your project specifics
