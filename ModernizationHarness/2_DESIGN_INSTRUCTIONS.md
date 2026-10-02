@@ -43,7 +43,8 @@ You need not be handed every path. Resolve inputs in this order, and **never gue
 required input is **missing or ambiguous** (no match, or two candidates), stop and ask:
 
 1. **`state.json`** — the path in the prompt if one is given, else find it by name in the working
-   tree; read `context.locations` from it.
+   tree; read `context.locations` from it. Read and write it **only through the state tool**
+   (`AGENTS.md §Reading and Writing state.json`).
 2. **The document inputs listed in §Inputs** — resolve from `context.locations.documents` by their
    conventional filenames (`PROJECT_CONTEXT.md` and the `<AppName>`-suffixed
    requirements/design/plan docs this stage consumes).

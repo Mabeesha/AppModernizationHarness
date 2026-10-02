@@ -89,7 +89,8 @@ You need not be handed every path. Resolve inputs in this order, and **never gue
 required input is **missing or ambiguous** (no match, or two candidates), stop and ask:
 
 1. **`state.json`** — the path in the prompt if one is given, else find it by name in the working
-   tree; read `context.locations` from it.
+   tree; read `context.locations` from it. Read and write it **only through the state tool**
+   (`AGENTS.md §Reading and Writing state.json`).
 2. **The document inputs listed in §Inputs** — resolve from `context.locations.documents` by their
    conventional filenames (`PROJECT_CONTEXT.md` and the `<AppName>`-suffixed
    requirements/design/plan docs this stage consumes).
@@ -163,7 +164,8 @@ shape is a contract change; a hundred-line refactor behind a stable interface is
 
 ### 0b. Reconcile (fold in changes since the last run)
 1. **Read the new entries in `state.json`**, using the high-water mark in `progress` — this is
-   how you tell new from already-applied, so never eyeball it:
+   how you tell new from already-applied, so never eyeball it. The state tool's `new` prints
+   exactly the first two below; read nothing older:
    - `changeLog[]` entries whose `id` is **greater than `progress.lastProcessedChangeLogId`**.
    - `reviews[]` whose `R-<n>` **number** is greater than `progress.lastProcessedReviewNumber`
      — compare `<n>` **numerically**, never as text (`R-10` sorts before `R-2` as a string).

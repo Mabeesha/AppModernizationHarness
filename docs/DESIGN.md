@@ -25,6 +25,7 @@ of work, writes state, and stops.
 | `3_PLAN_INSTRUCTIONS.md` | stage | Design → phased plan + `phases[]` |
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | stage | Build one phase or one minor edit; open a PR; stop |
 | `5_REVIEW_INSTRUCTIONS.md` | stage | Independent audit; findings back into `state.json` |
+| `tools/state.py` | tool | Reads and writes `state.json` for every stage after 0 (DD-18) |
 | `DEVELOPER_GUIDE.md` / `README.md` / `USE_CASES.md` | guide | The reasoning / the five-minute start / the situations you'll hit, by example |
 
 ## 3. Pipeline
@@ -81,6 +82,7 @@ Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 | **DD-10** | **Plan defaults to "no change"** | Churn burns the developer's review attention and destabilizes what they thought was coming next |
 | **DD-11** | **Review is a separate session, read-only on code, and never blocks** | An agent cannot audit its own work; read-only keeps the verdict honest. The gate it used to hold only ever fired for a developer who chose to run it, and its findings already survive through the change log — so it reports and advises instead (R8) |
 | **DD-12** | **Documents amended in place; git is the history** | No `_v2` filenames; Revision History rows plus commits give lineage |
+| **DD-18** | **`state.json` is read and written through `tools/state.py`, not by the agent directly** | `changeLog[]` and `reviews[]` only grow, so whole-file reads cost more every run; the tool returns the slice asked for (`summary`, `get`, `new`). It also turns the mechanical rules — forward-only status, append-only history, id allocation, numeric `R-<n>` comparison — from prompt text into refusals. Stdlib Python, one file; Stage 0 still writes the initial file by hand, and hand edits under the same rules remain the fallback (R7) |
 
 ## 5. Data model — `state.json`
 
@@ -213,9 +215,10 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
   (each merge makes the host re-point the PR above it at the base branch). The hand-off report
   names the other open PRs so the height of that stack is at least visible — there is no setting
   that controls this, and no agent-side protection to rely on.
-- **Prompt-only enforcement.** Every rule depends on the agent following instructions; there is
-  no linter or schema validator on `state.json`. Mitigated by falsifiable exit criteria,
-  `AGENTS.md` in every session, and an independent Stage 5.
+- **Prompt-only enforcement.** Almost every rule depends on the agent following instructions.
+  The exception is `state.json`'s mechanical rules, which the state tool enforces (DD-18) —
+  but only when the agent uses it; nothing stops a direct edit. Mitigated by falsifiable exit
+  criteria, `AGENTS.md` in every session, and an independent Stage 5.
 - **Non-sequential phase IDs** confuse at first read. Deliberate (DD-5); the plan's summary
   table carries the running order.
 - **Volume.** ~2,900 lines of instruction across the six stage files and two templates;

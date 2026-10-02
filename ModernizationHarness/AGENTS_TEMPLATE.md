@@ -37,6 +37,39 @@ run that proceeds from memory of what the stage usually does is not a stage run.
 
 ---
 
+## Reading and Writing state.json
+
+**Use the state tool, `tools/state.py` in the same folder as the stage files — never open,
+paste, or hand-edit `state.json`.** It returns only the slice you ask for, and it refuses the
+writes the invariants below forbid. Run it from the working-tree root as
+`python <stage folder>/tools/state.py <command>` (`python3` where `python` is absent). It finds
+`state.json` by name; pass `--file <path>` first when the prompt gives one.
+
+| Command | Use it for |
+|---|---|
+| `summary` | **Start every run here** — stage statuses, phase/edit statuses, ids, marks |
+| `get <path>` | One slice, e.g. `get context.locations`, `get context.constraints.C3`, `get phases.P-4` |
+| `new` | `changeLog[]` / `reviews[]` entries above the `progress` marks — Stage 4 Step 0b |
+| `add <changeLog\|reviews\|edits\|phases> k=v …` | Append; `id` and `utc` are allocated for you and printed |
+| `set <path> k=v …` | Update fields, e.g. `set phases.P-4 "status=in progress"`, `set progress lastProcessedChangeLogId=12` |
+| `drop phases.P-<n>` | Remove a `pending` phase at a plan refresh; its id is retired, never reused |
+| `check` | Validate the file; run after any write you made without the tool |
+
+- **Paths** are dotted; inside a list, a segment matches an element's `id` (`changeLog.12`,
+  `reviews.R-3`).
+- **Values** are parsed as JSON when they parse (`7`, `null`, `true`) and kept as text otherwise.
+  Quote the whole pair when it has spaces: `"summary=fixed the export header"`. List fields
+  (`prUrls`, `docsTouched`, `phasesAffected`, `editsAffected`) also take `a,b,c`.
+- **Nested objects** (`sizeReport`, anything with quotes): pipe a JSON object instead of pairs
+  and end the command with `-`: `'{"sizeReport": {…}}' | python … set phases.P-4 -`.
+- **A refusal is the invariant speaking** — a backward status, a write to `changeLog`/`reviews`,
+  a non-integer mark. Do not work around it; correct the record by appending.
+- **Stage 0 is the one exception:** it writes the initial file (and a rerun's `context` changes)
+  directly, then runs `check`. If Python is unavailable, edit `state.json` by hand under the
+  same rules and say so in the report.
+
+---
+
 ## Before you write anything
 
 Classify what you are about to do **at the moment you are about to write** — not when you read
