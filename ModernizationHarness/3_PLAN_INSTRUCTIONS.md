@@ -432,7 +432,9 @@ Rules that hold the ledger together:
 
 A refresh re-slices the **phases that have not started** — those still `pending`. Anything
 `in progress` or `done` is history: **what is built is built**, it moves to §2, and it is never
-re-planned, tested or not. Refreshes come from two places:
+re-planned, tested or not. The exception is an approved mid-phase split
+(`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §When You're Blocked`), which trims the `in progress`
+phase to what was built and moves the rest to a new phase. Refreshes come from two places:
 
 - **The Implement stage's Step 0c**, at the start of most phase runs. This is the common case.
 - **A human**, with Additional Instructions — "make P-5 smaller", "pull reporting earlier".
@@ -443,7 +445,7 @@ re-planned, tested or not. Refreshes come from two places:
 |---|---|
 | A design or requirements doc gained a Revision History row | Add a phase retrofitting the delivered code; adjust remaining phases to build against the new contract |
 | A review left findings too large to fold into the next phase | Add a phase for them |
-| The last phase revealed the slicing was wrong (its `sizeReport` says *too large* or *too small*) | Split, merge, or reorder what remains |
+| The last phase revealed the slicing was wrong (its `sizeReport` says *too large* or *too small*) | Split, merge, or reorder what remains. A *too large* already resolved by an approved split is not, alone, a reason — act only if the remaining phases look as large |
 | The human asked for a different shape | Do what they asked, within the golden rule |
 
 If none applies, **make no edit** and report "plan unchanged". Churn is a real cost: it burns
@@ -469,8 +471,11 @@ Update `PLAN_<AppName>.md` (§1, §2, §3, §5 as applicable) and re-sync `phase
 Step 3. **Then re-point `FEATURE_STATUS.md`:** every row reading `scheduled in P-N` whose phase
 this refresh **dropped or resequenced** must move to the phase that will now deliver it, or to
 `unscheduled` with a reason in §6. A row pointing at a phase that no longer exists is the one
-way a refresh can quietly lose coverage. **Never touch a `Tested` value** while doing this — that
-column is the developer's, and a re-slice says nothing about what they have run.
+way a refresh can quietly lose coverage. Likewise, any row still reading `scheduled in` a phase
+that is now `done` — work a mid-phase split moved out (see that phase's
+`sizeReport.pushedLater`) — must point at a remaining phase. **Never touch a `Tested` value**
+while doing this — that column is the developer's, and a re-slice says nothing about what
+they have run.
 Add a §3 Plan Revision History row and a `changeLog` entry noting the re-slice, and
 increment `stages.plan.rerunCount`. **A "no change" refresh writes none of these** — it is not
 a revision, and recording it would bury the real ones.
@@ -521,8 +526,9 @@ and to a whole-build review.
 - [ ] Risks and open questions listed, not silently resolved.
 - [ ] **No phase ID was reused or renumbered**; new phases took the next unused numbers.
 - [ ] `done` phases were moved to §2 Completed and removed from §5, not re-planned.
-- [ ] **No `FEATURE_STATUS.md` row points at a phase this refresh dropped** — each was
-      re-pointed or moved to `unscheduled` with a §6 reason; no `Tested` value was touched.
+- [ ] **No `FEATURE_STATUS.md` row points at a phase this refresh dropped, or reads
+      `scheduled in` a `done` phase** — each was re-pointed or moved to `unscheduled` with a §6
+      reason; no `Tested` value was touched.
 - [ ] On a refresh that changed the phase list: §3 Plan Revision History row added,
       `changeLog` entry appended, `stages.plan.rerunCount` incremented. On a "no change"
       refresh: none of these written, and "plan unchanged" reported.

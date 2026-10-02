@@ -205,7 +205,9 @@ whether the remaining phases are still the right slicing, per
 
 - a design or requirements doc gained a **Revision History** row since the last run;
 - a review left findings too large to fold into this phase;
-- the previous phase revealed the slicing was wrong — read its `sizeReport` in `state.json`;
+- the previous phase revealed the slicing was wrong — read its `sizeReport` in `state.json`.
+  A *too large* already resolved by an approved split is not, on its own, a reason: re-slice
+  only if the remaining phases look as large as the one that overflowed;
 - the developer asked for a different shape.
 
 If none applies, report **"plan unchanged — building P-N"** and go to Step 1. This is the
@@ -315,13 +317,15 @@ test guide where the change surface warrants.
    - Record the `branch` and `prUrls` on the phase (or on the `edits[]` entry, for an edit).
      `prUrls` stays `[]` where the developer asked for no PR.
    - **Record `sizeReport` on the phase** — how its size held up, so a later refresh has
-     evidence to re-slice on. Lead with the objective signs, then your judgement:
-     `{ "unfinished": [<task IDs not completed or reported blocked>], "guideStepsNotWalked":
-     [<test-guide steps you could not walk>], "pushedLater": [<work moved to a later phase>],
-     "verdict": "right | too large | too small", "splitSuggestion": "<what should have been
-     its own phase, or null>" }`. Write *too large* whenever any of the three lists is
-     non-empty for reasons of scope rather than an external blocker — not only when it felt
-     large. Not written for a minor edit.
+     evidence to re-slice on:
+     `{ "pushedLater": [{ "work": "<what moved>", "toPhase": "P-<n>" }], "verdict": "right |
+     too large | too small", "splitSuggestion": "<what should have been its own phase, or
+     what it should have been merged with; null if right>" }`. `pushedLater` lists only work
+     moved out by an **approved** mid-phase split (§When You're Blocked); whenever it is
+     non-empty the verdict is *too large*. A **declined** split also records *too large*, with
+     an empty `pushedLater` and the proposed split in `splitSuggestion`. *Too small* has no
+     list behind it — it is your judgement, so name what the phase should have been merged
+     with. Not written for a minor edit.
    - **Advance the high-water mark** to **what this run actually folded in** — the highest
      `changeLog[].id` you reconciled, plus any entries you appended yourself; and
      `progress.lastProcessedReviewNumber` to the `<n>` of the last review you addressed. Do
@@ -614,6 +618,28 @@ Stop and report (rather than improvising) if:
 - The predecessor's work is **missing** from the branch you were handed and the developer has
   not said to build there anyway (§Starting From the Right Base).
 - An external dependency, credential, or access is unavailable.
+- **The phase proves too large** to finish within the sizing rules (`3_PLAN_INSTRUCTIONS.md
+  §Step 2` — walkable in one sitting, reviewable in one pass; e.g. the remaining tasks would
+  not fit in this run with full verification). Bring a coherent part of it to a runnable
+  state — everything built so far checkable by hand — start nothing further, and
+  **propose a split**: what is built, what moves to a new phase, and that phase's one-sentence
+  goal. Never move work out on your own; this is a plan-scope change (rule 12). On approval:
+  - add the moved work as a new phase with the next unused ID, sequenced next, per
+    `3_PLAN_INSTRUCTIONS.md §Refreshing the Plan`;
+  - trim the current phase's tasks, test guide, and exit criteria in the plan to what was
+    built, so its gate passes honestly rather than by waiver. **Remove only exit criteria
+    about the moved work.** Criteria that bind every phase — build, tests, formatter/linter,
+    any coverage bar, earlier phases still working — stay, and must pass. A split is never a
+    way around a failing gate; name in the proposal every criterion you would remove;
+  - re-point every `FEATURE_STATUS.md` row for the moved work to `scheduled in` the new phase,
+    leaving `Tested` untouched;
+  - record the move in `sizeReport.pushedLater` and a `changeLog` entry, then hand off as
+    usual.
+
+  Until approval, build nothing further in this phase. **If the developer declines**, continue
+  the phase as planned, or stop if they say so; either way record `sizeReport.verdict` as
+  *too large* with your proposed split in `splitSuggestion`, so the next refresh still has
+  the evidence.
 
 **Not blockers** — never stop for these: a phase the developer hasn't tested, a
 `FEATURE_STATUS.md` row still `untested` or marked `failed`, an unmerged PR, or open review
@@ -637,11 +663,14 @@ no plan test guide of its own and does not displace the current phase.
       re-slice was **proposed, approved by the developer, and applied** per
       `3_PLAN_INSTRUCTIONS.md`. No re-slice was applied silently.
 - [ ] Nothing touching a requirement, design contract, or plan scope was implemented or
-      doc-edited this run — such requests were routed to their owning stage and stopped on.
+      doc-edited this run — such requests were routed to their owning stage and stopped on —
+      other than an approved Step 0c refresh or an approved mid-phase split.
 - [ ] No `done` phase was reopened to absorb a change; retrofits were planned as new phases.
-- [ ] Every task completed and verified, or explicitly reported as blocked.
-- [ ] `sizeReport` recorded on the phase, its lists filled from what actually happened and its
-      verdict consistent with them, and stated in the report.
+- [ ] Every task completed and verified, explicitly reported as blocked, or moved out by an
+      **approved** split and listed in `sizeReport.pushedLater`.
+- [ ] `sizeReport` recorded on the phase, its verdict consistent with `pushedLater`, and stated
+      in the report. Any approved split re-pointed its `FEATURE_STATUS.md` rows to the new
+      phase; no row reads `scheduled in` this phase once it is `done`.
 - [ ] App is in the promised runnable state; the developer test guide was walked and is accurate.
 - [ ] **`FEATURE_STATUS.md` updated in place** — rows delivered this run read `built in P-N`
       with a concrete `How to check`; rows whose behavior changed gained this phase and were

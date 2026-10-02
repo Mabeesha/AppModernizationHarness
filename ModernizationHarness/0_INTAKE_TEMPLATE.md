@@ -178,7 +178,7 @@ phase; PRs target the default branch.*
 
 **17. Phase sizing / slicing strategy.**
 How big each phase should be. The phase count follows from the sizing — it is not fixed up
-front. Override any rule below, or name an explicit count or strategy.
+front. Override any of those rules, or name an explicit count or strategy.
 *Default: the planner sizes phases per `3_PLAN_INSTRUCTIONS.md §Step 2` — one theme each,
 walkable in one sitting, roughly even, no fixed count — consistent with the cutover strategy
 in Q12, and re-slices at refresh when a built phase proves the sizing wrong.*
