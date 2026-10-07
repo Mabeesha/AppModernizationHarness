@@ -93,19 +93,24 @@ don't skip it. And its first section records where those stage files live, which
 can name them bare in a prompt. Moved the folder? Change that one line and everything below
 still works.
 
-## 2. Answer six questions
+## 2. Answer the questions that block
 
-Open `out/INTAKE.md`. It has 25 questions — **six block the pipeline** (plus Q8 if you choose a new database
-schema), the rest have sensible defaults. Answer these and you're done:
+Open `out/INTAKE.md`. Every question is its own heading with its own `Answer:` line — bigger
+topics are split into lettered parts (`12a`, `12b`, …). Where the answer is a choice, tick a box
+by changing `- [ ]` to `- [x]`. In VS Code, **Ctrl+Shift+V** shows it as a readable page, with
+the long explanations folded away.
+
+Six topics **block the pipeline** (plus Q8 if you choose a new database schema); everything
+else has a sensible default. Answer these and you're done:
 
 | Q | |
 |---|---|
-| 4 | What's the current stack? |
-| 5 | What's the target stack? |
+| 4a | What's the current stack? |
+| 5a–c | What's the target frontend, backend, and data access layer? |
 | 7 | Reuse the existing database, or new schema? |
-| 9 | Will the old app keep writing to that database? |
-| 11 | How does it authenticate and authorize today — keep it, or stub it? |
-| 12 | Cutover: big-bang, strangler fig, or parallel run? |
+| 9 | While the new app is live, will the old app also write to that database? |
+| 11a–b | How do users log in today — and should the target keep it, or stub it? |
+| 12a | Cutover: big-bang, strangler fig, or parallel run? |
 
 Fill in more if you know it. Leave the rest blank — the agent applies defaults and **tells you
 exactly which ones it answered for you**.
@@ -117,10 +122,10 @@ load-bearing questions of your own (the template invites this at its close) for 
 no question — a no-shared-files boundary, an API-documentation standard. Copy it to
 `out/INTAKE.md` per app and edit only what's marked.
 
-**Worth doing too:** Q16a says where the legacy code, the docs, and the **target repo** live. Get
+**Worth doing too:** Q16a–c say where the legacy code, the docs, and the **target repo** live. Get
 it right and you never type a path again (see below).
 
-**Got a sample UI?** Answer Q23 with a path to some HTML/CSS, a mockup, or your design system.
+**Got a sample UI?** Answer Q23a with a path to some HTML/CSS, a mockup, or your design system.
 The design stage turns it into a design language every phase builds from — which is what keeps
 later screens looking like earlier ones.
 

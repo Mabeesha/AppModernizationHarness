@@ -248,7 +248,7 @@ def a4_growth(ctx: Context) -> CheckResult:
         try:
             p = subprocess.run(
                 ["git", "-C", str(ctx.repo_root), *args],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
             )
             return p.returncode, p.stdout
         except (OSError, subprocess.SubprocessError):

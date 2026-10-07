@@ -28,7 +28,8 @@ You produce **two artifacts**:
 ## Inputs
 
 1. **The filled intake — `INTAKE.md` (primary source).** The human's copy of
-   `0_INTAKE_TEMPLATE.md` with the `Answer:` lines filled in; its path is given in the prompt.
+   `0_INTAKE_TEMPLATE.md` with the `Answer:` lines and tick boxes filled in; its path is given
+   in the prompt.
    It is the authoritative statement of what they decided.
    - **It is an input, never an output — never write to it.** Your resolved version, with
      provenance, goes into `PROJECT_CONTEXT.md §5`.
@@ -56,22 +57,38 @@ You produce **two artifacts**:
 
 Read the human's filled `INTAKE.md` (falling back to `0_INTAKE_TEMPLATE.md` for the question
 list and defaults if none was supplied). Work through **every** question — a question missing
-from their file is a blank, not an omission you may skip. For each:
+from their file is a blank, not an omission you may skip.
+
+**Reading the file.** Each `###` heading is one question with one answer, identified by its
+number and letter (`12a`); a bare number (`Q12`) means all of that number's parts. A question's
+answer is its **ticked boxes** (`- [x]`) plus its `**Answer:**` text; where the two conflict,
+the text wins — report the conflict. A question with no box ticked and no answer text is
+**blank**. Explanatory text inside `<details>` blocks is guidance, never an answer. An intake
+in the older one-answer-per-number format remains valid: read a combined answer as answering
+each part it covers; a part it does not cover is blank.
+
+For each question:
 
 1. If the human answered it, record the answer.
-2. If blank and the question has a **default**, apply the default and mark it
-   `ASSUMPTION: (default applied)`.
+2. If blank and the question has a **default**, apply the default exactly as it states (some
+   mark an `ASSUMPTION: (default applied)`, some raise an `OPEN QUESTION:`).
 3. If blank and the question is marked **load-bearing (hard-stop)**, **stop and ask**. Do
    not proceed to Stage 1 without it — these determine the entire shape of the migration.
-   A question marked load-bearing **only under a condition** (e.g. Q8, "if Q7 is a new
-   schema") is a hard stop when that condition holds, and takes its default otherwise.
-   Where a load-bearing question states a default for **one of its parts** (e.g. Q4's
-   database-resident logic, Q11's authorization model, Q12's rollback plan), that part takes
-   its default when blank, applied exactly as that default states (some mark an
-   `ASSUMPTION:`, some raise an `OPEN QUESTION:`) and reported like any other default. The
-   hard stop applies only to the parts without one.
+   A question marked load-bearing **only under a condition** (every part of Q8 where Q7 is a
+   new schema; Q11a–b where the app is access-controlled) is a hard stop when that condition
+   holds, and takes its default otherwise. Load-bearing is marked per part: a part with its
+   own default (e.g. Q4b, Q11d, Q12b) takes it when blank, even though its neighbors hard-stop.
+   A blank question with **neither** a default nor a load-bearing mark — e.g. one appended by
+   the project without a default — is raised as an `OPEN QUESTION:`; never fill it by guessing.
 4. If the legacy app is available and lets you infer an answer, propose it as
    `ASSUMPTION:` and still let the human confirm.
+
+**Cross-check the answers.** Once every question is resolved, look for answers that contradict
+each other. Raise each contradiction as an `OPEN QUESTION:` and list it in the hand-off report;
+never resolve it by picking one side. In particular: if Q12a is **strangler fig** or **parallel
+run**, Q7 **reuses** the database, and Q9 says **No**, ask whether the target only reads (or
+writes to its own copy) while both are live — otherwise the two apps are concurrent writers and
+the legacy-coexistence constraint applies.
 
 Record the fully-resolved questionnaire in `PROJECT_CONTEXT.md §5`, marking each answer's
 provenance (human-supplied / default applied / inferred).
@@ -125,10 +142,10 @@ target may have none of these; a DB-reuse migration will have the first):
   identity/sequence ranges, and both systems tolerating each other's concurrent writes.
   Spell out the isolation and locking expectations; downstream stages must design and test
   for a second live writer.
-- **Cutover strategy** — big-bang, strangler fig, or parallel run (Q12). For strangler fig,
+- **Cutover strategy** — big-bang, strangler fig, or parallel run (Q12a). For strangler fig,
   the obligation set must require a routing facade and phases sliced by route/feature; for a
   parallel run, a reconciliation/comparison harness. Big-bang needs no special obligation.
-- **Rollback** — where Q12 requires that traffic can return to the legacy app after go-live,
+- **Rollback** — where Q12b requires that traffic can return to the legacy app after go-live,
   raise it as its own constraint: the target must never write anything the legacy app cannot
   read for the stated window. Obligations should require: *Design* — no schema evolution and
   no data shape the legacy app cannot consume, for as long as rollback must stay possible;
@@ -145,7 +162,7 @@ target may have none of these; a DB-reuse migration will have the first):
   approval limits — the obligations should require *Requirements* to inventory every such rule
   with its legacy location, and *Review* to treat a missing one as a **Blocker**: an
   authorization rule lost in migration is a security defect, not a gap.
-- **Dependency sources** (Q6) — where dependencies may only come from an internal mirror or
+- **Dependency sources** (Q6c–d) — where dependencies may only come from an internal mirror or
   an approved list, or the build has no internet access, raise a constraint: *Design* — choose
   only libraries available from the permitted source; *Implement* — resolve dependencies only
   from it, and stop and ask rather than add a registry or vendor a package to get around it;
@@ -282,9 +299,9 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
 - The chosen cutover strategy (big-bang / strangler fig / parallel run) and what it demands
   structurally: a routing facade for strangler fig, a reconciliation harness for a parallel
   run, neither for big-bang.
-- Whether the legacy app keeps running against the same data store, and for how long. If it
-  does, state the concurrency expectations explicitly — this constrains every later stage.
-- The rollback plan (Q12): whether traffic can return to the legacy app after go-live, and for
+- Whether the legacy app keeps writing to the same data store while the target is live, and
+  for how long. If it does, state the concurrency expectations explicitly — this constrains every later stage.
+- The rollback plan (Q12b–c): whether traffic can return to the legacy app after go-live, and for
   how long — or "fix forward" where none is required.
 
 **Deployment & environments**
@@ -316,7 +333,7 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
   the **target code repository** (where Stage 4 branches, commits, and opens PRs). State
   explicitly if the target repo is the same one holding the legacy source — the agent must
   know whether it is adding a new tree beside a frozen legacy one.
-- **Repository layout (Q16b) — decided here, once.** State whether frontend and backend live in a
+- **Repository layout (Q16e) — decided here, once.** State whether frontend and backend live in a
   **single repo** or in **separate repos**, and give every target path involved. Record it in
   `context.repo.layout` (and, when split, the second path in `context.locations`). Later
   stages read this decision and never re-open it. *Default when unanswered: single repo.*
@@ -326,7 +343,7 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
   in §3 that **Stage 2 fixes the source tree in the LLD and every later stage builds to it** —
   what must not happen is each phase inventing its own. *Default when unanswered: `null`,
   decided by Design.*
-- **Release model (Q13) — decided here, once.** State whether the two are **shipped together** as
+- **Release model (Q13c) — decided here, once.** State whether the two are **shipped together** as
   one versioned unit or **released independently**, in `context.repo.release`. It is
   architecture, not rollout: independent release obliges Stage 2 to design a versioned,
   backward-compatible internal API and Stage 4 to keep the parts separately deployable;
@@ -380,13 +397,13 @@ many times across a build — so **state each fact once and cross-reference; nev
 ## 2. Stacks
 - **Current stack:** languages, frameworks, UI tech, runtime/versions, data store,
   notable libraries. (Confirmed from the legacy app where possible — cite what you saw.) Plus
-  any database-resident logic (Q4) — stored procedures, triggers, views, DB-scheduled jobs —
+  any database-resident logic (Q4b) — stored procedures, triggers, views, DB-scheduled jobs —
   and where its definitions can be read, or an `OPEN QUESTION:` if they were not supplied.
 - **Target stack:** frontend, backend, runtime/versions, build tool, data layer, auth
   libraries, anything mandated. This is the authoritative statement of "what we build in".
-- **Licensing / component constraints** (Q6): paid legacy components needing replacement,
+- **Licensing / component constraints** (Q6a–b): paid legacy components needing replacement,
   and any license restrictions on the target.
-- **Dependency sources** (Q6): public registries, an internal mirror (with its location), or an
+- **Dependency sources** (Q6c–d): public registries, an internal mirror (with its location), or an
   approved list — and whether the build has internet access. Name the constraint ID if one was
   raised.
 - **UI reference** (Q23): the sample/mockup/design-system path if supplied, and whether it is
@@ -451,7 +468,7 @@ actionable downstream:
   live; every later stage reads them by ID rather than re-deriving them.
 
 ## 5. Intake Questionnaire (resolved)
-A **provenance ledger** — one row per question, terse. Do **not** restate detail already in
+A **provenance ledger** — one row per question part (`1`, `3a`, `3b`, …), terse. Do **not** restate detail already in
 §1–§10; cross-reference it instead.
 
 | Q | Answer (one line) | Provenance |
@@ -466,7 +483,7 @@ A **provenance ledger** — one row per question, terse. Do **not** restate deta
 - Performance, scalability, availability, security posture, accessibility, i18n,
   observability, data-residency — as far as known now, **one line each**. (Requirements Stage
   deepens these; this section only seeds them.) Accessibility names its standard and level
-  (Q20) where one was given, or says "no standard stated — not verified" where none was.
+  (Q20b) where one was given, or says "no standard stated — not verified" where none was.
 - Where an item is already an obligation (§4) or an open question (§7), **name it and
   cross-reference** — don't re-tell it here.
 
@@ -488,11 +505,11 @@ A **provenance ledger** — one row per question, terse. Do **not** restate deta
   contract means the target conforms exactly — it is effectively a constraint.
 
 ## 9. Other Sources of Truth
-- Existing tests (and whether they pass), specs, runbooks, available SMEs (Q18). The
+- Existing tests (and whether they pass), specs, runbooks, available SMEs (Q18a–c). The
   Requirements stage should use these alongside the code, not just the code.
-- Whether the legacy app can be built and run for observation, and where (Q18).
+- Whether the legacy app can be built and run for observation, and where (Q18d).
 - Whether the legacy source is complete — and any known gaps: missing modules, binary-only
-  dependencies, configuration held outside the repository (Q18).
+  dependencies, configuration held outside the repository (Q18e).
 
 ## 10. Performance Baseline
 - Measurable current behavior the target must match or beat, **as supplied by the human**
@@ -669,21 +686,22 @@ writes.
 single source for what gets asked, including each question's default and whether it is
 load-bearing. It is not duplicated here; read it if you need the full set.
 
-The human copies that template to `INTAKE.md` in their project, fills in the `Answer:` lines,
-and gives you the path. Blanks are expected — resolve them per Step 1.
+The human copies that template to `INTAKE.md` in their project, ticks boxes and fills in the
+`Answer:` lines, and gives you the path. Every question is its own `###` heading with one
+answer. Blanks are expected — resolve them per Step 1.
 
 **Load-bearing (hard-stop) questions** — no safe default exists, so the pipeline stops until
 each is answered:
 
 | Q | Question | Why it can't be defaulted |
 |---|----------|---------------------------|
-| 4 | Current stack | Everything downstream reads it |
-| 5 | Target stack | Everything downstream reads it |
+| 4a | Current application stack | Everything downstream reads it |
+| 5a–c | Target frontend, backend, data access layer | Everything downstream reads it |
 | 7 | Reuse the existing database, or new schema? | Determines how the data model is captured |
-| 8 | Data migration — what moves, and how? | Load-bearing **only where Q7 is a new schema**; an unplanned migration surfaces only at cutover |
-| 9 | Does the legacy app keep writing to the same data store? | A concurrent writer constrains every stage |
-| 11 | Current authentication and authorization, and whether to keep them | Load-bearing **only where the app is access-controlled** |
-| 12 | Cutover strategy | Architecture-defining; shapes design and phase slicing |
+| 8a–f | Data migration — what moves, who builds it, how often, how verified, failure handling | Load-bearing **only where Q7 is a new schema**; an unplanned migration surfaces only at cutover |
+| 9 | While the target is live, does the legacy app also write to the same data store? | A concurrent writer constrains every stage |
+| 11a–b | Login today, and login in the target | Load-bearing **only where the app is access-controlled** |
+| 12a | Cutover strategy | Architecture-defining; shapes design and phase slicing |
 
 To change the *questions* for all future projects, edit `0_INTAKE_TEMPLATE.md`. To change
 *answers* for one project, edit that project's `INTAKE.md` and rerun this stage.
@@ -712,6 +730,8 @@ actually changed.
   outstanding — current stack, target stack, DB reuse, data migration (where Q7 is a new
   schema), **legacy coexistence**, **cutover strategy**, and auth (where the app is
   access-controlled).
+- [ ] Answers were cross-checked (Step 1); every contradiction is an `OPEN QUESTION:` in the
+  hand-off report, none silently resolved.
 - [ ] Current stack and target stack are stated authoritatively.
 - [ ] The CI/CD mode is one of respect / generate / none, with specifics.
 - [ ] Repository layout (single / split) and release model (together / independent) are both
@@ -728,7 +748,7 @@ actually changed.
   reconciliation harness / none) expressed as constraint obligations where they bind.
 - [ ] Legacy coexistence is settled; if a second live writer exists, its concurrency
   expectations are stated as a constraint.
-- [ ] Rollback is settled — a constraint where Q12 requires it, "fix forward" in §3 where it
+- [ ] Rollback is settled — a constraint where Q12b requires it, "fix forward" in §3 where it
   does not.
 - [ ] The authorization model is recorded with where the legacy app defines it, and any rule
   finer than a role is carried in the auth constraint's obligations.

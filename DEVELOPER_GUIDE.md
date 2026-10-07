@@ -174,6 +174,8 @@ and cutover boundary, writes `PROJECT_CONTEXT.md`, and initializes `state.json`.
 **The six load-bearing questions** (these block the pipeline until answered): current stack,
 target stack, DB reuse vs. new schema, **legacy coexistence**, **cutover strategy**, and auth
 (where the app is access-controlled) — plus data migration when Q7 chooses a new schema.
+Each topic is split into lettered single-answer parts (e.g. 12a cutover, 12b rollback); the
+template marks exactly which parts block.
 **Legacy coexistence and cutover strategy** are architecture-defining — a strangler-fig
 cutover or a still-live legacy writer changes the design and how phases are sliced, so neither
 can be safely defaulted.
@@ -187,12 +189,15 @@ can be safely defaulted.
 | The **resolved record** | `PROJECT_CONTEXT.md §5`, written by the agent | nobody — it's a record, with provenance |
 
 The flow is one-way: **`INTAKE.md` → agent → `PROJECT_CONTEXT.md §5`**. Copy the template
-once, fill in what you know, leave the rest blank. To change an answer later, **edit
+once, fill in what you know, leave the rest blank. Each question is its own heading with one
+`Answer:` line; where the answer is a choice, tick a box by changing `- [ ]` to `- [x]`. The
+long explanations sit in folded *Why this matters* blocks — Ctrl+Shift+V in VS Code shows the
+file as a page where they stay closed until clicked. To change an answer later, **edit
 `INTAKE.md` and rerun Stage 0** — don't edit §5, which records what the *last* run decided
 (including which answers the agent supplied for you).
 
 ```bash
-cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md   # then fill in the Answer: lines
+cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md   # then tick boxes and fill in the Answer: lines
 ```
 
 **Your job after:** read the report's *"Answered without you"* list — every question the agent
@@ -492,8 +497,8 @@ agent each one, even when they're the same place:
 If the legacy source sits inside the repo you're building in (common for a POC), **say so** —
 the agent then adds the new tree alongside it and still refuses to touch legacy files.
 
-**Two structural answers Stage 0 owns.** Q16b asks whether frontend and backend live in
-**one repo or two**, and Q13 asks whether they are **shipped together or released independently**. Both
+**Two structural answers Stage 0 owns.** Q16e asks whether frontend and backend live in
+**one repo or two**, and Q13c asks whether they are **shipped together or released independently**. Both
 are settled once, in Stage 0; Design, Plan, and Implement read them and never re-decide.
 Unanswered, they default to one repo shipped as one unit — and the default is reported back to
 you like any other. Changing either later means rerunning Stage 0 and redoing the design that
@@ -507,52 +512,100 @@ was built on it.
 cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md
 ```
 
-Filled-in extract (leave anything you don't know blank — it defaults and gets reported back):
+Filled-in extract (leave anything you don't know blank — it defaults and gets reported back;
+unticked boxes and the folded *Why this matters* blocks are left out here for brevity):
 
 ```markdown
-**1. Why modernize, and why now?**
+### 1. Why modernize, and why now?
 **Answer:** The .NET desktop platform is end-of-life. No hard deadline.
 
-**3. Strict parity, or are improvements allowed?**
-**Answer:** Strict — reproduce current behavior; flag bugs, don't fix them.
+### 3a. Strict parity, or are improvements allowed?
+- [x] Strict parity — reproduce current behavior exactly, including known bugs and awkward UX
 
-**4. Current stack?**  ⚠️ LOAD-BEARING
+### 4a. Current application stack?  ⚠️ LOAD-BEARING
 **Answer:** .NET WinForms + SQL Server (confirm from the app).
 
-**5. Target stack?**  ⚠️ LOAD-BEARING
-**Answer:** Angular (Node 25.9.0) + Java 21 / Spring Boot, Maven, Spring Data JPA.
+### 5a. Target frontend?  ⚠️ LOAD-BEARING
+**Answer:** Angular, Node 25.9.0.
 
-**7. Reuse the existing database, or create a new schema?**  ⚠️ LOAD-BEARING
-**Answer:** Reuse as-is — no schema changes, no migration.
+### 5b. Target backend?  ⚠️ LOAD-BEARING
+**Answer:** Java 21 / Spring Boot, Maven.
 
-**9. Will the legacy application keep running against the same data store?**  ⚠️ LOAD-BEARING
-**Answer:** No — the WinForms app is retired at cutover. No concurrent writers.
+### 5c. Target data access layer?  ⚠️ LOAD-BEARING
+**Answer:** Spring Data JPA.
 
-**11. How does the app authenticate today...?**  ⚠️ LOAD-BEARING
-**Answer:** Local users table → auth seam + dev stub, real AD deferred.
+### 7. Reuse the existing database, or create a new schema?  ⚠️ LOAD-BEARING
+- [x] Reuse the existing database as-is
 
-**12. Cutover strategy?**  ⚠️ LOAD-BEARING
-**Answer:** Big-bang.
+### 9. While the target is live — including any period when old and new run side by side — will the legacy application also write to the same data store?  ⚠️ LOAD-BEARING
+- [x] No — the legacy app stops writing before the target goes live (typical of big-bang)
+**Answer:** The WinForms app is retired at cutover. No concurrent writers.
 
-**13. Deployment target, deployable units, and runtime topology?**
-**Answer:** Container on an internal Kubernetes cluster. One artifact — the
-Angular build is packaged into the Spring Boot image. Same origin in every
-environment; locally the Angular dev server proxies /api to Spring Boot on 8080.
+### 11a. How do users log in today?  ⚠️ LOAD-BEARING
+**Answer:** Local users table.
 
-**14. Environments & test data.**
-**Answer:** Local dev only; a restored copy of prod data is available locally.
+### 11b. How should the target handle login?  ⚠️ LOAD-BEARING
+- [x] Build an auth seam + dev stub, with the real identity provider deferred
+**Answer:** Real AD comes later.
 
-**16. Locations, repository layout, and conventions.**
-**Answer:** Legacy source ./legacy/ (read-only, lives in this same repo);
-documents ./out/; target code this repo, new tree beside the legacy one.
-Single repo — Angular and Spring Boot together, shipped as one unit,
-in sibling ./frontend/ and ./backend/ roots.
+### 12a. How will the target go live?  ⚠️ LOAD-BEARING
+- [x] Big-bang — build the replacement, switch over at once
 
-**19. Code style / quality gates the target must enforce?**
-**Answer:** Google Java Style Guide, enforced by google-java-format in Maven.
-Unit test coverage: JaCoCo, line ≥ 80% and branch ≥ 70% **on changed code**, excluding
-generated sources, DTOs and the Spring bootstrap class; **build fails** below the bar,
-in force from the scaffold phase onward.
+### 13a. Where will the target be deployed?
+- [x] Kubernetes
+**Answer:** An internal cluster.
+
+### 13b. How many deployable units ship?
+- [x] One artifact holding both parts
+**Answer:** The Angular build is packaged into the Spring Boot image.
+
+### 13d. Once deployed, how does the frontend reach the backend?
+- [x] Same origin — one host/port; the backend or a fronting web server serves both
+
+### 13e. How is it arranged for local development, where that differs?
+**Answer:** The Angular dev server proxies /api to Spring Boot on 8080.
+
+### 14b. Can a developer reach a database with representative data?
+**Answer:** Yes — a restored copy of prod data, locally.
+
+### 16a. Where is the legacy source?
+**Answer:** ./legacy/ (read-only).
+
+### 16b. Where are the documents written?
+**Answer:** ./out/
+
+### 16d. Is the target code repository the same repo that holds the legacy source?
+- [x] Yes — the new tree is added alongside the frozen legacy one
+
+### 16e. Do frontend and backend live in one repo or separate repos?
+- [x] One repo
+
+### 16f. Root directory of each part?
+**Answer:** ./frontend/ and ./backend/
+
+### 19a. Code style guide?
+**Answer:** Google Java Style Guide.
+
+### 19b. How is the style enforced?
+**Answer:** google-java-format in Maven.
+
+### 19c. Do you want a unit test coverage bar?
+- [x] Yes — answer 19d–19h
+
+### 19d. Coverage — metric and threshold?
+**Answer:** JaCoCo, line ≥ 80% and branch ≥ 70%.
+
+### 19e. Coverage — scope?
+- [x] Changed/new code only
+
+### 19f. Coverage — exclusions?
+**Answer:** Generated sources, DTOs, the Spring bootstrap class.
+
+### 19g. Coverage — enforcement?
+- [x] Build fails below the bar
+
+### 19h. Coverage — from when?
+- [x] From the scaffold phase onward
 ```
 
 Then launch:
