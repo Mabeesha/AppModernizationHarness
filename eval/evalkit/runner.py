@@ -26,7 +26,7 @@ def _git_commit(repo_root: Path) -> str:
     try:
         p = subprocess.run(
             ["git", "-C", str(repo_root), "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
         )
         return p.stdout.strip() or "unknown"
     except (OSError, subprocess.SubprocessError):
