@@ -109,9 +109,12 @@ class StateToolTest(unittest.TestCase):
 
     def test_ids_are_allocated_and_printed(self):
         self.assertEqual(self.run_tool("add", "phases", "name=A").stdout.strip(), "P-1")
-        self.assertEqual(self.run_tool("add", "edits", "summary=x").stdout.strip(), "E-1")
-        self.assertEqual(self.run_tool("add", "changeLog", "summary=x").stdout.strip(), "1")
-        self.assertEqual(self.run_tool("add", "reviews", "target=P-1").stdout.strip(), "R-1")
+        self.assertEqual(self.run_tool("add", "edits", "summary=x",
+                                       "afterPhase=P-1").stdout.strip(), "E-1")
+        self.assertEqual(self.run_tool("add", "changeLog", "author=developer", "origin=developer-prompt", 
+                                       "summary=x").stdout.strip(), "1")
+        self.assertEqual(self.run_tool("add", "reviews", "target=P-1",
+                                       "result=clean", "blockerCount=0", "findingsCount=0").stdout.strip(), "R-1")
         self.assertIn("allocated by the script", self.refused("add", "phases", "id=P-7"))
 
     def test_new_phase_gets_schema_defaults(self):
@@ -136,6 +139,35 @@ class StateToolTest(unittest.TestCase):
         self.run_tool("add", "phases", "name=A")
         self.assertIn("permanent", self.refused("set", "phases.P-1", "id=P-9"))
 
+    def test_add_requires_the_schema_fields(self):
+        self.assertIn("missing author", self.refused("add", "changeLog", "summary=x"))
+        self.assertIn("missing findingsCount", self.refused(
+            "add", "reviews", "target=P-1", "result=clean", "blockerCount=0"))
+        self.assertIn("missing afterPhase", self.refused("add", "edits", "summary=x"))
+        self.assertIn("missing name", self.refused("add", "phases", "notes=x"))
+
+    def test_add_refuses_values_outside_the_schema(self):
+        self.assertIn("author must be", self.refused(
+            "add", "changeLog", "author=me", "origin=reconcile", "summary=x"))
+        self.assertIn("origin must be", self.refused(
+            "add", "changeLog", "author=review-agent", "origin=review-3", "summary=x"))
+        self.assertIn("result must be", self.refused(
+            "add", "reviews", "target=P-1", "result=ok", "blockerCount=0", "findingsCount=0"))
+        self.run_tool("add", "changeLog", "author=review-agent", "origin=review-R-12",
+                      "summary=x")
+
+    def test_change_log_lists_default_to_empty(self):
+        self.run_tool("add", "changeLog", "author=developer", "origin=out-of-band",
+                      "summary=x", "phasesAffected=P-2")
+        entry = self.state()["changeLog"][0]
+        self.assertEqual((entry["docsTouched"], entry["phasesAffected"], entry["editsAffected"]),
+                         ([], ["P-2"], []))
+
+    def test_phase_names_are_permanent(self):
+        self.run_tool("add", "phases", "name=A")
+        self.assertIn("names are permanent", self.refused("set", "phases.P-1", "name=B"))
+        self.run_tool("set", "phases.P-1", "name=A", "notes=same name is fine")
+
     # --- invariants ---------------------------------------------------------------------------
 
     def test_status_moves_forward_only(self):
@@ -146,8 +178,8 @@ class StateToolTest(unittest.TestCase):
         self.assertIn("must be one of", self.refused("set", "phases.P-1", "status=accepted"))
 
     def test_history_is_append_only(self):
-        self.run_tool("add", "changeLog", "summary=x")
-        self.run_tool("add", "reviews", "target=P-1")
+        self.run_tool("add", "changeLog", "author=developer", "origin=developer-prompt", "summary=x")
+        self.run_tool("add", "reviews", "target=P-1", "result=clean", "blockerCount=0", "findingsCount=0")
         self.assertIn("append-only", self.refused("set", "changeLog.1", "summary=y"))
         self.assertIn("append-only", self.refused("set", "reviews.R-1", "result=clean"))
 
@@ -162,7 +194,7 @@ class StateToolTest(unittest.TestCase):
         self.run_tool("set", "phases.P-1", "branch=1234", "notes=true")
         phase = self.state()["phases"][0]
         self.assertEqual((phase["branch"], phase["notes"]), ("1234", "true"))
-        self.run_tool("add", "changeLog", "summary=2024")
+        self.run_tool("add", "changeLog", "author=developer", "origin=developer-prompt", "summary=2024")
         self.assertEqual(self.state()["changeLog"][0]["summary"], "2024")
 
     def test_null_is_null(self):
@@ -265,10 +297,12 @@ class StateToolTest(unittest.TestCase):
                          {"id": "P-1", "status": "done", "prUrls": []}]
         bad["progress"]["lastProcessedChangeLogId"] = True
         bad["stages"]["plan"]["status"] = "done"
+        bad["changeLog"] = [{"id": 1, "utc": "x", "author": "someone", "summary": "s"}]
         self.file.write_text(json.dumps(bad), encoding="utf-8")
         err = self.refused("check")
         for problem in ("duplicate ids", "bad status 'accepted'", "prUrls must be a list",
-                        "lastProcessedChangeLogId must be an integer", "stages.plan"):
+                        "lastProcessedChangeLogId must be an integer", "stages.plan",
+                        "1: missing origin", "1: author must be"):
             self.assertIn(problem, err)
 
     def test_invalid_json_file_fails_loudly(self):

@@ -382,8 +382,9 @@ configured.
 a status, and a reviewable identity, not just a change-log line. Append
 `{ "id": "E-<n>", "utc": ..., "summary": ..., "afterPhase": "<the phase it follows>",
 "status": "done", "branch": ..., "prUrls": [...], "notes": "" }`
-using the next unused `n`, and reference that id in the `editsAffected` field of any related
-`changeLog[]` entry.
+with `add edits "summary=..." afterPhase=P-<n>` — the tool allocates the `E-<n>` id, prints it,
+and fills the other defaults; never pass an `id`. Reference that printed id in the
+`editsAffected` field of any related `changeLog[]` entry.
 
 **Edits behave like phases throughout.** Status moves forward only; branching and the PR follow
 the same rule; the developer records testing against the **feature rows** the edit touched, not

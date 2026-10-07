@@ -11,6 +11,12 @@ Usage: python state.py [--file PATH] <command> ...
   drop phases.P-<n>           remove a pending phase (plan refresh only)
   check                       validate the file against the harness rules
 
+add fills id, utc and the schema defaults, and requires:
+  phases name | edits summary afterPhase | changeLog author origin summary |
+  reviews target result blockerCount findingsCount
+  author: developer, implement-agent, review-agent; origin: developer-prompt, reconcile,
+  out-of-band, review-R-<n>; result: clean, findings. A phase's name never changes.
+
 PATH is dotted; a list segment matches an element by id, e.g. phases.P-3 or changeLog.12.
 A value is text, except: null; the integer fields (progress marks, rerunCount, blockerCount,
 findingsCount); the true/false fields (sharedDataStore, sharedWithLegacy); the list fields
@@ -30,6 +36,7 @@ Examples:
   set phases.P-4 "status=in progress"
   set progress lastProcessedChangeLogId=12 lastProcessedReviewNumber=3
   add changeLog author=developer origin=out-of-band "summary=..." phasesAffected=P-2
+  add reviews target=P-3 result=findings blockerCount=1 findingsCount=4   (prints R-<n>)
 """
 import contextlib
 import io
@@ -48,6 +55,22 @@ BOOL_FIELDS = {"sharedDataStore", "sharedWithLegacy"}
 OBJECT_FIELDS = {"sizeReport"}
 APPEND_ONLY = {"changeLog", "reviews"}
 PREFIX = {"reviews": "R-", "edits": "E-", "phases": "P-"}
+# fields an entry must carry, beyond the id and defaults the script fills in
+REQUIRED = {
+    "phases": ("name",),
+    "edits": ("summary", "afterPhase"),
+    "changeLog": ("author", "origin", "summary"),
+    "reviews": ("target", "result", "blockerCount", "findingsCount"),
+}
+# field -> (test, what it must be), for fields with a fixed set of values
+ALLOWED = {
+    "author": (lambda v: v in ("developer", "implement-agent", "review-agent"),
+               "developer, implement-agent or review-agent"),
+    "origin": (lambda v: v in ("developer-prompt", "reconcile", "out-of-band")
+               or bool(re.fullmatch(r"review-R-\d+", str(v))),
+               "developer-prompt, reconcile, out-of-band or review-R-<n>"),
+    "result": (lambda v: v in ("clean", "findings"), "clean or findings"),
+}
 SKIP_DIRS = {".git", "node_modules", "bin", "obj", "target", "dist", "ModernizationHarness"}
 
 
@@ -175,6 +198,16 @@ def parse_fields(args):
     return {k: coerce(k, v) for k, v in fields.items()}
 
 
+def entry_problems(kind, entry):
+    """What is missing or out of range on one entry; shared by add and check."""
+    problems = [f"{entry.get('id', 'new entry')}: missing {k}" for k in REQUIRED.get(kind, ())
+                if entry.get(k) in (None, "")]
+    for k, (ok, kind_) in ALLOWED.items():
+        if k in entry and not ok(entry[k]):
+            problems.append(f"{entry.get('id', 'new entry')}: {k} must be {kind_}, got {entry[k]!r}")
+    return problems
+
+
 def check_status(kind, old, new):
     if kind == "stages":
         if new not in STAGE_STATUSES:
@@ -233,7 +266,12 @@ def cmd_add(state, args):
         if kind == "phases":
             entry["sizeReport"] = None
         check_status(kind, None, fields.get("status", "pending"))
+    if kind == "changeLog":
+        entry.update(docsTouched=[], phasesAffected=[], editsAffected=[])
     entry.update(fields)
+    problems = entry_problems(kind, entry)
+    if problems:
+        die("\n".join(problems))
     items.append(entry)
     print(entry["id"])
     return True
@@ -251,6 +289,8 @@ def cmd_set(state, args):
         die(f"{path} is not an object")
     if "id" in fields:
         die("ids are permanent")
+    if top == "phases" and "name" in fields and fields["name"] != target.get("name"):
+        die("phase names are permanent; a different phase is a new entry (drop a pending one)")
     if "status" in fields and top in ("phases", "edits", "stages"):
         check_status(top, target.get("status"), fields["status"])
     if top == "progress":
@@ -280,6 +320,8 @@ def cmd_check(state, _):
         ids = [str(e.get("id")) for e in state.get(kind, [])]
         if len(ids) != len(set(ids)):
             problems.append(f"{kind}: duplicate ids")
+        for e in state.get(kind, []):
+            problems += entry_problems(kind, e)
     for kind in ("phases", "edits"):
         for e in state.get(kind, []):
             if e.get("status") not in STATUS_ORDER:

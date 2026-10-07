@@ -219,8 +219,10 @@ judged stays exactly as it was.
 { "id": "R-<n>", "target": "P-3 | E-1 | whole-build", "utc": "<ISO-8601>",
   "result": "clean | findings", "blockerCount": <int>, "findingsCount": <int> }
 ```
-Use the next unused `R-<n>`; ids are never reused. That entry is the **only** thing you write to
-`state.json` besides the change-log entries below.
+Write it with the state tool — `add reviews target=<target> result=<clean|findings>
+blockerCount=<n> findingsCount=<n>` — which fills `id` and `utc` and **prints the `R-<n>` it
+allocated**; use that printed id below. Never pass an `id`. That entry is the **only** thing you
+write to `state.json` besides the change-log entries below.
 
 **On a re-review:** read the earlier review's findings and the `changeLog[]` entries that
 followed them, and **verify those specific fixes first**. Say which previous findings are now
@@ -230,13 +232,15 @@ was fixed is a claim awaiting your confirmation, never a verdict in itself.
 For **each Blocker/Major** finding, also append a `changeLog[]` entry — **complete, with every
 field the schema requires**:
 ```json
-{ "id": <max existing changeLog id + 1>, "utc": "<ISO-8601>", "author": "review-agent",
+{ "id": <int>, "utc": "<ISO-8601>", "author": "review-agent",
   "origin": "review-R-<n>", "summary": "<finding + fix direction>", "docsTouched": [],
   "phasesAffected": ["P-3"], "editsAffected": [] }
 ```
-Allocate `id` as one greater than the highest currently in `changeLog[]`. These entries are how
-the Implement stage picks the findings up on its next run — an entry missing `id` or `utc`
-breaks its high-water-mark reconciliation.
+Write each with `add changeLog author=review-agent origin=review-R-<n> "summary=<finding + fix
+direction>" phasesAffected=P-3` (`editsAffected=E-1` for an edit target), `<n>` being the review
+id printed above. The tool allocates `id`, stamps `utc`, defaults the three lists to `[]`, and
+refuses an entry missing `author`, `origin` or `summary`. These entries are how the Implement
+stage picks the findings up on its next run.
 
 ### 2. Write the review report
 A Markdown report named **`REVIEW_<Rid>_<AppName>_<target>.md`** (e.g.
