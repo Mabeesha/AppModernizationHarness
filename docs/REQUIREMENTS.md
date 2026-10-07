@@ -42,13 +42,17 @@ and anything that modifies the legacy source (read-only in every stage).
   carrying **per-stage obligations**. Adding a constraint must require **no edit to any stage file**.
 
 ### R2 — Load-bearing questions get decided, not guessed
-- **R2.1** Intake asks 25 questions; **6 block the pipeline** (current stack, target stack,
-  DB reuse, legacy coexistence, auth, cutover strategy), plus data migration when the target
-  gets a new schema.
+- **R2.1** Intake asks 25 numbered questions, split into parts so that **each part asks one
+  thing and takes one answer** (choices as tick boxes). Parts on **6 topics block the
+  pipeline** (current stack, target stack, DB reuse, legacy coexistence, auth, cutover
+  strategy), plus data migration when the target gets a new schema.
 - **R2.2** A blank non-load-bearing answer gets a **stated default**; a blank load-bearing
   answer is a **hard stop**.
 - **R2.3** Every answer the agent supplied on the developer's behalf must be reported back.
 - **R2.4** Inferred facts are marked `ASSUMPTION:`; unresolved ones `OPEN QUESTION:`.
+- **R2.5** Answers that contradict each other are raised as an `OPEN QUESTION:`, never
+  resolved by picking one — e.g. a side-by-side cutover on a shared database with no
+  concurrent legacy writer.
 
 ### R3 — Documents are produced in a fixed order
 

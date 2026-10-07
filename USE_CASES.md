@@ -679,9 +679,9 @@ rule exists to stop casual edits, not to freeze the pipeline.
 
 That's a **constraint**, and constraints are Stage 0's:
 
-1. Edit `INTAKE.md` Q19 with the full rule — metric and threshold, scope (whole codebase vs.
-   changed code), exclusions, enforcement (build fails / CI-only / advisory), and from which
-   phase it binds. A vague "good coverage" isn't enforceable and the agent will raise it as an
+1. Edit `INTAKE.md`: tick *Yes* in Q19c, then answer 19d–19h — metric and threshold, scope
+   (whole codebase vs. changed code), exclusions, enforcement (build fails / CI-only /
+   advisory), and from which phase it binds. A vague "good coverage" isn't enforceable and the agent will raise it as an
    open question rather than inventing a number.
 2. Rerun Stage 0 (Scenario 11).
 
@@ -706,7 +706,7 @@ There are **two different homes** for that, and picking the wrong one costs you 
 
 | The rule is… | It belongs in | How it gets there |
 |---|---|---|
-| A **repository convention** — branch naming, commit format | `PROJECT_CONTEXT §3` | Answer intake **Q16c**, rerun Stage 0. Stage 4 reads its Git Discipline defaults from there and honors yours instead. (PR target branch and required reviewers are recorded for **you**, not the agent — it targets the branch it branched from and never merges unasked) |
+| A **repository convention** — branch naming, commit format | `PROJECT_CONTEXT §3` | Answer intake **Q16g–j**, rerun Stage 0. Stage 4 reads its Git Discipline defaults from there and honors yours instead. (PR target branch and required reviewers are recorded for **you**, not the agent — it targets the branch it branched from and never merges unasked) |
 | **How the agent should work with you** — house practices, a domain glossary, an extra check before hand-off | **your `AGENTS.md`** | Edit it directly. It's yours, and it loads in every session |
 
 **The one rule about editing `AGENTS.md`: add, don't remove.** Append your project specifics
