@@ -40,6 +40,8 @@ FILE_HINT_ALIASES: dict[str, str] = {
     "business": "BUSINESS_REQUIREMENTS.md",
     "functional": "FUNCTIONAL_REQUIREMENTS.md",
     "technical": "TECHNICAL_REQUIREMENTS.md",
+    "hld": "HIGH_LEVEL_DESIGN.md",
+    "lld": "LOW_LEVEL_DESIGN.md",
 }
 
 # Generated at runtime by the pipeline, so they legitimately do not exist in the set.
@@ -361,10 +363,10 @@ def b5_orphans(ctx: Context) -> CheckResult:
     """Declared artifact sections that nothing ever references by number.
 
     Scoped to artifacts where section numbering is actually load-bearing — i.e.
-    those some file references by `§N` at least once. Requirements, design, and
-    plan documents are read whole rather than by section, so reporting every one
-    of their sections as an orphan is noise, not signal. In the harness that leaves
-    PROJECT_CONTEXT.md, where §-referencing *is* the mechanism.
+    those cited by `§N` for at least three distinct sections. Documents read whole
+    rather than by section would otherwise report every section as an orphan, which
+    is noise, not signal. In the harness that leaves PROJECT_CONTEXT.md, PLAN.md and
+    HIGH_LEVEL_DESIGN.md.
 
     Still the weakest check in the group — a section can legitimately exist as
     human reference with no machine reader — so MINOR and a prune candidate.

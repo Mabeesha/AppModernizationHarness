@@ -69,9 +69,9 @@ def m_b1(root: Path) -> bool:
 
 
 def m_b2(root: Path) -> bool:
-    return _sub(root / "README.md",
-                "`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`",
-                "`4_PHASE_IMPL_RENAMED.md`")
+    return _sub(root / "AGENTS_TEMPLATE.md",
+                "| `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` |",
+                "| `4_PHASE_IMPL_RENAMED.md` |")
 
 
 def m_b3(root: Path) -> bool:
@@ -176,9 +176,9 @@ def m_f2(root: Path) -> bool:
 
 
 def m_f3(root: Path) -> bool:
-    return _sub(root / "README.md",
-                "cp ModernizationHarness/AGENTS_TEMPLATE.md",
-                "cp ModernizationHarness/AGENTS_TEMPLATE_MISSING.md")
+    # The set has no fenced `ModernizationHarness/…` path of its own; add one to a missing file.
+    return _append(root / "AGENTS_TEMPLATE.md",
+                   "\n\n```bash\ncp ModernizationHarness/AGENTS_TEMPLATE_MISSING.md ./AGENTS.md\n```\n")
 
 
 CASES: list[Case] = [
@@ -264,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
     if failures:
         print(f"{failures} of {len(CASES)} cases did not pass.")
         return 1
-    print(f"All {len(CASES)} deterministic checks fire on an injected defect.")
+    print(f"All {len(CASES)} cases fire on an injected defect.")
     return 0
 
 

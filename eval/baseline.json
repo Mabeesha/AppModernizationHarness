@@ -7,8 +7,7 @@
     "Review these whenever the underlying files change substantially."
   ],
   "suppressed": {
-    "f4b0458edb": "B5 — PROJECT_CONTEXT.md §2 (Stacks) is read as prose by every stage ('target stack per PROJECT_CONTEXT.md') rather than cited as '§2'. Intentional: it is narrative context, not an obligation target.",
-    "77a350276a": "D3 — AGENTS_TEMPLATE.md is the invariants file. High imperative density is its entire purpose, so being a set-median outlier is by design, not emphasis inflation.",
-    "45a1851004": "D4 — README.md:57 is the ASCII pipeline diagram. It is deliberately not a code block and has no meaningful language tag."
+    "4420065946": "B5 — HIGH_LEVEL_DESIGN.md §0 (Revision History) is read by name, not cited as '§0': Stages 3–5 read the design docs' Revision History by name. Intentional.",
+    "34d2d71d22": "B5 — HIGH_LEVEL_DESIGN.md §10 (Requirement → Design Traceability) is checked as 'full traceability both directions' (Stage 2 DoD), not cited as '§10'. Intentional."
   }
 }

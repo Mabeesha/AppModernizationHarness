@@ -6,9 +6,10 @@ Tier 1 analyses the **documents**; Tier 2 measures what the documents actually
 catches structural defects; Tier 2 is slow, expensive, and is the only tier that
 produces evidence a change to an instruction set was an improvement.
 
-**Status:** Tier 1 is implemented — 19 deterministic checks, all validated by
-fault injection. 7 judge-backed checks are registered as stubs. Tier 2 is
-designed but not built. See §11.
+**Status:** Tier 1 is implemented — 19 deterministic checks. The 15 outside group A
+are each validated by fault injection; group A reports metrics, and A3's opt-in
+`--budget-warn` finding has no fault case. 7 judge-backed checks are registered as
+stubs. Tier 2 is designed but not built. See §11.
 
 ---
 
@@ -219,8 +220,10 @@ own declaration, with no second source of truth to keep in sync.
 
 **B5 requires section addressing to be an established convention** for an
 artifact — at least three distinct sections cited — before reporting orphans in
-it. Requirements and design documents are read whole, not by section; without
-that scope the check produced 15 findings on the harness, all noise. It remains the
+it. In the harness that is `PROJECT_CONTEXT.md`, `PLAN.md` and `HIGH_LEVEL_DESIGN.md`;
+the requirements documents and the LLD are cited by fewer than three distinct
+sections, so B5 skips them. Without that scope the check produced 15 findings on
+the harness, all noise. It remains the
 weakest check in the group and a prune candidate.
 
 ### 5.C Pipeline Coherence
@@ -571,7 +574,7 @@ error or unimplemented tier.
 ### 11.1 Fault injection
 
 `tests/fault_injection.py` copies a real instruction set, injects one specific
-defect per check, and asserts that check reports it. A check that silently never
+defect per case, and asserts the case's check reports it. A check that silently never
 fires is worse than no check — it reads as a clean bill of health.
 
 The harness distinguishes two failure modes so they are never confused:
@@ -579,8 +582,8 @@ The harness distinguishes two failure modes so they are never confused:
 and must be repaired) and **CHECK SILENT** (the edit applied but the check found
 nothing — a real defect in the check).
 
-All 14 deterministic cases pass. It also runs a control pass over the unmodified
-set, so a check that fires on everything is caught too.
+All 20 cases pass (D5 has six, one per rule). It also runs a control pass over the
+unmodified set, so a check that fires on everything is caught too.
 
 **It has already earned its keep.** The first run found two checks that could
 never have fired on real input:
@@ -594,13 +597,25 @@ never have fired on real input:
 Neither would have surfaced from a clean run on the harness; both looked like passing
 checks.
 
+A later run found a third: **B5 was silenced by `HLD §11`** — the hint table did
+not know the `HLD`/`LLD` abbreviations behind ~30 of the harness's section
+references, so each counted as a bare `§N` — and B5 treats a bare `§N` as citing
+that number in *every* artifact. The aliases were added; the two genuine but
+intentional orphans this exposed (`HIGH_LEVEL_DESIGN.md` §0 and §10, read by name)
+are baselined with reasons.
+
+**Known limit.** The remaining bare references (~70, numbers §1–§8) still shield
+those numbers across artifacts, so B5 cannot see an uncited §1–§8 in any of them.
+Scoping a bare `§N` to the referring file's own artifact would close this, but
+changes B5's behaviour and is an open design decision.
+
 ### 11.2 Running against the harness
 
-At commit `5e3a2c0`:
+With `--det-only`:
 
 | Set | Checks runnable | Blocker | Major | Minor |
 |---|---:|---:|---:|---:|
-| ModernizationHarness | **18 / 18** | 0 | 0 | 3 |
+| ModernizationHarness | **19 / 19** | 0 | 0 | 2 |
 
 **"Checks runnable" is itself a signal.** A set with no `state.json` schema, no
 numbered stage files and no artifact template fences skips B1/B3/B5/C1/C3/C5/E4 —
@@ -608,10 +623,9 @@ there is nothing for those checks to verify. Each skip states its reason in the
 report rather than silently scoring zero, so an absent feature is never mistaken
 for a clean one.
 
-The harness's three minors are all suppressed in `baseline.json` with reasons: a
-`PROJECT_CONTEXT` section read as prose rather than cited, `AGENTS.md`'s
-by-design imperative density, and the README's ASCII pipeline diagram in an
-untagged fence.
+The harness's two minors are both suppressed in `baseline.json` with reasons: two
+`HIGH_LEVEL_DESIGN.md` sections (§0 Revision History, §10 Traceability) that stages
+read by name rather than cite by number.
 
 ### 11.3 False positives fixed, not baselined
 
