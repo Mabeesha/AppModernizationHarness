@@ -132,6 +132,37 @@ def m_d4(root: Path) -> bool:
                    "\n\n```text\ngraph TD\n  A[Start] --> B[End]\n```\n")
 
 
+def m_d5(root: Path) -> bool:
+    # Drop 3b's heading -> two questions bundled under 3a.
+    return _sub(root / "0_INTAKE_TEMPLATE.md",
+                "### 3b. Is anything specifically off-limits to change?\n", "")
+
+
+def m_d5_dup(root: Path) -> bool:
+    return _sub(root / "0_INTAKE_TEMPLATE.md", "### 3b. Is anything", "### 3a. Is anything")
+
+
+def m_d5_default(root: Path) -> bool:
+    return _sub(root / "0_INTAKE_TEMPLATE.md", "*Default: nothing — full parity.*\n", "")
+
+
+def m_d5_label(root: Path) -> bool:
+    return _sub(root / "0_INTAKE_TEMPLATE.md",
+                "### 6d. Does the build environment have internet access?\n\n*Tick one:*\n\n",
+                "### 6d. Does the build environment have internet access?\n\n")
+
+
+def m_d5_fold(root: Path) -> bool:
+    # Drop the first `</details>` -> an unclosed fold.
+    return _sub(root / "0_INTAKE_TEMPLATE.md", "\n</details>\n", "\n")
+
+
+def m_d5_lists(root: Path) -> bool:
+    # A second, labelled list under 6d -> a second question bundled in.
+    return _sub(root / "0_INTAKE_TEMPLATE.md", "*Default: yes.*\n",
+                "*Default: yes.*\n\n*Tick one:*\n\n- [ ] Through a proxy\n- [ ] Direct\n")
+
+
 def m_e4(root: Path) -> bool:
     # Drop the `review` obligation key -> stage-5 becomes unbindable.
     return _sub(root / "0_PROJECT_CONTEXT_INSTRUCTIONS.md",
@@ -162,6 +193,12 @@ CASES: list[Case] = [
     Case("D1", "`in-progress` against the canonical `in progress`", m_d1),
     Case("D3", "modality density outlier", m_d3),
     Case("D4", "mermaid diagram in an untagged fence", m_d4),
+    Case("D5", "two intake questions bundled under one heading", m_d5),
+    Case("D5", "intake question id used twice", m_d5_dup),
+    Case("D5", "intake question loses its default", m_d5_default),
+    Case("D5", "second tick-box list bundled into one intake question", m_d5_lists),
+    Case("D5", "intake tick-box list loses its label", m_d5_label),
+    Case("D5", "unclosed `<details>` fold in the intake template", m_d5_fold),
     Case("E4", "obligation key removed, leaving a stage unbindable", m_e4),
     Case("F2", "TODO marker left in prose", m_f2),
     Case("F3", "worked example points at a missing file", m_f3),

@@ -1,6 +1,6 @@
 """Group D — Consistency & Drift.
 
-D1/D3/D4 are deterministic. D2 (near-duplicate rules that have *diverged*) is the
+D1/D3/D4/D5 are deterministic. D2 (near-duplicate rules that have *diverged*) is the
 most valuable check in the group and needs the judge harness — registered as a
 stub. Note D2 fires only on divergence, never on duplication: restatement across
 `AGENTS.md` and the stage files is deliberate in these sets, so a naive
@@ -231,6 +231,160 @@ def d4_format(ctx: Context) -> CheckResult:
                         subject=f"untagged-fence:{doc.repo_relative}:{fence.start_line}",
                     )
                 )
+    return res
+
+
+INTAKE_TEMPLATE = "0_INTAKE_TEMPLATE.md"
+INTAKE_QID_RE = re.compile(r"^(?P<qid>\d+[a-z]?)\.\s")
+# Any GFM task item: indented, quoted, bulleted with -/*/+ or numbered.
+TICK_RE = re.compile(r"^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\](?:\s|$)")
+
+
+def _details_lines(doc) -> tuple[set[int], list[tuple[int, str]]]:
+    """Line numbers inside `<details>…</details>` — folded guidance, never question content.
+
+    Only tags that start a line count, so prose mentioning `<details>` cannot open a
+    fold. Also returns problems: a fold opened inside another (the template never
+    nests them) or never closed — either hides the questions after it, up to the
+    next `<details>`.
+    """
+    out: set[int] = set()
+    problems: list[tuple[int, str]] = []
+    open_at = 0
+    for n, raw in enumerate(doc.lines, start=1):
+        if doc.is_fenced(n):
+            continue
+        low = raw.strip().lower()
+        opens, closes = low.startswith("<details"), "</details>" in low
+        if opens and open_at:
+            problems.append((open_at, f"`<details>` opened at line {open_at} is not closed before line {n}"))
+        if opens:
+            open_at = n
+        if open_at:
+            out.add(n)
+        if closes and (opens or low.startswith("</details>")):
+            open_at = 0
+    if open_at:
+        problems.append((open_at, f"`<details>` opened at line {open_at} is never closed"))
+    return out, problems
+
+
+@check("D5", "Intake template shape")
+def d5_intake_shape(ctx: Context) -> CheckResult:
+    """Every intake question asks one thing and takes one answer (R2.1).
+
+    Per `###` question in `0_INTAKE_TEMPLATE.md`: an id like `12` or `12a`, unique;
+    exactly one `**Answer:**` line; a `*Default…*` line or a LOAD-BEARING mark (R2.2 —
+    without one, a blank leaves Stage 0 nothing to apply); at most one tick-box list,
+    since two lists mean two questions bundled under one heading; and each list
+    labelled `*Tick …:*` so the reader knows whether one or several ticks are allowed.
+
+    `<details>` blocks are skipped: they hold guidance, not question content. Only
+    the harness template is checked — a project's filled `INTAKE.md` may append
+    questions with no default, which Stage 0 raises as `OPEN QUESTION:` instead.
+    """
+    res = CheckResult()
+    doc = ctx.iset.by_name(INTAKE_TEMPLATE)
+    if doc is None:
+        res.skipped = f"{INTAKE_TEMPLATE} not in the set"
+        return res
+
+    folded, fold_problems = _details_lines(doc)
+    for line, what in fold_problems:
+        res.findings.append(
+            Finding(
+                check="D5",
+                severity=Severity.MAJOR,
+                summary="Intake template: unclosed `<details>` fold",
+                detail=f"{what}. The questions after it, up to the next `<details>`, are treated "
+                       "as folded guidance and go unchecked. Close each fold with `</details>` "
+                       "on its own line.",
+                file=doc.repo_relative,
+                line=line,
+                subject=f"intake:details:{line}",
+                evidence=[doc.lines[line - 1]],
+            )
+        )
+
+    heads = [h for h in doc.headings if not h.in_fence and h.line not in folded]
+    questions = [h for h in heads if h.level == 3]
+    if not questions:
+        res.skipped = f"no ### questions in {INTAKE_TEMPLATE}"
+        return res
+
+    seen: dict[str, int] = {}
+
+    for h in questions:
+        label = h.text.split(".", 1)[0].strip()
+
+        def flag(kind: str, summary: str, detail: str) -> None:
+            res.findings.append(
+                Finding(
+                    check="D5",
+                    severity=Severity.MAJOR,
+                    summary=f"Intake Q{label}: {summary}",
+                    detail=detail,
+                    file=doc.repo_relative,
+                    line=h.line,
+                    subject=f"intake:{kind}:{label}",
+                    evidence=[f"### {h.text}"],
+                )
+            )
+
+        nxt = next((o.line for o in heads if o.line > h.line and o.level <= 3), len(doc.lines) + 1)
+        body = [doc.lines[n - 1] for n in range(h.line + 1, nxt)
+                if not doc.is_fenced(n) and n not in folded]
+
+        m = INTAKE_QID_RE.match(h.text.strip())
+        if not m:
+            flag("id", "heading has no `<n>.` or `<n><letter>.` id",
+                 "Stage 0 and every stage cite intake questions by id (Q12, Q12a); a heading "
+                 "without one cannot be cited or recorded in PROJECT_CONTEXT §5.")
+        else:
+            qid = m.group("qid")
+            if qid in seen:
+                flag("dup", "id is used twice",
+                     f"Also used at line {seen[qid]}. Ids must be unique so §5 has one row each.")
+            seen.setdefault(qid, h.line)
+
+        answers = sum(1 for ln in body if ln.lstrip().startswith("**Answer:**"))
+        if answers != 1:
+            flag("answer", f"has {answers} `**Answer:**` lines, not 1",
+                 "R2.1: each question takes exactly one answer. Zero leaves nowhere to write "
+                 "it; more than one means several questions are bundled under one heading — "
+                 "split them into lettered parts.")
+
+        if "LOAD-BEARING" not in h.text and not any(ln.lstrip().startswith("*Default") for ln in body):
+            flag("default", "has neither a default nor a LOAD-BEARING mark",
+                 "R2.2: a blank answer must either take a stated default or hard-stop. Add a "
+                 "`*Default: …*` line, or mark the heading ⚠️ LOAD-BEARING.")
+
+        # A list is a run of tick lines; blank lines don't end it, nor does an indented
+        # line directly continuing a wrapped item. Its label is the last non-blank line
+        # before it.
+        lists, labelled, in_list, prev, gap = 0, True, False, "", False
+        for ln in body:
+            if not ln.strip():
+                gap = True
+                continue
+            tick = bool(TICK_RE.match(ln))
+            if in_list and not tick and not gap and ln[:1] in (" ", "\t"):
+                continue
+            if tick and not in_list:
+                lists += 1
+                labelled = labelled and prev.lstrip().startswith("*Tick")
+            in_list, prev, gap = tick, ln, False
+        if lists > 1:
+            flag("lists", f"has {lists} tick-box lists",
+                 "Two lists under one heading are two questions bundled together (R2.1). "
+                 "Split them into lettered parts.")
+        if lists and not labelled:
+            flag("label", "tick-box list has no `*Tick …:*` label",
+                 "Without a label such as *Tick one:* or *Tick all that apply:*, the reader "
+                 "cannot tell whether one or several ticks are allowed.")
+
+    res.metrics.append(Metric(check="D5", name="intake_questions", value=len(questions),
+                              unit="questions", context={"file": doc.repo_relative}))
     return res
 
 
