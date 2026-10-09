@@ -6,7 +6,7 @@ Tier 1 analyses the **documents**; Tier 2 measures what the documents actually
 catches structural defects; Tier 2 is slow, expensive, and is the only tier that
 produces evidence a change to an instruction set was an improvement.
 
-**Status:** Tier 1 is implemented — 18 deterministic checks, all validated by
+**Status:** Tier 1 is implemented — 19 deterministic checks, all validated by
 fault injection. 7 judge-backed checks are registered as stubs. Tier 2 is
 designed but not built. See §11.
 
@@ -135,7 +135,7 @@ file content, and are re-extracted only when the hash changes.
 
 ## 5. Tier 1 — Static Analysis
 
-25 checks in six groups. Status is one of **built** (deterministic, shipping),
+26 checks in six groups. Status is one of **built** (deterministic, shipping),
 **stub** (registered, reports as not-implemented, needs Phase 3/4), or
 **experimental** (off unless `--include-experimental`).
 
@@ -251,10 +251,21 @@ table — precisely the case where a break is least likely.
 | **D2** | Near-duplicate rules, diverged | stub | One copy of a restated invariant grows a carve-out |
 | **D3** | Modality density | built | Imperative density far above the set median |
 | **D4** | Format conventions | built | Mermaid diagram in an untagged fence |
+| **D5** | Intake template shape | built | Two questions bundled under one `###` heading; a question with neither a default nor a LOAD-BEARING mark |
 
 Vocabularies live in `evalkit/vocab/` as plain text, one canonical term per
 line. A term is flagged when a literal differs but normalizes (case,
 hyphen/underscore/space) to a canonical entry.
+
+**D5 holds the intake template to R2.1–R2.2.** For each `###` question in
+`0_INTAKE_TEMPLATE.md`: a unique id (`12`, `12a`); exactly one `**Answer:**` line;
+a `*Default…*` line or a LOAD-BEARING mark; at most one tick-box list (two lists
+mean two bundled questions); and each list carrying a `*Tick …:*` label (e.g.
+*Tick one:*, *Tick all that apply:*). Text inside `<details>` blocks is guidance
+and is skipped; a fold that is nested or never closed is itself a finding,
+since it hides the questions after it, up to the next `<details>`. Findings are
+**major**, so they are reported but do not fail the run. It does not judge
+whether the question *text* asks two things — that needs the judge.
 
 **D2 fires only on divergence, never on duplication.** Restatement across
 `AGENTS.md` and the stage files is deliberate in these sets, so a naive
@@ -455,7 +466,7 @@ runs use direct calls for latency.
 - Token counts cached by content hash — unchanged files cost nothing.
 - Rule extraction will cache the same way; conflict verdicts by `(rule_a.id, rule_b.id)`.
 - **`--det-only` runs the entire deterministic surface with zero API calls.** This
-  is the CI default and covers 18 of the 25 checks.
+  is the CI default and covers 19 of the 26 checks.
 
 ---
 
@@ -508,7 +519,7 @@ eval/
     tokens.py             # TokenCounter: tiktoken (active) | anthropic (placeholder)
     checks/
       size.py             # A1-A4      references.py   # B1-B5
-      coherence.py        # C1-C5      consistency.py  # D1-D4
+      coherence.py        # C1-C5      consistency.py  # D1-D5
       conflicts.py        # E1-E4      hygiene.py      # F1-F3
     vocab/
       status_values.txt   # controlled status/enum terms (D1)
@@ -624,7 +635,7 @@ baselined is a check quietly disabled:
 |---|---|---|
 | **1** | Parser, findings/report plumbing, group B, C1/C3/C5, E4, F2/F3 | **done** |
 | **2** | Group A token counting (A1–A4), tiktoken backend | **done** |
-| **2b** | D1/D3/D4, fault-injection harness, baseline mechanism | **done** |
+| **2b** | D1/D3/D4/D5, fault-injection harness, baseline mechanism | **done** |
 | **3** | Rule extraction, judge harness, caching, batching | next |
 | **4** | E1/E2, D2, C2/C4, F1 — conflict detection, the original motivation | blocked on 3 |
 | **5** | Tier 2 deterministic metrics (§6.3) | blocked on fixture intake |

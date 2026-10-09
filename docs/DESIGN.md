@@ -191,7 +191,7 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
 | Requirement | Realized by |
 |---|---|
 | R1 stack-agnostic | DD-1 constraints + obligations; `context.currentStack` / `targetStack` |
-| R2 load-bearing questions | `0_INTAKE_TEMPLATE.md` defaults / hard-stops; Stage 0 Step 1 (incl. its cross-checks) |
+| R2 load-bearing questions | `0_INTAKE_TEMPLATE.md` defaults / hard-stops; Stage 0 Step 1 (incl. its cross-checks); eval check D5 holds the template's shape |
 | R3 document order | Stage files 0–5; `stages.<name>.status` |
 | R4 one gate + testing record | Plan §The Only Gate; `FEATURE_STATUS.md`; `AGENTS.md` §Recording What the Developer Tells You |
 | R5 rolling plan | Plan §Refreshing the Plan; Stage 4 Step 0c; `FEATURE_STATUS.md` |

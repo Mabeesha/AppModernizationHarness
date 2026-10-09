@@ -33,7 +33,7 @@ Verify:
 uv run run.py --list-checks
 ```
 
-You should see 25 checks: **18 `implemented`** (deterministic, shipping) and
+You should see 26 checks: **19 `implemented`** (deterministic, shipping) and
 **7 `stub`** (registered but awaiting the judge harness — C2, C4, D2, E1, E2,
 E3, F1). E3 is additionally marked experimental and stays out of any run unless
 `--include-experimental` is passed.
@@ -53,7 +53,7 @@ Output:
 
 ```
 ModernizationHarness  (5e3a2c0)
-  checks run : 18  skipped: 0
+  checks run : 19  skipped: 0
   findings   : 0 blocker, 0 major, 0 minor  (3 suppressed)
   tokens     : APPROXIMATE via tiktoken:cl100k_base
   report     : /path/to/eval/results/20260731-081530-ModernizationHarness/report.md
