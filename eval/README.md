@@ -54,7 +54,7 @@ Output:
 ```
 ModernizationHarness  (5e3a2c0)
   checks run : 19  skipped: 0
-  findings   : 0 blocker, 0 major, 0 minor  (3 suppressed)
+  findings   : 0 blocker, 0 major, 0 minor  (2 suppressed)
   tokens     : APPROXIMATE via tiktoken:cl100k_base
   report     : /path/to/eval/results/20260731-081530-ModernizationHarness/report.md
 ```
@@ -143,7 +143,7 @@ instance can never hide a new one from the same check.
 ```json
 {
   "suppressed": {
-    "f4b0458edb": "B5 — PROJECT_CONTEXT.md §2 (Stacks) is read as prose by every stage, not cited as '§2'. Intentional: narrative context, not an obligation target."
+    "34d2d71d22": "B5 — HIGH_LEVEL_DESIGN.md §10 (Traceability) is checked as 'full traceability both directions', not cited as '§10'. Intentional."
   }
 }
 ```

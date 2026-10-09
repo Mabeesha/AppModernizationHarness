@@ -20,6 +20,12 @@ every time — I should not have to ask for it.
 - Prefer a concrete example or a short analogy over an abstract description.
 - Lead with the plain-English answer. Put file paths, line references, and exact
   wording *after* it, as support — not as the explanation itself.
+- **Never refer to something by its ID or code alone** — check IDs (`B5`, `D3`),
+  requirement and design IDs (`R2.1`, `DD-18`), intake question numbers (`Q9`, `12a`),
+  constraint IDs (`C3`), commit hashes. Always say in plain words what it is, e.g.
+  "the check that finds document sections nobody cites (B5)", not "B5". The ID may
+  follow in brackets, so I can look it up. This matters most when you ask me to
+  decide something.
 - When something has several moving parts, walk them one at a time in order, and say
   why each one matters. Don't compress it into a dense paragraph.
 - It is fine to be long if that is what plain language costs. Don't trade clarity for
