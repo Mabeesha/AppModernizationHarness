@@ -365,8 +365,8 @@ def b5_orphans(ctx: Context) -> CheckResult:
     Scoped to artifacts where section numbering is actually load-bearing — i.e.
     those cited by `§N` for at least three distinct sections. Documents read whole
     rather than by section would otherwise report every section as an orphan, which
-    is noise, not signal. In the harness that leaves PROJECT_CONTEXT.md, PLAN.md and
-    HIGH_LEVEL_DESIGN.md.
+    is noise, not signal. In the harness that leaves PROJECT_CONTEXT.md, PLAN.md,
+    HIGH_LEVEL_DESIGN.md and LOW_LEVEL_DESIGN.md.
 
     Still the weakest check in the group — a section can legitimately exist as
     human reference with no machine reader — so MINOR and a prune candidate.

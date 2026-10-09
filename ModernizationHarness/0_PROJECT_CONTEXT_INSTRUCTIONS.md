@@ -88,7 +88,9 @@ each other. Raise each contradiction as an `OPEN QUESTION:` and list it in the h
 never resolve it by picking one side. In particular: if Q12a is **strangler fig** or **parallel
 run**, Q7 **reuses** the database, and Q9 says **No**, ask whether the target only reads (or
 writes to its own copy) while both are live — otherwise the two apps are concurrent writers and
-the legacy-coexistence constraint applies.
+the legacy-coexistence constraint applies. Likewise: Q5e ticks Swagger UI while Q5d is *none*
+(Swagger UI has nothing to show); Q5d is spec-first with no spec path; a Q10b account whose
+secret has no home in Q13f's delivery mechanism; a Q11g choice the Q11b login answer cannot provide (dev stub users with no seam).
 
 Record the fully-resolved questionnaire in `PROJECT_CONTEXT.md §5`, marking each answer's
 provenance (human-supplied / default applied / inferred).
@@ -151,17 +153,50 @@ target may have none of these; a DB-reuse migration will have the first):
   no data shape the legacy app cannot consume, for as long as rollback must stay possible;
   *Review* — any write the legacy app could not read back is a **Blocker**. Where no rollback is
   required (the default), state "fix forward" in §3 and raise no constraint.
-- **Integration contracts** — where an external system's contract is **fixed** (Q10), the
+- **Integration contracts** — where an external system's contract is **fixed** (Q10a), the
   target must conform exactly; record which integrations are frozen, which are negotiable,
-  and which are being retired.
+  and which are being retired. Where a **contract file** is supplied, name its path in the
+  statement: *Requirements* captures the contract from it as well as from the legacy code, and
+  *Review* checks the target's calls against it.
+- **Connection identities** (Q10b) — where the target makes or accepts any connection, raise
+  one constraint covering all of them, **the database included**, whether the developer filled
+  the table or you inferred it. Its statement lists each connection's authentication method
+  and account **name** — never a secret. Obligations should require: *Requirements* — inventory every
+  connection the legacy app makes and how it authenticates, flagging any not in the table;
+  *Design* — every account and connection setting is a configuration key in LLD §7, supplied
+  per the config & secrets delivery recorded in §3 (Q13f); *Implement* — authenticate only as
+  stated, with no fallback to a weaker method (e.g. no database password login where Kerberos
+  is stated) and no credential in source; *Review* — a connection that authenticates
+  differently from the statement, or code or configuration that uses more permission than the
+  table records (e.g. schema generation enabled where read/write is stated), is a
+  **Blocker**.
 - **Authentication / authorization** (Q11) — e.g. "Keep real AD-based auth" vs. "auth seam +
   dev stub, real IdP deferred." Capture the *authorization model* in portable terms (roles →
   groups/claims) regardless, plus where the legacy app defines it (source, database tables,
   directory groups, IdP claims) and whether it is reproduced exactly or may be consolidated.
+  Put the Q11f role → group/app role/claim table and the app registration's **names** in the
+  statement; where Q11f was deferred, say so and to which phase. Record how a developer signs
+  in as each role (Q11g) in §3, and have the *Plan* obligation require each phase's developer
+  test guide to take its sign-in from there — never a password in a document.
   Where Q11 names rules finer than a role — row-level or ownership checks, field-level hiding,
   approval limits — the obligations should require *Requirements* to inventory every such rule
   with its legacy location, and *Review* to treat a missing one as a **Blocker**: an
   authorization rule lost in migration is a security defect, not a gap.
+- **API description & hand-testing tools** (Q5d–e) — raise only where Q5d is not *none* or
+  Q5e ticks a tool. The statement names the approach (code-first with its library, or
+  spec-first with the spec's path) and each tool, with where it may run — where Swagger UI is
+  ticked with no environment stated, record `ASSUMPTION: non-production only`. Obligations
+  should require: *Design* — LLD §1 stays the authoritative contract, and any description or
+  collection must match it; any tool's path and the environments it is enabled in are
+  configuration keys in LLD §7;
+  *Plan* — stand the description and tools up in the backend scaffold phase, before the first
+  endpoint, and have every backend phase's developer test guide drive its endpoints through
+  the chosen tool; *Implement* — an endpoint is not done until it appears in the description
+  (where Q5d asks for one) with accurate request, response, and error shapes and the
+  authorization it requires, and in any collection or `.http` file chosen; those files carry no
+  secrets; *Review* — diff the description, or failing that the collection, against LLD §1 (an
+  endpoint in one and not the other is a finding); a tool reachable in an environment the
+  answer forbids is a **Blocker**.
 - **Dependency sources** (Q6c–d) — where dependencies may only come from an internal mirror or
   an approved list, or the build has no internet access, raise a constraint: *Design* — choose
   only libraries available from the permitted source; *Implement* — resolve dependencies only
@@ -323,8 +358,9 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
   the backend, with a dev-server proxy locally.*
 - Environments available, and whether a data store with representative data is reachable for
   local testing. If not, note it — phases that need one will block.
-- **How configuration and secrets reach the app** per environment (env vars, mounted config,
-  a secret store). Stage 2 designs to this and Stage 4 must not hard-code around it.
+- **How configuration and secrets reach the app** per environment (Q13f — env vars, mounted
+  config, a secret store), and where each kind of secret lives. Stage 2 designs to this and
+  Stage 4 must not hard-code around it.
 
 **Locations & repository conventions**
 
@@ -401,6 +437,9 @@ many times across a build — so **state each fact once and cross-reference; nev
   and where its definitions can be read, or an `OPEN QUESTION:` if they were not supplied.
 - **Target stack:** frontend, backend, runtime/versions, build tool, data layer, auth
   libraries, anything mandated. This is the authoritative statement of "what we build in".
+- **API description & hand-testing tools** (Q5d–e): none, code-first (library), or spec-first
+  (spec path), plus the tools chosen and where each may run. Name the constraint ID if one was
+  raised.
 - **Licensing / component constraints** (Q6a–b): paid legacy components needing replacement,
   and any license restrictions on the target.
 - **Dependency sources** (Q6c–d): public registries, an internal mirror (with its location), or an
@@ -437,7 +476,10 @@ many times across a build — so **state each fact once and cross-reference; nev
 - **Runtime topology:** same origin or separate origins, plus the local dev arrangement.
   **This is the pipeline's one statement of it** — the CORS / API-base-URL / cookie-vs-token
   obligations follow from it, and no later stage re-decides it.
-- **Config & secrets delivery:** how each environment supplies them.
+- **Config & secrets delivery** (Q13f): how each environment supplies them, and where each
+  kind of secret lives — never a secret value.
+- **Test sign-in** (Q11g): how a developer signs in as each role — dev stub users or named
+  test accounts (names only) — or an `OPEN QUESTION:` where neither exists.
 - **Environments & test data:** what exists, and whether a representative data store is
   reachable for local testing.
 - **Locations:** legacy source (read-only) / documents / target code repository — stated
@@ -496,17 +538,27 @@ A **provenance ledger** — one row per question part (`1`, `3a`, `3b`, …), te
   the owner it routes to.
 
 ## 8. Integrations & External Systems
-| System | Direction | Contract | Disposition |
-|--------|-----------|----------|-------------|
-| …      | in/out/both | **fixed** / negotiable | preserve / replace / retire |
+| System | Direction | Contract | Disposition | Contract file |
+|--------|-----------|----------|-------------|---------------|
+| …      | in/out/both | **fixed** / negotiable | preserve / replace / retire | path, or — |
+
+**Connection identities** (Q10b) — the database included; account names only, never secrets:
+
+| Connection | Direction | Auth method | Account | Permissions / notes | Provenance |
+|------------|-----------|-------------|---------|---------------------|------------|
+| …          | out / in  | …           | …       | …                   | human / `ASSUMPTION:` |
+
 - **What was known up front** (Q10) only. The Requirements stage inventories the rest in its
   Technical document and raises anything new as an `OPEN QUESTION:` — it does not write here.
   This file is owned by Stage 0; fold discoveries in by rerunning this stage. A **fixed**
   contract means the target conforms exactly — it is effectively a constraint.
 
 ## 9. Other Sources of Truth
-- Existing tests (and whether they pass), specs, runbooks, available SMEs (Q18a–c). The
-  Requirements stage should use these alongside the code, not just the code.
+- Existing tests (and whether they pass) (Q18a) and available SMEs (Q18c). The Requirements
+  stage should use these alongside the code, not just the code.
+- Supplied documents (Q18b) — one row each: kind (spec, runbook, manual, API description,
+  request collection, recorded traffic), path, what it covers, and trust (*authoritative* /
+  *hint*; blank means hint). A document never overrides the legacy code.
 - Whether the legacy app can be built and run for observation, and where (Q18d).
 - Whether the legacy source is complete — and any known gaps: missing modules, binary-only
   dependencies, configuration held outside the repository (Q18e).
@@ -550,7 +602,7 @@ empty. This stage writes the file directly — every later write goes through th
       "topology": "same-origin | separate-origins",
       "servedBy": "<which process serves the frontend bundle, or null when separate-origins>",
       "localDev": "<how the parts are run together locally — e.g. dev-server proxy>",
-      "configDelivery": "<how config/secrets reach the app per environment>"
+      "configDelivery": "<how config/secrets reach the app per environment (Q13f)>"
     },
     "locations": {
       "legacySource": "<path — read-only>",

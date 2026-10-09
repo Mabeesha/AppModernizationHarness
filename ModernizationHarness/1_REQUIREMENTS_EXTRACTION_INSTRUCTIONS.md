@@ -46,9 +46,14 @@ belongs, cross-reference by ID — never duplicate prose.
    CI/CD, and the answered questionnaire. Referenced throughout.
 2. **The legacy application** — path in the prompt. Your primary evidence.
 3. **Other sources of truth** (`PROJECT_CONTEXT §9`) — existing automated tests, written
-   specs, runbooks, or available SMEs. **Use them alongside the code.** Legacy tests are
-   often the best behavioral specification available: they encode intent the code alone
-   doesn't reveal. Note where a test contradicts the code, and whether the suite passes.
+   specs, runbooks, API descriptions, request collections, or available SMEs. **Use them
+   alongside the code.** Legacy tests are often the best behavioral specification available:
+   they encode intent the code alone doesn't reveal. Note where a test contradicts the code,
+   and whether the suite passes. A supplied document **never overrides the code**: where it
+   disagrees, raise an `OPEN QUESTION:` if §9 marks it *authoritative*, or note the
+   disagreement if it is a *hint*. Cite each one you use. **Never copy a password, token,
+   cookie, auth header, or environment value** out of a collection or recorded traffic into
+   any document — name it instead.
 4. **`state.json`** — read `context.constraints`; update `stages.requirements.status`.
 
 ---

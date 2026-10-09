@@ -8,6 +8,7 @@
   ],
   "suppressed": {
     "4420065946": "B5 — HIGH_LEVEL_DESIGN.md §0 (Revision History) is read by name, not cited as '§0': Stages 3–5 read the design docs' Revision History by name. Intentional.",
-    "34d2d71d22": "B5 — HIGH_LEVEL_DESIGN.md §10 (Requirement → Design Traceability) is checked as 'full traceability both directions' (Stage 2 DoD), not cited as '§10'. Intentional."
+    "34d2d71d22": "B5 — HIGH_LEVEL_DESIGN.md §10 (Requirement → Design Traceability) is checked as 'full traceability both directions' (Stage 2 DoD), not cited as '§10'. Intentional.",
+    "66742050f1": "B5 — LOW_LEVEL_DESIGN.md §0 (Revision History) is read by name, not cited as '§0', exactly like the HLD's §0 above. Surfaced once intake 5d / Stage 0 began citing LLD §1 and §7, which put the LLD in B5's scope. Intentional."
   }
 }

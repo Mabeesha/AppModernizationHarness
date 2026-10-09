@@ -400,7 +400,8 @@ Rules that hold the ledger together:
 
 ### Developer test guide
 - Numbered manual steps: how to start it, what to open/call, what to do, expected result.
-  Concrete: commands, URLs, example payloads, credential source (dev stub users, etc.).
+  Concrete: commands, URLs, example payloads, credential source — the test sign-in recorded in
+  `PROJECT_CONTEXT §3` (dev stub users or named test accounts; never a password).
 
 ### Exit criteria (mechanical — the agent gate)
 - [ ] Falsifiable checks only: build green; tests pass; quality gate passes (formatter/linter,

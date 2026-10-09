@@ -103,8 +103,44 @@ Language and version, framework, build tool.
 
 ### 5c. Target data access layer?  ⚠️ LOAD-BEARING
 
-How the backend reaches the data store — ORM, query library, driver, and how it authenticates
-to the database. *(User authentication is Q11 — don't repeat it here.)*
+How the backend reaches the data store — ORM, query library, driver. *(The account it uses to
+log in to the database is Q10b, and user login is Q11 — don't repeat either here.)*
+
+**Answer:**
+
+### 5d. How should the target's API be described?
+
+An API description is a file listing every endpoint — what it takes, what it returns, and its
+errors. The common format is OpenAPI (formerly called Swagger). Write *none* if the target has
+no backend API.
+
+*Tick one:*
+
+- [ ] None — no API description is required
+- [ ] Generated from the code (code-first) — name the library if you have one in mind
+- [ ] Written first, and the code must match it (spec-first) — give the spec's path
+
+*Default: none — the design's API contract (LLD §1) is the only description.*
+
+**Answer:**
+
+<details><summary>Why this matters</summary>
+
+Code-first adds a library that must be set up before the first endpoint. Spec-first makes the
+spec file a contract the build is checked against. Either way, the description must agree with
+the design's API contract. Swagger UI and Postman are tools for *trying* the API — that is 5e.
+
+</details>
+
+### 5e. Which tools should developers use to try the API by hand?
+
+*Tick all that apply:*
+
+- [ ] Swagger UI — needs an API description (5d); say where it may run (e.g. not in production)
+- [ ] A Postman (or Insomnia) collection, kept up to date with the API
+- [ ] `.http` / REST-client files in the repository
+
+*Default: none — each phase's developer test guide uses plain HTTP commands (e.g. `curl`).*
 
 **Answer:**
 
@@ -268,14 +304,15 @@ Stage 0 raises a side-by-side cutover on a reused database with *No* here as an
 
 ## D. Integrations
 
-### 10. External systems the target must keep working with.
+### 10a. External systems the target must keep working with.
 
 Queues, file drops/batch feeds, SMTP, third-party or internal APIs, mainframes, schedulers,
-reporting/BI tools. One row per system.
+reporting/BI tools. One row per system. **Contract file** is the path to the system's API
+description (OpenAPI/Swagger, WSDL), message schema, or sample payloads — blank if you have none.
 
-| System | Contract: fixed or negotiable? | Preserve, replace, or retire? |
-|--------|--------------------------------|-------------------------------|
-|        |                                |                               |
+| System | Contract: fixed or negotiable? | Preserve, replace, or retire? | Contract file |
+|--------|--------------------------------|-------------------------------|---------------|
+|        |                                |                               |               |
 
 *Default: discover during requirements extraction; every integration found is assumed
 preserved with a fixed contract.*
@@ -289,14 +326,40 @@ change by agreement.
 
 </details>
 
+### 10b. Which account does the app use for each connection, and who calls it?
+
+One row per connection, **including the database** and any system that calls the target. Name
+the account; **never write a password, key, or token here** — where secrets are kept is 13f.
+
+| Connection | Direction (out / in) | How it authenticates in the target | Account or identity name | Notes (permissions it needs, per-environment differences) |
+|------------|----------------------|------------------------------------|--------------------------|-----------------------------------------------------------|
+|            |                      |                                    |                          |                                                           |
+
+E.g. `Orders DB | out | Kerberos (integrated) | svc-orders | read/write on dbo; no DDL`.
+
+*Default: inferred from the legacy app's configuration and marked `ASSUMPTION:`. A connection
+the target makes with no account found is raised as an `OPEN QUESTION:`.*
+
+**Answer:**
+
+<details><summary>Why this matters</summary>
+
+Every environment has to be set up with these accounts, and they are rarely visible in code. An
+account given more permission than it needs — a database login that may alter tables, say — is
+a security finding. A developer's *own* access to a test database is a different question
+(14b).
+
+</details>
+
 ---
 
-## E. Auth
+## E. Sign-in and Permissions (Authentication and Authorization)
 
-> Q11a and Q11b are ⚠️ LOAD-BEARING **where the app is access-controlled**. 11c–11e have
-> defaults.
+> **Authentication** proves who the user is (11a–11b). **Authorization** decides what each user
+> may do (11c–11f). 11g is how a developer tests both.
 >
-> **Authentication** proves who the user is. **Authorization** decides what each user may do.
+> Q11a and Q11b are ⚠️ LOAD-BEARING **where the app is access-controlled**. 11c–11g have
+> defaults.
 
 ### 11a. How do users log in today?  ⚠️ LOAD-BEARING
 
@@ -357,6 +420,36 @@ These rules are scattered through legacy code and are the easiest behavior to lo
 authorization rule lost in migration is a security defect, not a gap.
 
 </details>
+
+### 11f. Which group, app role, or claim grants each role in the target?
+
+One row per legacy role. An *app role* or *claim* is a role or group name the identity provider
+puts in the user's sign-in token. Also name the app registration and tenant if you know them —
+**names and IDs only, never a client secret**.
+
+| Legacy role | Target group / app role / claim | Notes |
+|-------------|---------------------------------|-------|
+|             |                                 |       |
+
+*Default: where the real identity provider is built now (11b — with or without a seam), the
+mapping is raised as an `OPEN QUESTION:` until filled. Where it is deferred behind a seam, the
+mapping is deferred to the phase that connects it, and the dev stub uses the legacy role
+names.*
+
+**Answer:**
+
+### 11g. How does a developer sign in as each role to test?
+
+*Tick one:*
+
+- [ ] Dev stub users — one per role, local only
+- [ ] Named test accounts in the real identity provider — list the account names, never passwords
+- [ ] Not available — say why
+
+*Default: dev stub users where 11b uses a seam with a dev stub. Otherwise an `OPEN QUESTION:` —
+without a way to sign in as each role, permission behavior cannot be tested by hand.*
+
+**Answer:**
 
 ---
 
@@ -424,7 +517,8 @@ rest (e.g. "Kubernetes, on Azure AKS").*
 
 <details><summary>Why this matters</summary>
 
-Shapes configuration, secrets, health checks, and statelessness.
+Shapes configuration, secrets, health checks, and statelessness. *How* configuration and
+secrets reach the app is 13f.
 
 </details>
 
@@ -489,6 +583,17 @@ tokens.
 E.g. a dev-server proxy standing in for same-origin.
 
 *Default: a dev-server proxy locally.*
+
+**Answer:**
+
+### 13f. How do configuration and secrets reach the app in each environment?
+
+E.g. environment variables, mounted files, a vault or key store — name it. Say where each kind
+of secret lives: database credentials, identity-provider settings, certificates. **Never write
+the secret itself.**
+
+*Default: inferred from the deployment target (13a) and marked `ASSUMPTION:` — typically
+environment variables.*
 
 **Answer:**
 
@@ -655,11 +760,29 @@ Legacy tests are often the best behavioral specification available.
 
 </details>
 
-### 18b. Written specs or runbooks?
+### 18b. Written specs, API descriptions, or saved requests for the legacy app?
 
-*Default: none.*
+One row per item: written specs, runbooks, user manuals, API descriptions (OpenAPI/Swagger,
+WSDL), saved request collections (Postman, Insomnia, `.http` files), recorded traffic (HAR).
+Remove passwords and tokens from collections before pointing at them.
+
+| Kind | Path | What it covers | Trust: authoritative or hint |
+|------|------|----------------|------------------------------|
+|      |      |                |                              |
+
+*Default: none — requirements come from the code and its tests (18a).*
 
 **Answer:**
+
+<details><summary>Why this matters</summary>
+
+These show how the legacy app is meant to behave, and a request collection gives ready-made
+examples to check the target against. But they go stale, and the code is what actually runs —
+so **an item never overrides the code**. Where the two disagree, an *authoritative* item makes
+the disagreement an `OPEN QUESTION:` for you to settle; a *hint* only gets it noted. A blank
+trust means *hint*.
+
+</details>
 
 ### 18c. Subject-matter experts available?
 

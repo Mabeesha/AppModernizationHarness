@@ -79,12 +79,12 @@ container (see Q13b).
 
 ### 5b. Target backend?  ⚠️ LOAD-BEARING
 
-**Answer:** **Java 21**, built with **Maven**. Framework: TODO — Spring Boot? (Q27's springdoc
+**Answer:** **Java 21**, built with **Maven**. Framework: TODO — Spring Boot? (5d's springdoc
 answer presumes it.)
 
 All gates are Maven plugins bound to the build lifecycle so they fail `mvn verify`, not just a
 separate command: Spotless (format), JaCoCo (coverage, Q19). API documentation is
-**springdoc-openapi**, code-first — see Q27.
+**springdoc-openapi**, code-first — see 5d.
 
 ### 5c. Target data access layer?  ⚠️ LOAD-BEARING
 
@@ -95,9 +95,32 @@ separate command: Spotless (format), JaCoCo (coverage, Q19). API documentation i
   match the live schema exactly, never left to a naming strategy.
 - **Schema generation is off** — `ddl-auto` is `validate` locally and `none` in deployed
   environments; Hibernate may never create, alter, or drop anything.
-- **Existing Microsoft SQL Server**, reached over JDBC (`mssql-jdbc`) using **integrated
-  Kerberos authentication** (`authenticationScheme=JavaKerberos`). No SQL logins, and no
-  password ever in a connection string.
+- **Existing Microsoft SQL Server**, reached over JDBC (`mssql-jdbc`). How it logs in is 10b.
+
+### 5d. How should the target's API be described?
+
+*Tick one:*
+
+- [ ] None — no API description is required
+- [x] Generated from the code (code-first) — name the library if you have one in mind
+- [ ] Written first, and the code must match it (spec-first) — give the spec's path
+
+**Answer:** **OpenAPI 3**, generated from the backend by **springdoc-openapi**, served at
+`/v3/api-docs`. **Code-first, explicitly — not spec-first.** Spec-first would put generated
+clients or server stubs somewhere, and under Q26 a generated TypeScript client must live
+**entirely inside the frontend root** and be regenerated there. No shared codegen module, ever.
+
+### 5e. Which tools should developers use to try the API by hand?
+
+*Tick all that apply:*
+
+- [x] Swagger UI — needs an API description (5d); say where it may run (e.g. not in production)
+- [ ] A Postman (or Insomnia) collection, kept up to date with the API
+- [ ] `.http` / REST-client files in the repository
+
+**Answer:** **Swagger UI at `/swagger-ui`, non-production profiles only** — unreachable in the
+production profile. Every backend phase's developer test guide drives its endpoints through it;
+this is what makes backend-only early phases manually testable.
 
 ### 6a. Paid legacy components that need a replacement?
 
@@ -180,19 +203,31 @@ migration, transformation, or back-fill. *(8b–8f do not apply.)*
 
 ## D. Integrations
 
-### 10. External systems the target must keep working with.
+### 10a. External systems the target must keep working with.
 
-| System | Contract: fixed or negotiable? | Preserve, replace, or retire? |
-|--------|--------------------------------|-------------------------------|
-| TODO   |                                |                               |
+| System | Contract: fixed or negotiable? | Preserve, replace, or retire? | Contract file |
+|--------|--------------------------------|-------------------------------|---------------|
+| TODO   |                                |                               |               |
 
 **Answer:** TODO — one row per system (queues, file drops, SMTP, internal APIs, schedulers,
 reporting/BI). Write *none known* to have them discovered during requirements extraction and
 assumed preserved with a fixed contract.
 
+### 10b. Which account does the app use for each connection, and who calls it?
+
+| Connection | Direction (out / in) | How it authenticates in the target | Account or identity name | Notes (permissions it needs, per-environment differences) |
+|------------|----------------------|------------------------------------|--------------------------|-----------------------------------------------------------|
+| MS SQL Server (the app's database) | out | Kerberos, integrated (`authenticationScheme=JavaKerberos`) | TODO — the service account whose keytab the backend uses | read/write on the app's tables; no DDL (Q5c: schema generation is off) |
+| Microsoft Entra ID | out | token validation against the tenant's published signing keys | the app registration in 11f | no client secret |
+| TODO — any other system from 10a, or any system that calls the target | | | | |
+
+**Answer:** **No SQL logins, and no password ever in a connection string** — Kerberos is the
+only way the backend reaches the database, in every deployed environment. TODO — the service
+account per app; not inferable from code, and different for every app in the set.
+
 ---
 
-## E. Auth
+## E. Sign-in and Permissions (Authentication and Authorization)
 
 ### 11a. How do users log in today?  ⚠️ LOAD-BEARING
 
@@ -252,6 +287,27 @@ either provider.
 and where the legacy app enforces them (code, a permissions table, stored procedures). Write
 *none known* to have extraction inventory every permission check it finds.
 
+### 11f. Which group, app role, or claim grants each role in the target?
+
+| Legacy role | Target group / app role / claim | Notes |
+|-------------|---------------------------------|-------|
+| TODO        |                                 |       |
+
+**Answer:** TODO — the Entra app registration (name + client ID) and the app roles or security
+groups that map to each of this app's roles. Not inferable from code, and different for every
+app in the set.
+
+### 11g. How does a developer sign in as each role to test?
+
+*Tick one:*
+
+- [x] Dev stub users — one per role, local only
+- [ ] Named test accounts in the real identity provider — list the account names, never passwords
+- [ ] Not available — say why
+
+**Answer:** The dev stub's fixed test principals (11b), one per role, under the local-only
+profile. No Entra account is needed to test locally.
+
 ---
 
 ## F. Delivery, Cutover & Environments
@@ -295,12 +351,7 @@ how the plan slices phases.
 - [ ] Serverless
 - [ ] App server — name it
 
-**Answer:** Config & secrets delivery:
-
-- *Kerberos:* a **keytab / ticket cache supplied by the environment** as a mounted file, plus a
-  `krb5.conf` path — both configuration keys, never baked into an image.
-- *Entra:* tenant ID, client ID, audience, issuer as environment variables.
-- No secret is ever committed, defaulted in source, or printed in logs.
+**Answer:**
 
 ### 13b. How many deployable units ship?
 
@@ -358,6 +409,15 @@ how the plan slices phases.
 
 **Answer:** Angular dev-server **proxy** stands in for the ingress, forwarding `/api` to the
 backend. State both ports in HLD §9.
+
+### 13f. How do configuration and secrets reach the app in each environment?
+
+**Answer:**
+
+- *Kerberos:* a **keytab / ticket cache supplied by the environment** as a mounted file, plus a
+  `krb5.conf` path — both configuration keys, never baked into an image.
+- *Entra:* tenant ID, client ID, audience, issuer as environment variables.
+- No secret is ever committed, defaulted in source, or printed in logs.
 
 ### 14a. Which environments exist?
 
@@ -474,9 +534,15 @@ Swagger UI.
 **Answer:** TODO — legacy tests are often the best behavioral specification available; name
 them if they exist. Write *none* for code-only extraction.
 
-### 18b. Written specs or runbooks?
+### 18b. Written specs, API descriptions, or saved requests for the legacy app?
 
-**Answer:** TODO
+| Kind | Path | What it covers | Trust: authoritative or hint |
+|------|------|----------------|------------------------------|
+| TODO |      |                |                              |
+
+**Answer:** TODO — specs, runbooks, manuals, any API description or Postman collection of the
+legacy app. Remove passwords and tokens from collections first. Write *none* for code-only
+extraction.
 
 ### 18c. Subject-matter experts available?
 
@@ -718,41 +784,12 @@ Stage 0 must raise this as a constraint with these obligations:
   across the boundary.
 - *Review:* **any** cross-root import, symlink, or build-path reference is a **Blocker**.
 
-### 27. API documentation expectation?
-
-**Answer:** **Code-first OpenAPI 3**, generated from the backend by **springdoc-openapi**.
-
-- Document served at `/v3/api-docs`; **Swagger UI at `/swagger-ui`**, enabled in non-production
-  profiles only (path and gating are configuration keys in LLD §7).
-- **Code-first, explicitly — not spec-first.** Spec-first would put generated clients or server
-  stubs somewhere, and under Q26 a generated TypeScript client must live **entirely inside the
-  frontend root** and be regenerated there. No shared codegen module, ever.
-
-Stage 0 must raise this as a constraint with these obligations:
-
-- *Design:* LLD §1 remains the authoritative contract; the generated document must match it —
-  annotations carry summaries, request/response schemas, status codes, error shapes, and the
-  authorization required per endpoint.
-- *Plan:* springdoc stands up in the **backend scaffold phase, before the first endpoint**, and
-  every backend phase's developer test guide drives its endpoints **through Swagger UI**. This
-  is what makes backend-only early phases manually testable.
-- *Implement:* an endpoint is not done until it appears in the generated document with accurate
-  schemas; Swagger UI is unreachable in the production profile.
-- *Review:* generated document diffed against LLD §1 — an endpoint in one and not the other is a
-  finding.
-
-### 28. Which Entra app registration / service principal does this app use?  ⚠️ LOAD-BEARING
-
-**Answer:** TODO — app registration (name + client ID), the app roles or security groups that
-map to this app's roles, and the service account whose keytab the backend uses for Kerberos. Not
-inferable from code, and different for every app in the set.
-
 ---
 
 ## Appendix — constraints this intake is expected to produce
 
 A checklist for the Stage 0 hand-off, not an input to it. Most map to a documented archetype;
-rows 12–14 do not, which is why they are spelled out above with their obligations.
+rows 12 and 14 do not — row 12 is spelled out above with its obligations.
 
 | # | Constraint | Source |
 |---|---|---|
@@ -760,15 +797,15 @@ rows 12–14 do not, which is why they are spelled out above with their obligati
 | 2 | Reuse existing MS SQL schema verbatim; mapping validated against the live schema | Q7 (archetype) |
 | 3 | Legacy coexistence / concurrent writer | Q9 (archetype) — **only if Q9 says Yes** |
 | 4 | Cutover strategy and what it demands structurally | Q12a (archetype) |
-| 5 | Entra ID auth behind a seam, with a profile-gated dev stub | Q11b (archetype) |
-| 6 | Kerberos JDBC data access — no SQL-auth fallback, no credentials in source | Q5c + Q13a |
+| 5 | Entra ID auth behind a seam, with a profile-gated dev stub | Q11b + Q11f–g (archetype) |
+| 6 | Kerberos JDBC data access — no SQL-auth fallback, no credentials in source | Q10b + Q13f (archetype: connection identities) |
 | 7 | Backend coverage ≥ 95% line / 90% branch, changed code, build fails | Q19 (archetype) |
 | 8 | Frontend coverage ≥ 95% line / 90% branch, changed code, build fails | Q19 (archetype) |
 | 9 | Style/format gates fail the build (both sides) | Q19a–b (archetype) |
 | 10 | Design language / UI consistency across phases | Q23 (archetype — declare even with no sample) |
 | 11 | One constraint **per** reference-implementation row supplied | Q24 (archetype) |
 | 12 | **No shared files between frontend and backend roots** | Q26 — no archetype; obligations above |
-| 13 | **Code-first OpenAPI, Swagger UI non-prod only** | Q27 — no archetype; obligations above |
+| 13 | **Code-first OpenAPI, Swagger UI non-prod only** | Q5d–e (archetype) |
 | 14 | **Fixed source tree roots** (`<app>-modernized/frontend` and `/backend`) | Q16f — recorded in `context.repo.*`, not a constraint; verify Stage 0 set both non-`null` |
 | 15 | Rollback — no value the legacy app cannot read | Q12b (archetype) — **only if rollback is required** |
 | 16 | Dependencies resolved only from the internal mirror | Q6c–d (archetype) — **only if Q6c restricts package sources** |

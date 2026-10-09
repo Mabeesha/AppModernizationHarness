@@ -119,8 +119,14 @@ exactly which ones it answered for you**.
 intake for a set of apps sharing one stack, auth model and deployment shape. It shows how to
 pin the answers that are identical across the set, mark the per-app blanks, and append
 load-bearing questions of your own (the template invites this at its close) for rules that have
-no question — a no-shared-files boundary, an API-documentation standard. Copy it to
-`out/INTAKE.md` per app and edit only what's marked.
+no question — a no-shared-files boundary. Copy it to `out/INTAKE.md` per app and edit only
+what's marked.
+
+**One app, replaced in one go?** `ModernizationHarness/examples/INTAKE_EXAMPLE_BIG_BANG.md` is a
+worked intake for a big-bang replacement: Angular + Java/JPA, Entra sign-in with a local dev
+stub, authorization kept in the database, SQL-authenticated database access, Swagger,
+Dockerfiles and Helm charts for OpenShift that are written but never run, no CI/CD, and a
+coverage gate that binds only in a final coverage phase.
 
 **Worth doing too:** Q16a–c say where the legacy code, the docs, and the **target repo** live. Get
 it right and you never type a path again (see below).

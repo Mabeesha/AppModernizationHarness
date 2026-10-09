@@ -53,6 +53,14 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R2.5** Answers that contradict each other are raised as an `OPEN QUESTION:`, never
   resolved by picking one — e.g. a side-by-side cutover on a shared database with no
   concurrent legacy writer.
+- **R2.6** Intake gives each of these its own non-blocking part, so none has to be squeezed
+  into another answer: how the target's API is described and tried by hand (5d–5e); the
+  account each connection uses, **including the database** and inbound callers (10b); which
+  group or claim grants each role (11f); how a developer signs in as each role to test (11g);
+  how configuration and secrets reach the app (13f); and supplied specs, API descriptions, and
+  request collections for the legacy app (18b). Accounts are recorded **by name, never by
+  secret**, and a supplied document never overrides the legacy code — a disagreement is an
+  `OPEN QUESTION:` or a note, by the trust the developer gives it.
 
 ### R3 — Documents are produced in a fixed order
 

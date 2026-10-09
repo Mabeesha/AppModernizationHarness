@@ -220,9 +220,9 @@ own declaration, with no second source of truth to keep in sync.
 
 **B5 requires section addressing to be an established convention** for an
 artifact — at least three distinct sections cited — before reporting orphans in
-it. In the harness that is `PROJECT_CONTEXT.md`, `PLAN.md` and `HIGH_LEVEL_DESIGN.md`;
-the requirements documents and the LLD are cited by fewer than three distinct
-sections, so B5 skips them. Without that scope the check produced 15 findings on
+it. In the harness that is `PROJECT_CONTEXT.md`, `PLAN.md`, `HIGH_LEVEL_DESIGN.md` and
+`LOW_LEVEL_DESIGN.md`; the requirements documents are cited by fewer than three
+distinct sections, so B5 skips them. Without that scope the check produced 15 findings on
 the harness, all noise. It remains the
 weakest check in the group and a prune candidate.
 
