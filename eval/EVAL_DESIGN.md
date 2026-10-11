@@ -27,7 +27,7 @@ axes for regression comparison.
   coherence and observed behaviour, not whether a six-stage modernization
   pipeline is the correct approach.
 - Style, prose quality, or readability of the instructions.
-- Grading the legacy application in `sample_legacy_app/`.
+- Grading the legacy application in `samples/employee-search/legacy/`.
 
 **A stated non-goal: minimizing tokens.** Instruction sets tolerate — and often
 require — redundancy that prose does not. `AGENTS.md` restating invariants that
@@ -322,12 +322,12 @@ grades the result.
 
 ### 6.1 Fixture
 
-- **Legacy input:** [sample_legacy_app/](../sample_legacy_app/) — already in the
+- **Legacy input:** [samples/employee-search/legacy/](../samples/employee-search/legacy/) — already in the
   repo, already the app these sets were designed against.
 - **Intake:** a checked-in `eval/fixtures/INTAKE.md` with all six load-bearing
   questions answered so Stage 0 has no reason to hard-stop, plus a variant with
   deliberate blanks to test the hard-stop behaviour itself.
-- **Reference outputs:** [instruction_output/](../instruction_output/) holds three
+- **Reference outputs:** [samples/employee-search/reference-output/](../samples/employee-search/reference-output/) holds three
   requirements documents from a real run. These are a **reference, not a gold
   standard** — produced by an earlier set, never human-verified. Use them for
   diffing and drift detection, not as an answer key.
@@ -548,7 +548,7 @@ Setup once: `cd eval && uv sync`.
 uv run run.py --set ../ModernizationHarness --det-only
 
 # Token budgets, with the variable half measured against real outputs
-uv run run.py --set ../ModernizationHarness --checks A --docs ../instruction_output
+uv run run.py --set ../ModernizationHarness --checks A --docs ../samples/employee-search/reference-output
 
 # A single check or group
 uv run run.py --set ../ModernizationHarness --checks B1
@@ -667,9 +667,9 @@ baselined is a check quietly disabled:
    swap is one flag plus a three-line method body; it needs API credentials,
    which have not been confirmed in this environment.
 2. **Fixture intake answers.** Someone must author `eval/fixtures/INTAKE.md`
-   against `sample_legacy_app/`. This is a human judgement the eval cannot make,
+   against `samples/employee-search/legacy/`. This is a human judgement the eval cannot make,
    and Tier 2 is blocked on it.
-3. **Reference outputs.** Should `instruction_output/` be promoted to a verified
+3. **Reference outputs.** Should `samples/employee-search/reference-output/` be promoted to a verified
    answer key? That needs a human pass. Until then, diff-only.
 4. **Tier 2 budget ceiling.** Three runs × four stages, per revision compared, is a real
    spend. A per-run cap needs setting before Phase 6.

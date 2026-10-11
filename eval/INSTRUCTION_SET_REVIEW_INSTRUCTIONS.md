@@ -44,8 +44,8 @@ dropping it. A disagreement between the two is itself a finding — usually abou
 3. **The baseline** (optional) — `eval/review-baseline.md`. Findings previously accepted as
    deliberate. Still detect them; report them under **Suppressed**, not under Findings.
 4. **Generated-artifact samples** (optional) — a directory of real pipeline output
-   (`instruction_output/`, `modernized_app/out/`). Useful for resolving whether a referenced
-   artifact section actually exists in practice. **Never** treat their content as a rule
+   (e.g. `samples/employee-search/reference-output/`, or a target project's `out/`). Useful
+   for resolving whether a referenced artifact section actually exists in practice. **Never** treat their content as a rule
    source: they are outputs, not instructions.
 
 **Not inputs.** The legacy application, the modernized application, the eval's own Python, and
@@ -467,8 +467,8 @@ ModernizationHarness/. The latest Tier 1 report is at eval/results/<latest>/repo
 ```
 
 Optional additions to that prompt: a samples directory for artifact resolution ("generated
-samples are in instruction_output/"), a restriction to one group ("RF and CF only — skip
-redundancy"), or a named second set for comparison.
+samples are in samples/employee-search/reference-output/"), a restriction to one group ("RF and
+CF only — skip redundancy"), or a named second set for comparison.
 
 **Budget.** A full review of an eleven-file, ~60k-token set is one focused session. If you are
 running out of room, do **not** silently narrow the sweep: finish the RF group (cheapest,

@@ -6,6 +6,11 @@ every increment.
 **Five minutes to read. Then you're running.** For the reasoning behind any of it, see
 [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
 
+**Want a small app to try it on first?** [samples/employee-search/legacy/](samples/employee-search/legacy/)
+is a tiny WinForms + SQLite app, and [samples/employee-search/reference-output/](samples/employee-search/reference-output/)
+holds the requirements documents an earlier version of the harness produced from it (a
+reference, not a verified answer key).
+
 ---
 
 ## The whole thing, in one picture
