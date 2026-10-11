@@ -189,7 +189,7 @@ itself should stay. §2 explains why.
   measure an older instruction set, and that folder is a historical record that must not be
   rewritten.
 - **Quality:** A3 counts tokens, not quality. For options 1–3, run Stage 0 twice on the
-  small `sample_legacy_app/` (before and after the change), then compare the Stage 1 and
+  small `samples/employee-search/legacy/` (before and after the change), then compare the Stage 1 and
   Stage 2 outputs. A full Stage 0–4 build is not needed. `D:\career\projects\MT_POC_JAVA` has
   no harness outputs yet, so it would need a full run.
 - **Option 1, before applying:** after one Stage 0 run, list the §5 rows marked as defaults

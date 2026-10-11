@@ -69,7 +69,7 @@ Open the `report.md` path for the readable version.
 |---|---|
 | Check one set, everything deterministic | `uv run run.py --set ../ModernizationHarness --det-only` |
 | Just token budgets | `uv run run.py --set ../ModernizationHarness --checks A` |
-| Complete the stage-budget table | `uv run run.py --set ../ModernizationHarness --checks A --docs ../instruction_output` |
+| Complete the stage-budget table | `uv run run.py --set ../ModernizationHarness --checks A --docs ../samples/employee-search/reference-output` |
 | Run one group | `uv run run.py --set ../ModernizationHarness --checks B` |
 | Run specific checks | `uv run run.py --set ../ModernizationHarness --checks B1 B3 F2` |
 | See findings the baseline hides | `uv run run.py --set ../ModernizationHarness --det-only --baseline /dev/null` |
@@ -188,7 +188,7 @@ measurable) and **variable** (generated artifacts). Without `--docs` the variabl
 half reads `unmeasured` — deliberately not estimated.
 
 ```bash
-uv run run.py --set ../ModernizationHarness --checks A --docs ../instruction_output
+uv run run.py --set ../ModernizationHarness --checks A --docs ../samples/employee-search/reference-output
 ```
 
 A partially-measured stage renders as `15,765+` with the missing artifacts named

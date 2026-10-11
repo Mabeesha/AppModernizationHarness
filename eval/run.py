@@ -11,7 +11,7 @@ Examples
     uv run run.py --set ../ModernizationHarness --det-only
 
     # Token budgets, with the variable half measured against real outputs
-    uv run run.py --set ../ModernizationHarness --checks A --docs ../instruction_output
+    uv run run.py --set ../ModernizationHarness --checks A --docs ../samples/employee-search/reference-output
 
     # Single check
     uv run run.py --set ../ModernizationHarness --checks B1
@@ -97,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "Tier 2 (behavioural) is designed but not implemented — see EVAL_DESIGN.md §6 "
             "and §11 Phase 5/6. It is blocked on eval/fixtures/INTAKE.md, which needs a "
-            "human judgement call against sample_legacy_app/.",
+            "human judgement call against samples/employee-search/legacy/.",
             file=sys.stderr,
         )
         return 2
