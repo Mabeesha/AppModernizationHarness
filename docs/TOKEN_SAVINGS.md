@@ -1,9 +1,10 @@
 # Design Proposal — Token Savings in the Context File, state.json and AGENTS.md
 
-*Status: **proposed, not applied.** Nothing in the harness has changed. Options 1–3 and 5 are
-design changes and need a yes before any edit (see [AGENTS.md](../AGENTS.md) §Design changes).
-Written 2026-10-09 after a three-round review against the files; line references are as of
-that date and may have moved.*
+*Status: **options 1–4 applied** on 2026-10-09 (branch `token-savings-1-4`), with the
+developer's approval: option 1 as DD-19 / R2.7, option 2 as DD-20 / R1.3, option 3 in
+`AGENTS_TEMPLATE.md §Reading and Writing state.json`, option 4 in Stage 4's Git Discipline and
+Definition of Done. **Option 5 is still proposed, not applied.** The rest of this file is the
+proposal as written; line references are as of that date and have since moved.*
 
 ---
 

@@ -467,17 +467,17 @@ change-log entry tells downstream runs the ground moved.
 
 ```
 rerun stage 0 — intake: ./out/INTAKE.md (updated).
-Existing ./out/PROJECT_CONTEXT.md and ./out/state.json. Re-derive the constraints and their
-obligations accordingly.
+Existing ./out/PROJECT_CONTEXT.md, ./out/INTAKE_RESOLVED.md and ./out/state.json.
+Re-derive the constraints and their obligations accordingly.
 ```
 
 **Why `INTAKE.md` and not `PROJECT_CONTEXT.md`?** The flow is one-way:
-**`INTAKE.md` → agent → `PROJECT_CONTEXT.md §5`.** Your answers live in the intake; §5 is a
-*record* of what the last run decided, including which answers the agent supplied for you.
-Editing §5 changes the record, not the input — and the next rerun would read your stale intake
-and undo it.
+**`INTAKE.md` → agent → `INTAKE_RESOLVED.md`.** Your answers live in the intake;
+`INTAKE_RESOLVED.md` is a *record* of what the last run decided, including which answers the
+agent supplied for you. Editing it changes the record, not the input — and the next rerun
+would read your stale intake and undo it.
 
-**Behind the scenes:** the agent re-reads the intake fresh, diffs the new answers against §5,
+**Behind the scenes:** the agent re-reads the intake fresh, diffs the new answers against `INTAKE_RESOLVED.md`,
 reports what actually changed, bumps `stages.context.rerunCount`, and — if later stages already
 ran — logs a change-log entry naming which documents are now stale so they get rerun or
 reconciled.
@@ -728,7 +728,7 @@ you asking a question at midnight:
 1. **The legacy source is read-only.** Never modified, moved, or deleted — even when it shares a
    repository with the target code. The new tree gets built beside it.
 2. **`INTAKE.md` and the `*_TEMPLATE.md` files are inputs, never written to.** Resolved answers
-   live in `PROJECT_CONTEXT §5`.
+   live in `INTAKE_RESOLVED.md`.
 3. **`changeLog[]` and `reviews[]` are append-only.** History is corrected by appending
    something that supersedes it, never by rewriting. And you never hand-edit `state.json` at all.
 4. **Status moves forward only** — `pending` → `in progress` → `done`, and `done` is terminal.

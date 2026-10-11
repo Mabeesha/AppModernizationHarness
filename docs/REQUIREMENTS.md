@@ -40,6 +40,8 @@ and anything that modifies the legacy source (read-only in every stage).
   are captured **once**, in Stage 0, and read by every later stage.
 - **R1.3** Project rules are expressed as **constraints with stable IDs** (`C1`, `C2`, …), each
   carrying **per-stage obligations**. Adding a constraint must require **no edit to any stage file**.
+  The obligations are stored **once**, in `PROJECT_CONTEXT.md §4`; no second copy is kept in
+  `state.json`.
 
 ### R2 — Load-bearing questions get decided, not guessed
 - **R2.1** Intake asks 25 numbered questions, split into parts so that **each part asks one
@@ -48,7 +50,8 @@ and anything that modifies the legacy source (read-only in every stage).
   strategy), plus data migration when the target gets a new schema.
 - **R2.2** A blank non-load-bearing answer gets a **stated default**; a blank load-bearing
   answer is a **hard stop**.
-- **R2.3** Every answer the agent supplied on the developer's behalf must be reported back.
+- **R2.3** Every answer the agent supplied on the developer's behalf must be reported back — in
+  the Stage 0 hand-off report, and recorded with its provenance in `INTAKE_RESOLVED.md`.
 - **R2.4** Inferred facts are marked `ASSUMPTION:`; unresolved ones `OPEN QUESTION:`.
 - **R2.5** Answers that contradict each other are raised as an `OPEN QUESTION:`, never
   resolved by picking one — e.g. a side-by-side cutover on a shared database with no
@@ -61,12 +64,16 @@ and anything that modifies the legacy source (read-only in every stage).
   request collections for the legacy app (18b). Accounts are recorded **by name, never by
   secret**, and a supplied document never overrides the legacy code — a disagreement is an
   `OPEN QUESTION:` or a note, by the trust the developer gives it.
+- **R2.7** The answer-by-answer record of the resolved intake is **Stage 0's alone** — no later
+  stage reads it. So every defaulted or inferred answer that shapes a later stage must also be
+  stated in `PROJECT_CONTEXT.md` itself: in the section that owns that fact, as a constraint, or
+  as an open question.
 
 ### R3 — Documents are produced in a fixed order
 
 | Stage | Produces |
 |---|---|
-| 0 Context | `PROJECT_CONTEXT.md`, `state.json` |
+| 0 Context | `PROJECT_CONTEXT.md`, `INTAKE_RESOLVED.md`, `state.json` |
 | 1 Requirements | Business / Functional / Technical requirements |
 | 2 Design | HLD + LLD (the LLD is the authoritative contract) |
 | 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]` |

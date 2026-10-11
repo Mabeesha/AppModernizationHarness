@@ -11,12 +11,14 @@ target technology is hardcoded. The specifics — what we are migrating *from*, 
 migrating *to*, how it ships, and which rules are non-negotiable — are captured **here**,
 once, and consumed by Stages 1–5.
 
-You produce **two artifacts**:
+You produce **three artifacts**:
 
 1. **`PROJECT_CONTEXT.md`** — the human-readable statement of the project: current stack,
-   target stack, CI/CD, the constraint set, and the answered intake questionnaire.
+   target stack, CI/CD, and the constraint set. Every later stage reads it.
 2. **`state.json`** — the machine-readable state file that every later stage reads and
    updates. You **initialize** it here (see §Output 2 — `state.json`).
+3. **`INTAKE_RESOLVED.md`** — the answered intake questionnaire with each answer's provenance.
+   It is **your own record**: no later stage reads it (see §Output 3 — `INTAKE_RESOLVED.md`).
 
 > **Golden rule: capture decisions, don't invent them.** Where the human has decided
 > (target stack, whether to reuse the database), record it. Where they haven't, use the
@@ -32,7 +34,7 @@ You produce **two artifacts**:
    in the prompt.
    It is the authoritative statement of what they decided.
    - **It is an input, never an output — never write to it.** Your resolved version, with
-     provenance, goes into `PROJECT_CONTEXT.md §5`.
+     provenance, goes into `INTAKE_RESOLVED.md`.
    - Answers may also arrive **in the prompt**, by question number. If the prompt and
      `INTAKE.md` disagree, the **prompt wins** — it is the more recent statement — but say so
      in your report, because their intake file is now stale and reruns will read it again.
@@ -48,8 +50,8 @@ You produce **two artifacts**:
    whether it authenticates against AD, detect the database). Inference here is allowed
    **only to propose a default the human can override** — mark every inferred answer
    `ASSUMPTION:`.
-3. **Any prior `PROJECT_CONTEXT.md` / `state.json`** — if this is a rerun (see §Rerunning
-   this Stage), load and amend them rather than starting over.
+3. **Any prior `PROJECT_CONTEXT.md` / `state.json` / `INTAKE_RESOLVED.md`** — if this is a
+   rerun (see §Rerunning this Stage), load and amend them rather than starting over.
 
 ---
 
@@ -92,8 +94,17 @@ the legacy-coexistence constraint applies. Likewise: Q5e ticks Swagger UI while 
 (Swagger UI has nothing to show); Q5d is spec-first with no spec path; a Q10b account whose
 secret has no home in Q13f's delivery mechanism; a Q11g choice the Q11b login answer cannot provide (dev stub users with no seam).
 
-Record the fully-resolved questionnaire in `PROJECT_CONTEXT.md §5`, marking each answer's
-provenance (human-supplied / default applied / inferred).
+Record the fully-resolved questionnaire in `INTAKE_RESOLVED.md` (§Output 3), marking each
+answer's provenance (human-supplied / default applied / inferred).
+
+**Carry forward what later stages need.** No later stage reads `INTAKE_RESOLVED.md`. So every
+answer you supplied by **default or inference** that shapes a later stage must **also** be
+stated in `PROJECT_CONTEXT.md`: in the section of it that owns that fact, as a constraint
+(`PROJECT_CONTEXT §4`), or as an `OPEN QUESTION:` (`PROJECT_CONTEXT §7`) — marked
+`ASSUMPTION:` where it is one. An
+answer recorded only in the ledger is invisible to every later stage. Before writing the files,
+walk the ledger's defaulted and inferred rows and confirm each has a home in
+`PROJECT_CONTEXT.md`, or genuinely shapes nothing downstream.
 
 **Surface what you defaulted.** In your hand-off report, list every question you answered by
 **default or inference** — question number, the value you used, and the constraint or stage it
@@ -309,9 +320,10 @@ target may have none of these; a DB-reuse migration will have the first):
   not violate.
 - **CI/CD boundary** — what the pipeline must do (see Step 3).
 
-Write the constraint set into `PROJECT_CONTEXT.md §4` **and** into `state.json`
-(`context.constraints`). Downstream stages refer to constraints **by ID** — so once set,
-IDs are stable; add new ones with new IDs rather than renumbering.
+Write the constraint set into `PROJECT_CONTEXT.md §4` — the **only** place it is stored.
+`state.json` holds no copy of the constraints or their obligations; a second copy would be read
+twice and could drift. Downstream stages refer to constraints **by ID** — so once set, IDs are
+stable; add new ones with new IDs rather than renumbering.
 
 ## Step 3 — Pin the Delivery Boundary
 
@@ -365,7 +377,7 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
 **Locations & repository conventions**
 
 - The **three locations**, stated separately even when they coincide: **legacy source**
-  (read-only everywhere), **documents** (context/requirements/design/plan/`state.json`), and
+  (read-only everywhere), **documents** (context/resolved intake/requirements/design/plan/`state.json`), and
   the **target code repository** (where Stage 4 branches, commits, and opens PRs). State
   explicitly if the target repo is the same one holding the legacy source — the agent must
   know whether it is adding a new tree beside a frozen legacy one.
@@ -397,8 +409,8 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
 
 ## Step 4 — Write the Artifacts
 
-Produce `PROJECT_CONTEXT.md` (template below) and initialize `state.json` (schema below)
-in the location given in the prompt (default: the output folder alongside the other
+Produce `PROJECT_CONTEXT.md` and `INTAKE_RESOLVED.md` (templates below) and initialize
+`state.json` (schema below) in the location given in the prompt (default: the output folder alongside the other
 stages' documents).
 
 ---
@@ -410,13 +422,13 @@ many times across a build — so **state each fact once and cross-reference; nev
 
 - **Say it once, in one home section.** A decision, quirk, or open question lives in exactly one
   place; everywhere else names it (e.g. "strict parity — see C3", "the weak seeded credential —
-  see §7"). Do not restate the same fact across §1, §5, §6, and an obligation.
+  see §7"). Do not restate the same fact across §1, §6, and an obligation.
 - **§4 obligations are the exception — keep them fully detailed.** They are the hot path every
   stage reads by ID, and their detail deliberately stops later stages re-deriving rules. Never
   thin them to save space. (An obligation states *what to do*; the matching §7 entry states
   *what's still undecided* — complementary, not duplicates.)
-- **§5 is a terse provenance ledger, not prose** — one line per answer plus its provenance,
-  pointing to where any fuller detail lives.
+- **§5 is a one-line pointer** to `INTAKE_RESOLVED.md`. The answer-by-answer ledger lives
+  there (§Output 3), not here — no later stage needs it, and every later stage loads this file.
 - **§1 is lean orientation**, not a synopsis of the whole file.
 - Prefer tables and one-line bullets to paragraphs — except the §3/§4 reasoning a later stage
   would otherwise re-derive, which you state once, there.
@@ -510,16 +522,8 @@ actionable downstream:
   live; every later stage reads them by ID rather than re-deriving them.
 
 ## 5. Intake Questionnaire (resolved)
-A **provenance ledger** — one row per question part (`1`, `3a`, `3b`, …), terse. Do **not** restate detail already in
-§1–§10; cross-reference it instead.
-
-| Q | Answer (one line) | Provenance |
-|---|-------------------|------------|
-| 1 | <the decision in a single line; where fuller, point to its home, e.g. "Reuse SQLite — see C1"> | human-supplied / `ASSUMPTION: (default applied)` / `ASSUMPTION:` (inferred) |
-
-- Note the `INTAKE.md` this was resolved from.
-- **This is a record, not an input.** To change an answer, the human edits `INTAKE.md` and
-  reruns this stage.
+Recorded in `INTAKE_RESOLVED.md` — Stage 0's own record; later stages do not read it. Every
+answer that shapes a later stage is stated in its home section of this file.
 
 ## 6. Non-Functional / Quality Requirements (initial)
 - Performance, scalability, availability, security posture, accessibility, i18n,
@@ -570,8 +574,9 @@ A **provenance ledger** — one row per question part (`1`, `3a`, `3b`, …), te
   both, and reports plainly when neither exists.
 ```
 
-*(Sections 8–10 are appended rather than inserted so that §4 Constraints and §5 Questionnaire
-keep their numbers — every other stage document references them by those numbers.)*
+*(Sections 8–10 are appended rather than inserted, and §5 stays as a pointer rather than being
+removed, so that every section keeps its number — every other stage document references them by
+those numbers.)*
 
 ---
 
@@ -619,10 +624,6 @@ empty. This stage writes the file directly — every later write goes through th
       { "area": "<deployment | auth | file-transfer | logging | api-envelope | integration | …>",
         "path": "<path>", "mode": "reference | literal",
         "governs": "<the intake row's scope, verbatim>", "constraint": "<C# — its §4 constraint>" }
-    ],
-    "constraints": [
-      { "id": "C1", "title": "", "statement": "", "source": "human | derived",
-        "obligations": { "requirements": "", "design": "", "plan": "", "implement": "", "review": "" } }
     ]
   },
   "stages": {
@@ -717,6 +718,9 @@ Field notes (the later stages depend on these; keep them exact):
 
   Without these, a run cannot tell new entries from ones it already applied.
 
+- **No `constraints` key.** The constraints and their per-stage obligations live only in
+  `PROJECT_CONTEXT.md §4`. Every stage reads them there, by ID.
+
 **Allocating ids:** `changeLog[].id` is `max(existing ids) + 1`, starting at `1`. `reviews[].id`
 is `R-<n>` and `edits[].id` is `E-<n>`, each using the next unused `n` for its own array. Ids
 are never reused, even if an entry is superseded.
@@ -729,6 +733,35 @@ lifecycle fields (`status`, `branch`, `prUrls`) are **updated in
 place**, exactly as a `phases[]` entry's are. An edit is a unit of shipped work, not a history
 record — see `AGENTS.md §Recording What the Developer Tells You`, which is normative for these
 writes.
+
+---
+
+## Output 3 — `INTAKE_RESOLVED.md`
+
+The resolved questionnaire. Write it beside `PROJECT_CONTEXT.md`, in the documents location. It
+is **Stage 0's own record**: no later stage reads it, which is why it is kept out of
+`PROJECT_CONTEXT.md`, the file every later stage loads. It has two jobs: it shows the human how
+each answer was reached, and it is the baseline a rerun diffs the new `INTAKE.md` against
+(§Rerunning this Stage).
+
+It is a **provenance ledger** — one row per question part (`1`, `3a`, `3b`, …), terse. Do
+**not** restate detail already in `PROJECT_CONTEXT.md`; point to it instead.
+
+```markdown
+# Intake Resolved: <AppName>
+
+Resolved from: `<path of the INTAKE.md this run read>`
+
+| Q | Answer (one line) | Provenance |
+|---|-------------------|------------|
+| 1 | <the decision in a single line; where fuller, point to its home, e.g. "Reuse SQLite — see C1"> | human-supplied / `ASSUMPTION: (default applied)` / `ASSUMPTION:` (inferred) |
+```
+
+- **This is a record, not an input.** To change an answer, the human edits `INTAKE.md` and
+  reruns this stage.
+- **It is never the only home of a fact a later stage needs.** Each defaulted or inferred row
+  that shapes a later stage points to where `PROJECT_CONTEXT.md` states it (Step 1 — *Carry
+  forward what later stages need*).
 
 ---
 
@@ -766,13 +799,19 @@ The normal way to revise intake is: the human **edits their `INTAKE.md`** and re
 stage. They may also rerun with **Additional Instructions** (see below) for changes that
 aren't questionnaire answers.
 
-On rerun: **re-read `INTAKE.md`** as the current answers (not §5 of the previous
-`PROJECT_CONTEXT.md`, which is a record of the *last* run), load the existing
-`PROJECT_CONTEXT.md` and `state.json`, apply the changes, **increment
+On rerun: **re-read `INTAKE.md`** as the current answers (not the previous
+`INTAKE_RESOLVED.md`, which is a record of the *last* run), load the existing
+`PROJECT_CONTEXT.md`, `INTAKE_RESOLVED.md` and `state.json`, apply the changes, **increment
 `stages.context.rerunCount`**, and — if a constraint changed after later stages ran — **add a
 `changeLog` entry** describing the change and which downstream docs it invalidates, so the
-affected stages get rerun. Diff the new answers against §5 of the previous run and report what
-actually changed.
+affected stages get rerun. Diff the new answers against the previous `INTAKE_RESOLVED.md`,
+report what actually changed, then rewrite it for this run.
+
+**A previous run in the older format** — the ledger in `PROJECT_CONTEXT.md §5` with no
+`INTAKE_RESOLVED.md`, or a `constraints` array inside `state.json`'s `context` — is brought up to date
+on this rerun: diff against the old §5, move the ledger to `INTAKE_RESOLVED.md` and leave §5 as
+the pointer, and remove that `constraints` array once §4 holds every constraint
+in full. Say in the report that you did.
 
 ---
 
@@ -805,8 +844,8 @@ actually changed.
 - [ ] The authorization model is recorded with where the legacy app defines it, and any rule
   finer than a role is carried in the auth constraint's obligations.
 - [ ] Decision owners and phase sign-off (Q25) are recorded in §7.
-- [ ] The constraint set is written with stable IDs, in both `PROJECT_CONTEXT.md` and
-  `state.json`.
+- [ ] The constraint set is written with stable IDs in `PROJECT_CONTEXT.md §4`, and only
+  there — `state.json` has no `constraints` key.
 - [ ] `state.json` is initialized per schema, with `phases`, `edits`, `changeLog` and `reviews`
   empty, and the state tool's `check` reports `ok`.
 - [ ] Defaults and inferences are marked `ASSUMPTION:`; unresolved non-blockers are
@@ -814,10 +853,14 @@ actually changed.
 - [ ] Every defaulted/inferred answer is listed explicitly in the hand-off report for the
   human to confirm or override — not left to be discovered in the document.
 - [ ] Neither `INTAKE.md` nor `0_INTAKE_TEMPLATE.md` was written to — the intake is an input.
-  §5 of `PROJECT_CONTEXT.md` holds the resolved answers with their provenance.
-- [ ] The document states each fact once: §5 is a terse provenance ledger, each recurring
-  quirk/open question lives once (in §7 or its §4 obligation) and is cross-referenced elsewhere,
-  and §1 is lean — while §4 obligations stay fully detailed.
+  `INTAKE_RESOLVED.md` holds the resolved answers with their provenance, and
+  `PROJECT_CONTEXT.md §5` is a pointer to it.
+- [ ] Every defaulted or inferred answer that shapes a later stage is also stated in
+  `PROJECT_CONTEXT.md` — in its home section, as a constraint, or as an open question — not only
+  in `INTAKE_RESOLVED.md`.
+- [ ] The document states each fact once: `INTAKE_RESOLVED.md` is a terse provenance ledger,
+  each recurring quirk/open question lives once (in §7 or its §4 obligation) and is
+  cross-referenced elsewhere, and §1 is lean — while §4 obligations stay fully detailed.
 
 ---
 

@@ -12,7 +12,6 @@ predicate (that is D2's job). For the harness this lands in the low hundreds.
 
 from __future__ import annotations
 
-import json
 import re
 
 from ..model import CheckResult, Finding, Severity
@@ -35,27 +34,39 @@ PROSE_OBLIGATION_RE = re.compile(
 )
 
 
-def _schema_obligation_keys(ctx: Context) -> tuple[set[str], str | None]:
+# The `## 4. Constraints` heading inside the PROJECT_CONTEXT template fence.
+TEMPLATE_CONSTRAINTS_RE = re.compile(r"^##\s+4\.\s+Constraints\b")
+TEMPLATE_SECTION_RE = re.compile(r"^##\s")
+
+
+def _template_obligation_keys(ctx: Context) -> tuple[set[str], str | None]:
+    """The obligation keys offered by the PROJECT_CONTEXT §4 template.
+
+    Obligations are stored only in PROJECT_CONTEXT §4 (DD-20), so the template's
+    `*Requirements:*`-style bullets are the vocabulary Stage 0 writes and every
+    stage reads back.
+    """
     for doc in ctx.iset.documents:
         for fence in doc.fences:
-            if fence.lang != "json":
-                continue
-            try:
-                data = json.loads(fence.content)
-            except json.JSONDecodeError:
-                continue
-            constraints = (data.get("context") or {}).get("constraints")
-            if isinstance(constraints, list) and constraints:
-                obligations = constraints[0].get("obligations")
-                if isinstance(obligations, dict):
-                    return set(obligations), doc.repo_relative
+            keys: set[str] = set()
+            inside = False
+            for line in fence.content.splitlines():
+                if TEMPLATE_CONSTRAINTS_RE.match(line):
+                    inside = True
+                    continue
+                if inside and TEMPLATE_SECTION_RE.match(line):
+                    break
+                if inside:
+                    keys.update(m.group("key").lower() for m in PROSE_OBLIGATION_RE.finditer(line))
+            if keys:
+                return keys, doc.repo_relative
     return set(), None
 
 
 @check("E4", "Obligation vocabulary closure")
 def e4_obligations(ctx: Context) -> CheckResult:
-    """The obligation keys in the state schema, the keys used in prose, and the
-    stages that exist must all agree.
+    """The obligation keys in the PROJECT_CONTEXT §4 template, the keys used in
+    prose, and the stages that exist must all agree.
 
     A key with no stage means an obligation nothing executes. A stage with no key
     means constraints can never bind that stage — which, in a design where the
@@ -63,9 +74,9 @@ def e4_obligations(ctx: Context) -> CheckResult:
     """
     res = CheckResult()
 
-    schema_keys, schema_file = _schema_obligation_keys(ctx)
+    schema_keys, schema_file = _template_obligation_keys(ctx)
     if not schema_keys:
-        res.skipped = "no constraint obligations object found in the state.json schema block"
+        res.skipped = "no obligation bullets found in a PROJECT_CONTEXT §4 Constraints template"
         return res
 
     prose_keys: dict[str, tuple[str, int]] = {}
@@ -76,7 +87,7 @@ def e4_obligations(ctx: Context) -> CheckResult:
 
     stages = set(ctx.iset.stage_documents())
 
-    # 1. Schema key with no stage file to execute it.
+    # 1. Template key with no stage file to execute it.
     for key in sorted(schema_keys):
         stage = OBLIGATION_STAGES.get(key)
         if stage is None:
@@ -108,17 +119,18 @@ def e4_obligations(ctx: Context) -> CheckResult:
                 )
             )
 
-    # 2. Prose key absent from the schema.
+    # 2. Prose key absent from the template.
     for key, (f, l) in sorted(prose_keys.items()):
         if key not in schema_keys:
             res.findings.append(
                 Finding(
                     check="E4",
                     severity=Severity.MAJOR,
-                    summary=f"Obligation `{key}` used in prose but absent from the state schema",
+                    summary=f"Obligation `{key}` used in prose but absent from the §4 template",
                     detail=(
-                        "Stage 0 writes obligations into state.json; a key it never persists "
-                        "cannot be read back by the stage it targets."
+                        "Stage 0 writes obligations from the PROJECT_CONTEXT §4 template; a key "
+                        "the template never offers is never written, so the stage it targets "
+                        "has nothing to read."
                     ),
                     file=f,
                     line=l,

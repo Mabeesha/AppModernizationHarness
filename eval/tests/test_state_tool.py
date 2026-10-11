@@ -26,7 +26,7 @@ INITIAL = {
     "updatedUtc": "2026-01-01T00:00:00Z",
     "context": {
         "locations": {"documents": "out", "sharedWithLegacy": False},
-        "constraints": [{"id": "C1", "title": "Reuse DB", "statement": "No schema changes"}],
+        "repo": {"layout": "single", "release": "together"},
     },
     "stages": {"plan": {"status": "pending", "rerunCount": 0}},
     "phases": [],
@@ -79,8 +79,8 @@ class StateToolTest(unittest.TestCase):
     # --- reading ------------------------------------------------------------------------------
 
     def test_get_returns_only_the_slice(self):
-        out = self.run_tool("get", "context.constraints.C1").stdout
-        self.assertEqual(json.loads(out), INITIAL["context"]["constraints"][0])
+        out = self.run_tool("get", "context.repo").stdout
+        self.assertEqual(json.loads(out), INITIAL["context"]["repo"])
 
     def test_get_unknown_path_is_refused(self):
         self.assertIn("no such path", self.refused("get", "context.nope"))

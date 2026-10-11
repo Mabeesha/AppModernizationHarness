@@ -29,7 +29,7 @@ listing reads as the running order:
 |---|---|---|
 | `AGENTS_TEMPLATE.md` | *always* | **Copy to your project root as `AGENTS.md`.** Not a stage — it loads in every session |
 | `0_INTAKE_TEMPLATE.md` | — | **Start here.** Copy to `INTAKE.md` in your project and fill it in |
-| `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | 0 | Resolves your intake → `PROJECT_CONTEXT.md` + `state.json` |
+| `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | 0 | Resolves your intake → `PROJECT_CONTEXT.md` + `INTAKE_RESOLVED.md` + `state.json` |
 | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | 1 | Legacy app → three requirements docs |
 | `2_DESIGN_INSTRUCTIONS.md` | 2 | Requirements → HLD + LLD |
 | `3_PLAN_INSTRUCTIONS.md` | 3 | Design → phased plan (**remaining work only**) + `state.json phases[]` |
@@ -169,7 +169,8 @@ Fill in the **Intake Questionnaire** — copy `0_INTAKE_TEMPLATE.md` to `INTAKE.
 project, answer what you know, and pass its path. The agent resolves your answers: applying
 stated **defaults** where you were silent, and **hard-stopping** on load-bearing blanks
 rather than guessing. It then derives the constraint set with obligations, pins the delivery
-and cutover boundary, writes `PROJECT_CONTEXT.md`, and initializes `state.json`.
+and cutover boundary, writes `PROJECT_CONTEXT.md` and `INTAKE_RESOLVED.md` (its record of how
+each answer was reached), and initializes `state.json`.
 
 **The six load-bearing questions** (these block the pipeline until answered): current stack,
 target stack, DB reuse vs. new schema, **legacy coexistence**, **cutover strategy**, and auth
@@ -186,15 +187,17 @@ can be safely defaulted.
 |---|---|---|
 | The **questions** (blank template) | `0_INTAKE_TEMPLATE.md` | only when changing the method for *all* projects |
 | **Your answers** | `INTAKE.md` — your copy, in your project | **you.** This is the input, and where you revise |
-| The **resolved record** | `PROJECT_CONTEXT.md §5`, written by the agent | nobody — it's a record, with provenance |
+| The **resolved record** | `INTAKE_RESOLVED.md`, written by the agent beside `PROJECT_CONTEXT.md` | nobody — it's a record, with provenance |
 
-The flow is one-way: **`INTAKE.md` → agent → `PROJECT_CONTEXT.md §5`**. Copy the template
+The flow is one-way: **`INTAKE.md` → agent → `INTAKE_RESOLVED.md`**. Copy the template
 once, fill in what you know, leave the rest blank. Each question is its own heading with one
 `Answer:` line; where the answer is a choice, tick a box by changing `- [ ]` to `- [x]`. The
 long explanations sit in folded *Why this matters* blocks — Ctrl+Shift+V in VS Code shows the
 file as a page where they stay closed until clicked. To change an answer later, **edit
-`INTAKE.md` and rerun Stage 0** — don't edit §5, which records what the *last* run decided
-(including which answers the agent supplied for you).
+`INTAKE.md` and rerun Stage 0** — don't edit `INTAKE_RESOLVED.md`, which records what the
+*last* run decided (including which answers the agent supplied for you). Only Stage 0 reads that
+record. Any answer the agent supplied that matters to a later stage is also written into
+`PROJECT_CONTEXT.md`, which is what the later stages read.
 
 ```bash
 cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md   # then tick boxes and fill in the Answer: lines
@@ -616,7 +619,8 @@ Then launch:
 *→ You get `PROJECT_CONTEXT.md` with constraints **C1** (DB reuse), **C2** (auth seam), **C3**
 (Java style) — each carrying its own per-stage obligations, e.g. C1 → *Requirements:* capture
 the schema verbatim; *Plan:* validate the mapping in the first data-store phase; *Implement:*
-run validate-only, fix mappings not the DB — plus an initialized `state.json`.*
+run validate-only, fix mappings not the DB — plus `INTAKE_RESOLVED.md` and an initialized
+`state.json`.*
 **Review these obligations carefully** — they are what every later stage actually executes, so
 a missing obligation is a rule that silently won't be enforced.*
 

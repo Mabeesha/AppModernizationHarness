@@ -42,8 +42,8 @@ belongs, cross-reference by ID — never duplicate prose.
 
 ## Inputs
 
-1. **`PROJECT_CONTEXT.md`** (Stage 0) — the authoritative source of stacks, constraints,
-   CI/CD, and the answered questionnaire. Referenced throughout.
+1. **`PROJECT_CONTEXT.md`** (Stage 0) — the authoritative source of stacks, constraints
+   (with their per-stage obligations, in §4), and CI/CD. Referenced throughout.
 2. **The legacy application** — path in the prompt. Your primary evidence.
 3. **Other sources of truth** (`PROJECT_CONTEXT §9`) — existing automated tests, written
    specs, runbooks, API descriptions, request collections, or available SMEs. **Use them
@@ -54,7 +54,7 @@ belongs, cross-reference by ID — never duplicate prose.
    disagreement if it is a *hint*. Cite each one you use. **Never copy a password, token,
    cookie, auth header, or environment value** out of a collection or recorded traffic into
    any document — name it instead.
-4. **`state.json`** — read `context.constraints`; update `stages.requirements.status`.
+4. **`state.json`** — read `context`; update `stages.requirements.status`.
 
 ---
 

@@ -19,7 +19,7 @@ of work, writes state, and stops.
 |---|---|---|
 | `AGENTS_TEMPLATE.md` | template → `AGENTS.md` | Invariants, authority ladder, and the protocol for recording what the developer tells you. Loads in **every** session |
 | `0_INTAKE_TEMPLATE.md` | template → `INTAKE.md` | The 25 numbered questions, split into single-answer parts (`12a`, `12b`, …; tick boxes where the answer is a choice), their defaults, and which parts are load-bearing — 6 topics, plus Q8 when the schema is new. API description and hand-testing tools, connection identities (database included), role mapping, test sign-in, config/secrets delivery, and supplied API descriptions/collections each have their own part (R2.6) |
-| `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | stage | Resolve intake → `PROJECT_CONTEXT.md` + initialize `state.json` |
+| `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | stage | Resolve intake → `PROJECT_CONTEXT.md` + `INTAKE_RESOLVED.md` (its own record, DD-19) + initialize `state.json` |
 | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | stage | Legacy code → business / functional / technical requirements |
 | `2_DESIGN_INSTRUCTIONS.md` | stage | Requirements → HLD + LLD |
 | `3_PLAN_INSTRUCTIONS.md` | stage | Design → phased plan + `phases[]` |
@@ -36,6 +36,7 @@ flowchart TD
     I[INTAKE.md<br/>25 questions, one answer per part] --> S0[0 · Project Context]
     S0 --> PC[PROJECT_CONTEXT.md<br/>constraints C1..Cn]
     S0 --> ST[(state.json)]
+    S0 --> IR[INTAKE_RESOLVED.md<br/>read by Stage 0 only]
     PC --> S1[1 · Requirements]
     L --> S1
     S1 --> REQ[BUSINESS / FUNCTIONAL /<br/>TECHNICAL requirements]
@@ -83,6 +84,8 @@ Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 | **DD-11** | **Review is a separate session, read-only on code, and never blocks** | An agent cannot audit its own work; read-only keeps the verdict honest. The gate it used to hold only ever fired for a developer who chose to run it, and its findings already survive through the change log — so it reports and advises instead (R8) |
 | **DD-12** | **Documents amended in place; git is the history** | No `_v2` filenames; Revision History rows plus commits give lineage |
 | **DD-18** | **`state.json` is read and written through `tools/state.py`, not by the agent directly** | `changeLog[]` and `reviews[]` only grow, so whole-file reads cost more every run; the tool returns the slice asked for (`summary`, `get`, `new`). It also turns the mechanical rules — forward-only status, append-only history, id allocation, numeric `R-<n>` comparison — from prompt text into refusals. Stdlib Python, one file; Stage 0 still writes the initial file by hand, and hand edits under the same rules remain the fallback (R7) |
+| **DD-19** | **The resolved intake lives in its own file, `INTAKE_RESOLVED.md`, which only Stage 0 reads** — `PROJECT_CONTEXT §5` is a one-line pointer to it | The answer-by-answer ledger (one row per intake part, ~2–3k tokens) is Stage 0's record and its rerun diff baseline; no later stage uses it, yet every later stage paid for it by opening the context file. The safeguard is a Stage 0 rule: any defaulted or inferred answer that shapes a later stage is also stated in `PROJECT_CONTEXT.md` (its home section, a constraint, or §7), so nothing a later stage needs is only in the ledger. §5 keeps its number so §6–§10 do not shift (R2.3, R2.7) |
+| **DD-20** | **Constraint obligations are stored only in `PROJECT_CONTEXT §4`; `state.json` holds no copy of the constraints** | A second copy in `context.constraints` was read by four stages on top of §4, and nothing checked the two stayed equal. DD-1 already makes §4 their home, and DD-2 keeps prose out of `state.json`. Keeping only ids or titles in state was rejected: no stage would read them, and they would be one more copy to drift (R1.3) |
 
 ## 5. Data model — `state.json`
 
@@ -95,12 +98,10 @@ erDiagram
     STATE ||--o{ EDIT : "edits[]"
     STATE ||--o{ CHANGELOG : "changeLog[] (append-only)"
     STATE ||--o{ REVIEW : "reviews[] (append-only)"
-    CONTEXT ||--o{ CONSTRAINT : "constraints[] C1..Cn"
     REVIEW }o--|| PHASE : targets
     REVIEW }o--|| EDIT : targets
     CHANGELOG }o--o{ PHASE : phasesAffected
 
-    CONSTRAINT { string id  string statement  string obligations_per_stage }
     PHASE   { string id  string status  string branch  string[] prUrls }
     EDIT    { string id  string status  string afterPhase  string[] prUrls }
     CHANGELOG { int id  string author  string origin  string summary }
@@ -108,7 +109,8 @@ erDiagram
     PROGRESS { int lastProcessedChangeLogId  int lastProcessedReviewNumber }
 ```
 
-`state.json` holds **machine facts only**. What a human has tested is not in it: that lives in
+`state.json` holds **machine facts only**. The constraints are not in it: they and their
+per-stage obligations live only in `PROJECT_CONTEXT §4` (DD-1, DD-20). What a human has tested is not in it: that lives in
 `FEATURE_STATUS.md`, keyed by requirement ID, because a later phase can change what an earlier
 one delivered (DD-13). A review has no status to set on its target (DD-11), so there is no
 `reviewStatus` anywhere and no `wholeBuild` record.
@@ -190,8 +192,8 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
 
 | Requirement | Realized by |
 |---|---|
-| R1 stack-agnostic | DD-1 constraints + obligations; `context.currentStack` / `targetStack` |
-| R2 load-bearing questions | `0_INTAKE_TEMPLATE.md` defaults / hard-stops; Stage 0 Step 1 (incl. its cross-checks); eval check D5 holds the template's shape |
+| R1 stack-agnostic | DD-1 constraints + obligations, stored once in `PROJECT_CONTEXT §4` (DD-20); `context.currentStack` / `targetStack` |
+| R2 load-bearing questions | `0_INTAKE_TEMPLATE.md` defaults / hard-stops; Stage 0 Step 1 (incl. its cross-checks); `INTAKE_RESOLVED.md` (DD-19); eval check D5 holds the template's shape |
 | R3 document order | Stage files 0–5; `stages.<name>.status` |
 | R4 one gate + testing record | Plan §The Only Gate; `FEATURE_STATUS.md`; `AGENTS.md` §Recording What the Developer Tells You |
 | R5 rolling plan | Plan §Refreshing the Plan; Stage 4 Step 0c; `FEATURE_STATUS.md` |

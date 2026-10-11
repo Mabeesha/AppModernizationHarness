@@ -16,7 +16,7 @@ than hard-stop; that is deliberate, and the only places this file delegates.
 
 The question text and per-question guidance live in `0_INTAKE_TEMPLATE.md`, which Stage 0 falls
 back to — this file carries the answers. The flow is one-way: INTAKE.md → Stage 0 →
-`PROJECT_CONTEXT.md §5`. Stage 0 never writes back here. To change an answer later, edit this
+`INTAKE_RESOLVED.md`. Stage 0 never writes back here. To change an answer later, edit this
 file and rerun Stage 0.
 -->
 
