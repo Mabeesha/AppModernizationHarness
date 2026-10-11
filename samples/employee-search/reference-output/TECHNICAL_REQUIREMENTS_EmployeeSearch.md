@@ -14,15 +14,15 @@
 
 | Aspect | Value | Source |
 |--------|-------|--------|
-| App type | Windows desktop, **WinForms** (`WinExe`, `UseWindowsForms`) | [EmployeeSearch.csproj:4-8](../EmployeeSearch.csproj#L4-L8) |
-| Framework | **.NET 8** (`net8.0-windows`), nullable + implicit usings enabled | [EmployeeSearch.csproj:5-7](../EmployeeSearch.csproj#L5-L7) |
-| Dependencies | `BCrypt.Net-Next` 4.0.3 (password hashing); `Microsoft.Data.Sqlite` 8.0.0 (data access) | [EmployeeSearch.csproj:11-14](../EmployeeSearch.csproj#L11-L14) |
-| Database | **SQLite** file `employeesearch.db` in the app base directory | [Database/DatabaseHelper.cs:9-10](../Database/DatabaseHelper.cs#L9-L10) |
-| Entry point | `Program.Main()` — `STAThread`; initializes DB, then loops Login → Search | [Program.cs:6-34](../Program.cs#L6-L34) |
-| Layers | UI (`Views/*Form`), model (`Models/Employee`), data access (`Database/DatabaseHelper` static). **UI calls the data layer directly**; no service/business layer, no DI. | [Views/](../Views), [Database/DatabaseHelper.cs](../Database/DatabaseHelper.cs) |
-| Architecture note | Data layer is a single **static** class opening a new connection per call; all SQL is inline. | [Database/DatabaseHelper.cs:7](../Database/DatabaseHelper.cs#L7) |
+| App type | Windows desktop, **WinForms** (`WinExe`, `UseWindowsForms`) | [EmployeeSearch.csproj:4-8](../legacy/EmployeeSearch.csproj#L4-L8) |
+| Framework | **.NET 8** (`net8.0-windows`), nullable + implicit usings enabled | [EmployeeSearch.csproj:5-7](../legacy/EmployeeSearch.csproj#L5-L7) |
+| Dependencies | `BCrypt.Net-Next` 4.0.3 (password hashing); `Microsoft.Data.Sqlite` 8.0.0 (data access) | [EmployeeSearch.csproj:11-14](../legacy/EmployeeSearch.csproj#L11-L14) |
+| Database | **SQLite** file `employeesearch.db` in the app base directory | [Database/DatabaseHelper.cs:9-10](../legacy/Database/DatabaseHelper.cs#L9-L10) |
+| Entry point | `Program.Main()` — `STAThread`; initializes DB, then loops Login → Search | [Program.cs:6-34](../legacy/Program.cs#L6-L34) |
+| Layers | UI (`Views/*Form`), model (`Models/Employee`), data access (`Database/DatabaseHelper` static). **UI calls the data layer directly**; no service/business layer, no DI. | [Views/](../legacy/Views), [Database/DatabaseHelper.cs](../legacy/Database/DatabaseHelper.cs) |
+| Architecture note | Data layer is a single **static** class opening a new connection per call; all SQL is inline. | [Database/DatabaseHelper.cs:7](../legacy/Database/DatabaseHelper.cs#L7) |
 
-**Top-level flow (`Program.Main`)** — [Program.cs:15-33](../Program.cs#L15-L33):
+**Top-level flow (`Program.Main`)** — [Program.cs:15-33](../legacy/Program.cs#L15-L33):
 `DatabaseHelper.Initialize()` (create tables + seed) → loop: show `LoginForm` (modal); if
 not OK, exit; else open `SearchForm(username)`; when it closes, re-loop only if the user
 logged out (else exit).
@@ -34,7 +34,7 @@ logged out (else exit).
 > **Critical (C1):** The modernized backend maps onto these tables as-is with
 > `ddl-auto=validate`. Today the schema is **created by the app** at startup via
 > `CREATE TABLE IF NOT EXISTS` — there is no external schema or migration tool.
-> Source: [Database/DatabaseHelper.cs:12-39](../Database/DatabaseHelper.cs#L12-L39).
+> Source: [Database/DatabaseHelper.cs:12-39](../legacy/Database/DatabaseHelper.cs#L12-L39).
 > `OPEN QUESTION:` For production, will the rebuild target this SQLite DB, or a different
 > relational engine into which this schema/data is loaded? SQLite specifics below affect
 > JPA mapping either way.
@@ -42,22 +42,22 @@ logged out (else exit).
 ### DM-1 — Table `Users` (enforces BR-1, ROLE-1, VR-10)
 | Column | Type (declared) | Null | Key / constraint | Source |
 |--------|-----------------|------|------------------|--------|
-| `Id` | INTEGER | no | PK, `AUTOINCREMENT` | [DatabaseHelper.cs:20](../Database/DatabaseHelper.cs#L20) |
-| `Username` | TEXT | no | **UNIQUE** | [DatabaseHelper.cs:21](../Database/DatabaseHelper.cs#L21) |
-| `PasswordHash` | TEXT | no | — (BCrypt hash string) | [DatabaseHelper.cs:22](../Database/DatabaseHelper.cs#L22) |
+| `Id` | INTEGER | no | PK, `AUTOINCREMENT` | [DatabaseHelper.cs:20](../legacy/Database/DatabaseHelper.cs#L20) |
+| `Username` | TEXT | no | **UNIQUE** | [DatabaseHelper.cs:21](../legacy/Database/DatabaseHelper.cs#L21) |
+| `PasswordHash` | TEXT | no | — (BCrypt hash string) | [DatabaseHelper.cs:22](../legacy/Database/DatabaseHelper.cs#L22) |
 
 ### DM-2 — Table `Employees` (enforces BR-2, BR-5, BR-6; feeds FR-3)
 | Column | Type (declared) | Null | Key / constraint | Notes | Source |
 |--------|-----------------|------|------------------|-------|--------|
-| `Id` | INTEGER | no | PK, `AUTOINCREMENT` | | [DatabaseHelper.cs:25](../Database/DatabaseHelper.cs#L25) |
-| `Name` | TEXT | no | | | [DatabaseHelper.cs:26](../Database/DatabaseHelper.cs#L26) |
-| `Department` | TEXT | no | | No DB-level enum; value set enforced only by the UI dropdown (VR-2). | [DatabaseHelper.cs:27](../Database/DatabaseHelper.cs#L27) |
-| `Role` | TEXT | no | | UI-enforced set (VR-3). | [DatabaseHelper.cs:28](../Database/DatabaseHelper.cs#L28) |
-| `Status` | TEXT | no | | UI-enforced set (VR-4). | [DatabaseHelper.cs:29](../Database/DatabaseHelper.cs#L29) |
-| `Email` | TEXT | yes | | | [DatabaseHelper.cs:30](../Database/DatabaseHelper.cs#L30) |
-| `Phone` | TEXT | yes | | | [DatabaseHelper.cs:31](../Database/DatabaseHelper.cs#L31) |
-| `HireDate` | TEXT | yes | | Stored as **text** (`YYYY-MM-DD` in seed data), **not** a DATE type. | [DatabaseHelper.cs:32](../Database/DatabaseHelper.cs#L32) |
-| `Salary` | REAL | yes | | Floating-point (read as `double`); displayed as currency (VR-9). | [DatabaseHelper.cs:33](../Database/DatabaseHelper.cs#L33) |
+| `Id` | INTEGER | no | PK, `AUTOINCREMENT` | | [DatabaseHelper.cs:25](../legacy/Database/DatabaseHelper.cs#L25) |
+| `Name` | TEXT | no | | | [DatabaseHelper.cs:26](../legacy/Database/DatabaseHelper.cs#L26) |
+| `Department` | TEXT | no | | No DB-level enum; value set enforced only by the UI dropdown (VR-2). | [DatabaseHelper.cs:27](../legacy/Database/DatabaseHelper.cs#L27) |
+| `Role` | TEXT | no | | UI-enforced set (VR-3). | [DatabaseHelper.cs:28](../legacy/Database/DatabaseHelper.cs#L28) |
+| `Status` | TEXT | no | | UI-enforced set (VR-4). | [DatabaseHelper.cs:29](../legacy/Database/DatabaseHelper.cs#L29) |
+| `Email` | TEXT | yes | | | [DatabaseHelper.cs:30](../legacy/Database/DatabaseHelper.cs#L30) |
+| `Phone` | TEXT | yes | | | [DatabaseHelper.cs:31](../legacy/Database/DatabaseHelper.cs#L31) |
+| `HireDate` | TEXT | yes | | Stored as **text** (`YYYY-MM-DD` in seed data), **not** a DATE type. | [DatabaseHelper.cs:32](../legacy/Database/DatabaseHelper.cs#L32) |
+| `Salary` | REAL | yes | | Floating-point (read as `double`); displayed as currency (VR-9). | [DatabaseHelper.cs:33](../legacy/Database/DatabaseHelper.cs#L33) |
 
 **Relationships:** None. `Users` and `Employees` are independent; **no foreign keys**. A
 `User` is not linked to an `Employee`.
@@ -77,9 +77,9 @@ logged out (else exit).
 ### DM-3 — Seed / reference data (created on first run only if the table is empty)
 - **Admin user** (`Users`): `Username = 'admin'`, `PasswordHash =` BCrypt hash of
   `'admin123'`. Seeded only if no `admin` row exists.
-  [DatabaseHelper.cs:41-53](../Database/DatabaseHelper.cs#L41-L53). **Security risk — see §4.**
+  [DatabaseHelper.cs:41-53](../legacy/Database/DatabaseHelper.cs#L41-L53). **Security risk — see §4.**
 - **15 employees** (`Employees`), seeded only if the table is empty
-  [DatabaseHelper.cs:62-96](../Database/DatabaseHelper.cs#L62-L96). Exact rows
+  [DatabaseHelper.cs:62-96](../legacy/Database/DatabaseHelper.cs#L62-L96). Exact rows
   (`Name, Department, Role, Status, Email, Phone, HireDate, Salary`):
 
   | Name | Dept | Role | Status | Email | Phone | HireDate | Salary |
@@ -109,18 +109,18 @@ logged out (else exit).
 
 Raw ADO.NET via `Microsoft.Data.Sqlite`; a fresh `SqliteConnection` opened per operation;
 inline parameterized SQL; no ORM, no stored procedures, no transactions, no caching.
-Static helper class [DatabaseHelper.cs](../Database/DatabaseHelper.cs).
+Static helper class [DatabaseHelper.cs](../legacy/Database/DatabaseHelper.cs).
 
 | ID | Operation | Intent | SQL (shape) | Source |
 |----|-----------|--------|-------------|--------|
-| DA-1 | `ValidateLogin` (supports FR-1) | Fetch the stored hash for a username, then BCrypt-verify the password in app code. | `SELECT PasswordHash FROM Users WHERE Username = @u` | [DatabaseHelper.cs:99-108](../Database/DatabaseHelper.cs#L99-L108) |
-| DA-2 | `SearchEmployees` (supports FR-3, VR-1) | Dynamic filtered search. Builds WHERE from active filters (name `LIKE`, dept/role/status `=`), joined by AND, `ORDER BY Name`. **All values passed as bound parameters** (no SQL injection). | `SELECT Id,Name,Department,Role,Status,Email,Phone,HireDate,Salary FROM Employees [WHERE ...] ORDER BY Name` | [DatabaseHelper.cs:110-163](../Database/DatabaseHelper.cs#L110-L163) |
-| DA-3 | `Initialize` / seeding | Create tables if absent; conditionally seed admin + employees. | `CREATE TABLE IF NOT EXISTS ...`; `SELECT COUNT(*)`; `INSERT` | [DatabaseHelper.cs:12-97](../Database/DatabaseHelper.cs#L12-L97) |
+| DA-1 | `ValidateLogin` (supports FR-1) | Fetch the stored hash for a username, then BCrypt-verify the password in app code. | `SELECT PasswordHash FROM Users WHERE Username = @u` | [DatabaseHelper.cs:99-108](../legacy/Database/DatabaseHelper.cs#L99-L108) |
+| DA-2 | `SearchEmployees` (supports FR-3, VR-1) | Dynamic filtered search. Builds WHERE from active filters (name `LIKE`, dept/role/status `=`), joined by AND, `ORDER BY Name`. **All values passed as bound parameters** (no SQL injection). | `SELECT Id,Name,Department,Role,Status,Email,Phone,HireDate,Salary FROM Employees [WHERE ...] ORDER BY Name` | [DatabaseHelper.cs:110-163](../legacy/Database/DatabaseHelper.cs#L110-L163) |
+| DA-3 | `Initialize` / seeding | Create tables if absent; conditionally seed admin + employees. | `CREATE TABLE IF NOT EXISTS ...`; `SELECT COUNT(*)`; `INSERT` | [DatabaseHelper.cs:12-97](../legacy/Database/DatabaseHelper.cs#L12-L97) |
 
 - **Concurrency:** none handled — single-user desktop; no locking/optimistic concurrency.
 - **Transactions:** none; each seed insert runs independently.
 - **Null handling on read:** Email/Phone/HireDate → `""` if NULL; Salary → `0` if NULL.
-  [DatabaseHelper.cs:156-159](../Database/DatabaseHelper.cs#L156-L159)
+  [DatabaseHelper.cs:156-159](../legacy/Database/DatabaseHelper.cs#L156-L159)
 
 ---
 
@@ -134,17 +134,17 @@ access exists* (a single undifferentiated access level — see ROLE-1).
 
 | ID | Mechanic | Detail | Source |
 |----|----------|--------|--------|
-| SEC-1 | Authentication | Username/password. `ValidateLogin` reads `PasswordHash` by username and calls `BCrypt.Verify`. Success returns the username string; no session/token/expiry (desktop, single process). | [DatabaseHelper.cs:99-108](../Database/DatabaseHelper.cs#L99-L108), [LoginForm.cs:50-60](../Views/LoginForm.cs#L50-L60) |
-| SEC-2 | Password storage | **BCrypt** via `BCrypt.Net-Next` 4.0.3. `BCrypt.HashPassword("admin123")` uses the library default work factor (`ASSUMPTION:` 11) and per-hash salt. Verified with `BCrypt.Verify`. | [DatabaseHelper.cs:48,107](../Database/DatabaseHelper.cs#L48) |
-| SEC-3 | Authorization | **None.** Any authenticated user can do everything (ROLE-1 / BR-4). No role, claim, or permission check exists anywhere. | [Views/SearchForm.cs](../Views/SearchForm.cs) |
-| SEC-4 | Session/identity | The signed-in username is passed to `SearchForm` and shown in the header; not persisted or re-verified. | [SearchForm.cs:9-18](../Views/SearchForm.cs#L9-L18) |
-| SEC-5 | Transport/secrets | No network calls; connection string is a local file path (no credentials/secrets). | [DatabaseHelper.cs:9-10](../Database/DatabaseHelper.cs#L9-L10) |
+| SEC-1 | Authentication | Username/password. `ValidateLogin` reads `PasswordHash` by username and calls `BCrypt.Verify`. Success returns the username string; no session/token/expiry (desktop, single process). | [DatabaseHelper.cs:99-108](../legacy/Database/DatabaseHelper.cs#L99-L108), [LoginForm.cs:50-60](../legacy/Views/LoginForm.cs#L50-L60) |
+| SEC-2 | Password storage | **BCrypt** via `BCrypt.Net-Next` 4.0.3. `BCrypt.HashPassword("admin123")` uses the library default work factor (`ASSUMPTION:` 11) and per-hash salt. Verified with `BCrypt.Verify`. | [DatabaseHelper.cs:48,107](../legacy/Database/DatabaseHelper.cs#L48) |
+| SEC-3 | Authorization | **None.** Any authenticated user can do everything (ROLE-1 / BR-4). No role, claim, or permission check exists anywhere. | [Views/SearchForm.cs](../legacy/Views/SearchForm.cs) |
+| SEC-4 | Session/identity | The signed-in username is passed to `SearchForm` and shown in the header; not persisted or re-verified. | [SearchForm.cs:9-18](../legacy/Views/SearchForm.cs#L9-L18) |
+| SEC-5 | Transport/secrets | No network calls; connection string is a local file path (no credentials/secrets). | [DatabaseHelper.cs:9-10](../legacy/Database/DatabaseHelper.cs#L9-L10) |
 
 ### Security Concerns / Risks
 - **RISK-1 (High):** Default credentials `admin / admin123` are seeded and **displayed on
   the login screen** (`lblHint`). Well-known credentials with no forced change.
-  [DatabaseHelper.cs:48](../Database/DatabaseHelper.cs#L48),
-  [LoginForm.Designer.cs:145](../Views/LoginForm.Designer.cs#L145)
+  [DatabaseHelper.cs:48](../legacy/Database/DatabaseHelper.cs#L48),
+  [LoginForm.Designer.cs:145](../legacy/Views/LoginForm.Designer.cs#L145)
 - **RISK-2 (Medium):** No account lockout, throttling, or audit logging of login attempts.
 - **RISK-3 (Medium):** No authorization tiers — salary and all PII are visible to every
   authenticated user (BR-3). Web rebuild should decide whether salary/PII is group-gated.
@@ -160,8 +160,8 @@ access exists* (a single undifferentiated access level — see ROLE-1).
 
 | ID | System | Direction | Detail | Source |
 |----|--------|-----------|--------|--------|
-| INT-1 | SQLite database file (`employeesearch.db`) | in/out | Local file in the app base dir; created/seeded on first run. | [DatabaseHelper.cs:9-10](../Database/DatabaseHelper.cs#L9-L10) |
-| INT-2 | Local file system (CSV export) | out | Writes a UTF-8 `.csv` at a user-chosen path via SaveFileDialog (RPT-1). | [SearchForm.cs:63-72](../Views/SearchForm.cs#L63-L72) |
+| INT-1 | SQLite database file (`employeesearch.db`) | in/out | Local file in the app base dir; created/seeded on first run. | [DatabaseHelper.cs:9-10](../legacy/Database/DatabaseHelper.cs#L9-L10) |
+| INT-2 | Local file system (CSV export) | out | Writes a UTF-8 `.csv` at a user-chosen path via SaveFileDialog (RPT-1). | [SearchForm.cs:63-72](../legacy/Views/SearchForm.cs#L63-L72) |
 
 No REST/SOAP/WCF services, message queues, email/SMTP, or third-party APIs.
 "No network integrations found."
@@ -172,7 +172,7 @@ No REST/SOAP/WCF services, message queues, email/SMTP, or third-party APIs.
 
 **None.** No timers, scheduled jobs, Windows Services, or message consumers. The only
 startup task is `DatabaseHelper.Initialize()` (schema creation + conditional seeding, DA-3).
-[Program.cs:15](../Program.cs#L15)
+[Program.cs:15](../legacy/Program.cs#L15)
 
 ---
 
@@ -180,13 +180,13 @@ startup task is `DatabaseHelper.Initialize()` (schema creation + conditional see
 
 | ID | Area | Observed behaviour | Source |
 |----|------|--------------------|--------|
-| NFR-1 | Concurrency | Single-user, single-process desktop; no multi-user/locking design. | [Program.cs](../Program.cs) |
-| NFR-2 | Performance | Full-table search with `LIKE %..%` and no paging/limits; fine for the 15-row POC, unbounded at scale. | [DatabaseHelper.cs:140-146](../Database/DatabaseHelper.cs#L140-L146) |
-| NFR-3 | Error handling | Login errors shown inline; empty-export shown as a dialog. **No try/catch** around DB or file I/O — unexpected failures are unhandled. | [LoginForm.cs:63-67](../Views/LoginForm.cs#L63-L67), [SearchForm.cs:56-72](../Views/SearchForm.cs#L56-L72) |
+| NFR-1 | Concurrency | Single-user, single-process desktop; no multi-user/locking design. | [Program.cs](../legacy/Program.cs) |
+| NFR-2 | Performance | Full-table search with `LIKE %..%` and no paging/limits; fine for the 15-row POC, unbounded at scale. | [DatabaseHelper.cs:140-146](../legacy/Database/DatabaseHelper.cs#L140-L146) |
+| NFR-3 | Error handling | Login errors shown inline; empty-export shown as a dialog. **No try/catch** around DB or file I/O — unexpected failures are unhandled. | [LoginForm.cs:63-67](../legacy/Views/LoginForm.cs#L63-L67), [SearchForm.cs:56-72](../legacy/Views/SearchForm.cs#L56-L72) |
 | NFR-4 | Logging / auditing | None. No logs of logins, searches, or exports. | (absence) |
-| NFR-5 | Localization | UI strings hardcoded (en); salary format is culture-dependent (`"C0"`, VR-9). No i18n framework. | [Models/Employee.cs:14](../Models/Employee.cs#L14) |
-| NFR-6 | Deployment/runtime | Single Windows desktop executable; requires .NET 8 Windows Desktop runtime; DB auto-created beside the exe. | [EmployeeSearch.csproj:4-5](../EmployeeSearch.csproj#L4-L5) |
-| NFR-7 | Accessibility | Standard WinForms controls; no explicit accessibility work observed. | [Views/](../Views) |
+| NFR-5 | Localization | UI strings hardcoded (en); salary format is culture-dependent (`"C0"`, VR-9). No i18n framework. | [Models/Employee.cs:14](../legacy/Models/Employee.cs#L14) |
+| NFR-6 | Deployment/runtime | Single Windows desktop executable; requires .NET 8 Windows Desktop runtime; DB auto-created beside the exe. | [EmployeeSearch.csproj:4-5](../legacy/EmployeeSearch.csproj#L4-L5) |
+| NFR-7 | Accessibility | Standard WinForms controls; no explicit accessibility work observed. | [Views/](../legacy/Views) |
 
 ---
 
@@ -196,10 +196,10 @@ Configuration is **entirely in code** — there is no `app.config` / `appsetting
 
 | ID | Setting | Value / shape | Source |
 |----|---------|---------------|--------|
-| CFG-1 | DB connection string | `Data Source={BaseDirectory}\employeesearch.db` — SQLite, file-based, no credentials. | [DatabaseHelper.cs:9-10](../Database/DatabaseHelper.cs#L9-L10) |
-| CFG-2 | DB file location | `AppDomain.CurrentDomain.BaseDirectory` (next to the exe). | [DatabaseHelper.cs:9](../Database/DatabaseHelper.cs#L9) |
-| CFG-3 | Default admin credentials | `admin` / `admin123` (hardcoded seed — see RISK-1). | [DatabaseHelper.cs:48](../Database/DatabaseHelper.cs#L48) |
-| CFG-4 | Dropdown value lists | Department/Role/Status option sets (VR-2/3/4) hardcoded in the designer. | [SearchForm.Designer.cs:180,193,207](../Views/SearchForm.Designer.cs#L180) |
+| CFG-1 | DB connection string | `Data Source={BaseDirectory}\employeesearch.db` — SQLite, file-based, no credentials. | [DatabaseHelper.cs:9-10](../legacy/Database/DatabaseHelper.cs#L9-L10) |
+| CFG-2 | DB file location | `AppDomain.CurrentDomain.BaseDirectory` (next to the exe). | [DatabaseHelper.cs:9](../legacy/Database/DatabaseHelper.cs#L9) |
+| CFG-3 | Default admin credentials | `admin` / `admin123` (hardcoded seed — see RISK-1). | [DatabaseHelper.cs:48](../legacy/Database/DatabaseHelper.cs#L48) |
+| CFG-4 | Dropdown value lists | Department/Role/Status option sets (VR-2/3/4) hardcoded in the designer. | [SearchForm.Designer.cs:180,193,207](../legacy/Views/SearchForm.Designer.cs#L180) |
 
 No feature flags or environment-specific settings exist. For the rebuild, the connection
 string shape needed is: a datasource/URL, and (for a server DB) schema/owner + credentials
@@ -262,15 +262,15 @@ engine and connection details (§10).
 
 | Requirement | Source |
 |-------------|--------|
-| DM-1 | [Database/DatabaseHelper.cs:19-23](../Database/DatabaseHelper.cs#L19-L23) |
-| DM-2 | [Database/DatabaseHelper.cs:24-34](../Database/DatabaseHelper.cs#L24-L34) |
-| DM-3 | [Database/DatabaseHelper.cs:41-96](../Database/DatabaseHelper.cs#L41-L96) |
-| DA-1 | [Database/DatabaseHelper.cs:99-108](../Database/DatabaseHelper.cs#L99-L108) |
-| DA-2 | [Database/DatabaseHelper.cs:110-163](../Database/DatabaseHelper.cs#L110-L163) |
-| DA-3 | [Database/DatabaseHelper.cs:12-97](../Database/DatabaseHelper.cs#L12-L97) |
-| SEC-1..SEC-5 | [Database/DatabaseHelper.cs:99-108](../Database/DatabaseHelper.cs#L99-L108), [Views/LoginForm.cs](../Views/LoginForm.cs) |
-| INT-1 | [Database/DatabaseHelper.cs:9-10](../Database/DatabaseHelper.cs#L9-L10) |
-| INT-2 | [Views/SearchForm.cs:63-72](../Views/SearchForm.cs#L63-L72) |
-| BG (none) | [Program.cs:15](../Program.cs#L15) |
-| NFR-1..7 | [Program.cs](../Program.cs), [Views/](../Views), [Database/DatabaseHelper.cs](../Database/DatabaseHelper.cs) |
-| CFG-1..4 | [Database/DatabaseHelper.cs:9-10](../Database/DatabaseHelper.cs#L9-L10), [Views/SearchForm.Designer.cs:180](../Views/SearchForm.Designer.cs#L180) |
+| DM-1 | [Database/DatabaseHelper.cs:19-23](../legacy/Database/DatabaseHelper.cs#L19-L23) |
+| DM-2 | [Database/DatabaseHelper.cs:24-34](../legacy/Database/DatabaseHelper.cs#L24-L34) |
+| DM-3 | [Database/DatabaseHelper.cs:41-96](../legacy/Database/DatabaseHelper.cs#L41-L96) |
+| DA-1 | [Database/DatabaseHelper.cs:99-108](../legacy/Database/DatabaseHelper.cs#L99-L108) |
+| DA-2 | [Database/DatabaseHelper.cs:110-163](../legacy/Database/DatabaseHelper.cs#L110-L163) |
+| DA-3 | [Database/DatabaseHelper.cs:12-97](../legacy/Database/DatabaseHelper.cs#L12-L97) |
+| SEC-1..SEC-5 | [Database/DatabaseHelper.cs:99-108](../legacy/Database/DatabaseHelper.cs#L99-L108), [Views/LoginForm.cs](../legacy/Views/LoginForm.cs) |
+| INT-1 | [Database/DatabaseHelper.cs:9-10](../legacy/Database/DatabaseHelper.cs#L9-L10) |
+| INT-2 | [Views/SearchForm.cs:63-72](../legacy/Views/SearchForm.cs#L63-L72) |
+| BG (none) | [Program.cs:15](../legacy/Program.cs#L15) |
+| NFR-1..7 | [Program.cs](../legacy/Program.cs), [Views/](../legacy/Views), [Database/DatabaseHelper.cs](../legacy/Database/DatabaseHelper.cs) |
+| CFG-1..4 | [Database/DatabaseHelper.cs:9-10](../legacy/Database/DatabaseHelper.cs#L9-L10), [Views/SearchForm.Designer.cs:180](../legacy/Views/SearchForm.Designer.cs#L180) |

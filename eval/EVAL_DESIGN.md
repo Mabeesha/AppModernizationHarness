@@ -330,7 +330,9 @@ grades the result.
 - **Reference outputs:** [samples/employee-search/reference-output/](../samples/employee-search/reference-output/) holds three
   requirements documents from a real run. These are a **reference, not a gold
   standard** — produced by an earlier set, never human-verified. Use them for
-  diffing and drift detection, not as an answer key.
+  diffing and drift detection, not as an answer key. One edit since the run: their
+  code-citation links were rewritten from `../` to `../legacy/` so they resolve from
+  their current folder; the text is otherwise as generated.
 
 ### 6.2 What Gets Run
 
