@@ -339,12 +339,12 @@ def d5_intake_shape(ctx: Context) -> CheckResult:
         if not m:
             flag("id", "heading has no `<n>.` or `<n><letter>.` id",
                  "Stage 0 and every stage cite intake questions by id (Q12, Q12a); a heading "
-                 "without one cannot be cited or recorded in PROJECT_CONTEXT §5.")
+                 "without one cannot be cited or recorded in INTAKE_RESOLVED.md.")
         else:
             qid = m.group("qid")
             if qid in seen:
                 flag("dup", "id is used twice",
-                     f"Also used at line {seen[qid]}. Ids must be unique so §5 has one row each.")
+                     f"Also used at line {seen[qid]}. Ids must be unique so INTAKE_RESOLVED.md has one row each.")
             seen.setdefault(qid, h.line)
 
         answers = sum(1 for ln in body if ln.lstrip().startswith("**Answer:**"))

@@ -293,11 +293,13 @@ a few hundred rules is tens of thousands of judge calls. Instead: bucket by
 identical modality *and* predicate (D2's job). For the harness that lands in the low
 hundreds — cheap enough per commit, and cheap enough to batch (§7.3).
 
-**E4 checks three directions**, which is what makes it useful without a judge: a
-schema obligation key with no stage to execute it; a key used in prose but never
-persisted to `state.json`; and a stage that *no* obligation key can bind — a
-silent hole in a design where obligations are the single place constraint rules
-live.
+**E4 checks three directions**, which is what makes it useful without a judge. It
+reads the obligation keys from the `*Requirements:*`-style bullets of the
+`PROJECT_CONTEXT §4` Constraints template — the only place obligations are stored
+(the `state.json` schema holds no copy). It reports: a template key with no stage to
+execute it; a key used in prose that the template never offers, so Stage 0 never
+writes it; and a stage that *no* obligation key can bind — a silent hole in a design
+where obligations are the single place constraint rules live.
 
 ### 5.F Hygiene
 

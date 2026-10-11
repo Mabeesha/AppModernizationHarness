@@ -50,6 +50,7 @@ RUNTIME_ARTIFACTS = {
     "FEATURE_STATUS.md",
     "HOW_TO_RUN.md",
     "INTAKE.md",
+    "INTAKE_RESOLVED.md",
     "PROJECT_CONTEXT.md",
     "README.md",
 }

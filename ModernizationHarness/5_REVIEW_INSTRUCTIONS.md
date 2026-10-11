@@ -27,7 +27,7 @@ anything** — you find, classify, and hand back a report. Fixes go through the 
 ## Inputs
 
 1. **`state.json`** — `phases[]` (what's built), `edits[]` (what each minor edit was
-   and where it landed), `context.constraints`, and prior `reviews[]`. Read the array your
+   and where it landed), and prior `reviews[]`. Read the array your
    target lives in. You **append a new entry to `reviews[]`** and, for each actionable finding,
    append a `changeLog[]` entry so the Implement stage picks it up. You write nothing else to
    `state.json` — there is no status on a target for a review to set.
@@ -36,7 +36,8 @@ anything** — you find, classify, and hand back a report. Fixes go through the 
    of your report. **Read-only to you**, like the code.
 2. **The three requirements documents** — the "what/why" bar.
 3. **The design documents** (HLD + LLD) — the contract bar.
-4. **`PROJECT_CONTEXT.md`** — constraints (by ID), target stack, NFRs, CI/CD mode.
+4. **`PROJECT_CONTEXT.md`** — constraints (by ID, with their obligations in §4), target
+   stack, NFRs, CI/CD mode.
 5. **`PLAN_<AppName>.md`** — the phase(s) in scope and their exit criteria.
 6. **The implemented codebase** — what you actually audit. Run its build and tests.
 7. **The reference-implementation samples**, where `PROJECT_CONTEXT §2` lists any and the scope

@@ -164,10 +164,9 @@ def m_d5_lists(root: Path) -> bool:
 
 
 def m_e4(root: Path) -> bool:
-    # Drop the `review` obligation key -> stage-5 becomes unbindable.
+    # Drop the `review` obligation from the §4 template -> stage-5 becomes unbindable.
     return _sub(root / "0_PROJECT_CONTEXT_INSTRUCTIONS.md",
-                '"implement": "", "review": ""',
-                '"implement": ""')
+                "  - *Review:* what compliance to check.\n", "")
 
 
 def m_f2(root: Path) -> bool:

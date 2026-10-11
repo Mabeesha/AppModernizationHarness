@@ -25,7 +25,8 @@ The HLD explains *why and what*; the LLD nails *exactly what*. Together they are
 
 ## Inputs
 
-1. **`PROJECT_CONTEXT.md`** — target stack, constraints (by ID), CI/CD mode. Authoritative.
+1. **`PROJECT_CONTEXT.md`** — target stack, constraints (by ID, with their obligations in §4),
+   CI/CD mode. Authoritative.
 2. **The three requirements documents** (Stage 1) — what to build and why.
 3. **`state.json`** — read `context`; update `stages.design.status`.
 4. **Rarely — the legacy app** — only to disambiguate a detail the requirements defer to it

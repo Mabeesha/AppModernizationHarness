@@ -152,7 +152,7 @@ reads its own inputs from there — so the rest really are just four words.
 run stage 0 — intake: ./out/INTAKE.md, legacy app: ./legacy/, app: MyApp,
 write to ./out/
 ```
-→ `PROJECT_CONTEXT.md` + `state.json`. **Check the constraints it derived** — they drive everything downstream.
+→ `PROJECT_CONTEXT.md` + `INTAKE_RESOLVED.md` + `state.json`. **Check the constraints it derived** — they drive everything downstream.
 
 ```
 run stage 1

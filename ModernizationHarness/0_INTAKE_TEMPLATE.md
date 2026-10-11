@@ -642,7 +642,7 @@ under version control.
 
 ### 16b. Where are the documents written?
 
-`PROJECT_CONTEXT.md`, the requirements/design/plan docs, and `state.json`.
+`PROJECT_CONTEXT.md`, `INTAKE_RESOLVED.md`, the requirements/design/plan docs, and `state.json`.
 
 *Default: the current working repository.*
 

@@ -38,7 +38,10 @@ the stage files: `python <stage folder>/tools/state.py <command>` from the worki
 (`python3` where `python` is absent; `--file <path>` first when the prompt gives one). It returns
 only the slice you ask for. Commands: `summary` (**start every run here**), `get <path>`, `new`
 (entries above the `progress` marks), `add`, `set`, `drop`, `check`. **Run it with no command for
-the syntax** before your first write.
+the full syntax** when a command is refused as malformed. Two things it will not refuse, so get
+them right first time: **field names must be exact** — a misspelled one is stored as a new field,
+not refused — and a value holding quotes or a nested object goes in an `@FILE` kept **outside the
+repo**, never piped in.
 
 - **Two kinds of refusal.** A malformed command — unknown path, wrong value type, bad syntax — is
   yours: correct it and rerun. A rule refusal — a backward status, a write to
@@ -100,7 +103,7 @@ it — and a phase ID is **never reused or renumbered**.
 1. **The legacy source is read-only.** Never modify, move, or delete it — even when it shares a
    repository with the target code. Build the new tree beside it.
 2. **`INTAKE.md` and the `*_TEMPLATE.md` files are inputs — never write to them.** Resolved
-   answers belong in `PROJECT_CONTEXT.md §5`.
+   answers belong in `INTAKE_RESOLVED.md`, which Stage 0 writes.
 3. **`state.json`'s `changeLog[]` and `reviews[]` are append-only.** Correct the record by
    appending, never by rewriting or deleting.
 4. **Phase and edit status moves forward only: `pending` → `in progress` → `done`.** You set all
