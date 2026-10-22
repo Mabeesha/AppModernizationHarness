@@ -1,6 +1,6 @@
 # Git Discipline — Stage 4 supplement *(agent git mode only)*
 
-Load this file **only when `context.repo.git` is `agent`**, alongside
+Load this file **only when `context.repo.git` is `agent` or missing**, alongside
 `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` or `4_MINOR_EDIT_INSTRUCTIONS.md`, and follow it as
 part of that run. It adds the branch, commit, PR and merge rules to whichever unit of work —
 phase or minor edit — the stage file is running. Under `developer`, do not load it: follow

@@ -156,6 +156,14 @@ class StateToolTest(unittest.TestCase):
         self.run_tool("add", "changeLog", "author=review-agent", "origin=review-R-12",
                       "summary=x")
 
+    def test_every_stage_has_an_author_for_its_reruns(self):
+        for author in ("context-agent", "requirements-agent", "design-agent", "plan-agent"):
+            self.run_tool("add", "changeLog", f"author={author}", "origin=rerun",
+                          "summary=For Stage 3: x")
+        self.assertEqual([e["author"] for e in self.state()["changeLog"]],
+                         ["context-agent", "requirements-agent", "design-agent", "plan-agent"])
+        self.run_tool("check")
+
     def test_change_log_lists_default_to_empty(self):
         self.run_tool("add", "changeLog", "author=developer", "origin=out-of-band",
                       "summary=x", "phasesAffected=P-2")

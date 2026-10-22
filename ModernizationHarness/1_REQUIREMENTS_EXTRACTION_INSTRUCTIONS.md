@@ -231,7 +231,9 @@ changes in place (don't regenerate from scratch and lose curated content), incre
 `stages.requirements.rerunCount` in `state.json`, and note what changed in your report.
 
 **Add a `## 0. Revision History` row** to every document you changed, naming which **delivered
-phases** it invalidates (read `state.json phases[]`), and add a `changeLog` entry whose summary starts `For Stage 3:` (the plan refresh's trigger).
+phases** it invalidates (read `state.json phases[]`), and add a `changeLog` entry
+(`author=requirements-agent origin=rerun`) whose summary starts `For Stage 3:` (the plan
+refresh's trigger).
 Do not edit
 the plan or the design yourself: a requirements change normally needs the **Design** stage rerun
 next, then **Stage 3 (refresh)**, which plans any retrofit, then the next phase. Say that in

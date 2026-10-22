@@ -1,6 +1,6 @@
 # Developer Guide: Using the Modernization Harness
 
-This guide is for **you, the developer** driving an application modernization with the six
+This guide is for **you, the developer** driving an application modernization with the
 instruction documents in `ModernizationHarness/`. The harness is **stack-agnostic** — nothing
 about the source or target technology is baked into the instructions. What you're migrating
 *from* and *to*, how it ships, and the rules that can't be broken are all captured **once**,
@@ -10,7 +10,8 @@ up front, in a Project Context, and every later stage reads them from there.
 > CI/CD / constraints and forces a decision on load-bearing questions; a **`state.json`** file
 > that holds all machine state (statuses, lineage, change log) so the doc stays readable and
 > branching is tractable; **mechanical (falsifiable) exit criteria** as the only gate; an explicit
-> **rolling plan** that covers remaining work only and is refreshed before most build runs; and an
+> **rolling plan** that covers remaining work only, checked before every phase run and refreshed
+> by Stage 3 when something changed; and an
 > independent **Stage 5 Review/QA** that feeds findings back into the loop.
 
 > **Looking for a specific situation** — a phase failed your testing, the design has to change
@@ -131,9 +132,9 @@ It holds **machine facts only**. What you have tested is *not* in here — that 
 - `edits[]` — **minor** edits (`E-1`, `E-2`…): changes touching no contract. An edit ships code,
   so it gets an id, a status, and (where the agent runs git) a branch/PR of its own — and can
   be reviewed independently, like a phase.
-- `changeLog[]` — **append-only** record of every mid-flight change (developer notes,
-  reconciliations, review findings, out-of-band edits). This is what the Implement stage
-  reconciles against.
+- `changeLog[]` — **append-only** record of every mid-flight change (developer notes, stage
+  reruns, reconciliations, review findings, out-of-band edits), each naming who wrote it. This
+  is what the Implement stage reconciles against.
 - `reviews[]` — one entry per Review run, with its outcome and `blockerCount`. **A review sets
   no status on anything and blocks nothing**; its findings become `changeLog[]` entries the next
   Implement run folds in, and `progress.lastProcessedReviewNumber` tracks what has been dealt
@@ -247,7 +248,7 @@ Produces `PLAN_<App>.md` (each phase runnable & testable, with a developer test 
 
 **The plan covers remaining work only** — it's a rolling forecast, not a fixed schedule.
 Delivered phases drop out of the phase list into a one-line §2 Completed entry — tested or
-not — and the remaining phases are re-checked at the start of most Stage 4 runs. Two rules keep
+not — and every phase run checks whether the remaining phases need a refresh. Two rules keep
 that safe:
 
 - **Phase IDs are never reused or renumbered.** New phases take the next unused number, even
@@ -685,8 +686,9 @@ say:*
 
 > run stage 5 on **P-1**
 
-*→ PASS → launch P-2. CHANGES REQUESTED → the findings are now in `state.json changeLog[]`;
-your next Implement run reconciles and fixes them before/at P-2.*
+*→ CLEAN → launch P-2. FINDINGS → the Blockers and Majors are now in `state.json changeLog[]`;
+your next Implement run reconciles and fixes them alongside P-2. Nothing waits on the review
+either way.*
 
 ### Example B — Changing the design mid-build (the auth change at P-6)
 

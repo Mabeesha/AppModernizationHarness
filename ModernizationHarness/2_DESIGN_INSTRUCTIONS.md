@@ -353,7 +353,8 @@ On rerun:
    **which delivered phases it invalidates** — read `state.json phases[]` for what is actually
    built. This row is the handoff to the Plan stage; a missing or vague one means the retrofit
    never gets planned.
-3. **Increment `stages.design.rerunCount`** and **add a `changeLog` entry** whose summary starts
+3. **Increment `stages.design.rerunCount`** and **add a `changeLog` entry**
+   (`author=design-agent origin=rerun`) whose summary starts
    `For Stage 3:` (the plan refresh's trigger), naming what changed and which downstream
    artifacts (plan, built phases) are now stale.
 4. **Do not edit the plan yourself, and do not touch code.** Stage 3 (refresh) reads your

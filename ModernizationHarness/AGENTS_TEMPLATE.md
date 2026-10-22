@@ -27,8 +27,7 @@ outright; neither form is more official. **Load that file and follow it:**
 - **"Run the next stage" is not specific enough.** Say which one you believe is next and why,
   and let them confirm.
 
-**Always open the file and work from it.** These instructions change; a stage run from memory
-is not a stage run.
+**Always open the file and work from it** — a stage run from memory is not a stage run.
 
 ---
 
@@ -156,7 +155,7 @@ never as units.
 
 ## Git mode
 
-`context.repo.git` says who runs git. **`agent`:** Stage 4 also loads `GIT_DISCIPLINE.md`
+`context.repo.git` says who runs git. **`agent`** (also when missing): Stage 4 also loads `GIT_DISCIPLINE.md`
 (beside the stage files) and follows it. **`developer`:** in any stage or chat, run **no git
 command that changes the repository** — no branch, checkout, commit, push, merge, rebase,
 stash, or PR; read-only `status`, `diff`, `log`, `show` are fine (if one hangs, drop git and

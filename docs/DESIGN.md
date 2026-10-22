@@ -90,7 +90,7 @@ Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 | **DD-10** | **Plan defaults to "no change"** | Churn burns the developer's review attention and destabilizes what they thought was coming next. Applied by Stage 3 on every refresh, and by Stage 4 when it checks for refresh triggers (DD-23) |
 | **DD-11** | **Review is a separate session, read-only on code, and never blocks** | An agent cannot audit its own work; read-only keeps the verdict honest. The gate it used to hold only ever fired for a developer who chose to run it, and its findings already survive through the change log — so it reports and advises instead (R8) |
 | **DD-12** | **Documents amended in place; git is the history** | No `_v2` filenames; Revision History rows plus commits give lineage. Under `developer` git mode those commits are the developer's |
-| **DD-21** | **Who runs git is a project setting: `context.repo.git` = `agent` \| `developer`, default `agent`.** The branch, commit, PR and merge rules live in `GIT_DISCIPLINE.md`, which Stage 4 loads only under `agent`. Under `developer` the agent runs **no git command that changes the repository** (no branch, checkout, commit, push, merge or PR); read-only commands (`status`, `diff`, `log`, `show`) are allowed. `branch` stays `null`, `prUrls` `[]`; the hand-off lists the changed files and a suggested commit message, and the changed files go in the entry's `notes`; the developer commits after each run, before the next | Some projects cannot let the agent run git (the git tool hangs), yet every phase run paid ~2,400 tokens for git rules it never used. A setting keeps git for projects that can use it; deleting the rules was rejected because it removes a working feature. Read-only git is kept because it changes nothing and lets reconciliation diff the documents (R12) |
+| **DD-21** | **Who runs git is a project setting: `context.repo.git` = `agent` \| `developer`, default `agent`; a missing setting (a project set up earlier) means `agent`.** The branch, commit, PR and merge rules live in `GIT_DISCIPLINE.md`, which Stage 4 loads only under `agent`. Under `developer` the agent runs **no git command that changes the repository** (no branch, checkout, commit, push, merge or PR); read-only commands (`status`, `diff`, `log`, `show`) are allowed. `branch` stays `null`, `prUrls` `[]`; the hand-off lists the changed files and a suggested commit message, and the changed files go in the entry's `notes`; the developer commits after each run, before the next | Some projects cannot let the agent run git (the git tool hangs), yet every phase run paid ~2,400 tokens for git rules it never used. A setting keeps git for projects that can use it; deleting the rules was rejected because it removes a working feature. Read-only git is kept because it changes nothing and lets reconciliation diff the documents (R12) |
 | **DD-22** | **Stage 4 is two files: `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` (planned phases) and `4_MINOR_EDIT_INSTRUCTIONS.md` (minor edits).** The developer starts an edit with "minor edit: …". A phase run that receives a request which is neither a planned phase nor contract-touching **stops and asks the developer to start a minor-edit run** — no handover inside the session. An edit run that finds a planned phase or a contract change stops and routes it back. An edit run does not reconcile: the next phase run folds in everything | A minor edit paid for the whole phase procedure. Two files let each run load only what it uses. No automatic handover keeps each run to one instruction file and the developer aware of which kind of run is happening (R6.4) |
 | **DD-23** | **Stage 3 is the only stage that changes the forward plan.** Stage 4 checks the refresh triggers at Step 0c and, if one applies and is not handled, **stops**: "Run Stage 3 (refresh) first: <reason>". Triggers are `changeLog` entries whose summary starts `For Stage 3:` — written by a Stage 0 rerun that binds the plan, every Stage 1/2 rerun, and Stage 4 — plus a developer request. A trigger is handled once a `PLAN §3 Plan Revision History` row names its `changeLog` id (ids are unique; revision tables hold dates without times, so dates cannot be matched); every refresh names all unnamed ones. Stage 4 runs this check before Step 0b writes anything. Stage 4 still edits the **current** phase's tasks, test guide and exit criteria when reconciliation needs it; changes for future phases only go to `changeLog[]`. An approved mid-phase split trims the current phase and parks the moved work as `sizeReport.pushedLater[]` with `toPhase: null` and its ledger rows `unscheduled`; the next Stage 3 refresh schedules it | Re-planning text in Stage 4 was loaded on every phase run but used rarely, and two stages editing the same plan split its ownership. One owner keeps the rules in one place. The cost is one extra prompt per design change (DD-7) (R5) |
 | **DD-18** | **`state.json` is read and written through `tools/state.py`, not by the agent directly** | `changeLog[]` and `reviews[]` only grow, so whole-file reads cost more every run; the tool returns the slice asked for (`summary`, `get`, `new`). It also turns the mechanical rules — forward-only status, append-only history, id allocation, numeric `R-<n>` comparison — from prompt text into refusals. Stdlib Python, one file; Stage 0 still writes the initial file by hand, and hand edits under the same rules remain the fallback (R7) |
@@ -130,6 +130,11 @@ Rules that hold the model together:
 - **Append-only:** `changeLog[]`, `reviews[]`. Correct by superseding, never rewriting.
   `edits[]` entries are never deleted or renumbered, but their lifecycle fields are updated in
   place, like `phases[]`.
+- **Who and why:** every `changeLog` entry names its writer — `developer`, or the agent of the
+  stage that wrote it (`context-agent`, `requirements-agent`, `design-agent`, `plan-agent`,
+  `implement-agent`, `review-agent`) — and its `origin`: `developer-prompt`, `rerun` (a stage
+  rerun or plan refresh), `reconcile`, `out-of-band`, or `review-R-<n>`. The state tool refuses
+  any other value (DD-18).
 - **ID allocation:** `changeLog.id` = max + 1; `E-<n>` and `R-<n>` use the next unused *n* for
   their own array. IDs are never reused.
 - **`progress` is numeric** — `R-10` sorts before `R-2` as a string, which would silently skip
@@ -158,11 +163,11 @@ sequenceDiagram
     A->>G: check by content for predecessor's work (agent mode: on the CURRENT branch)
     A-->>D: "Building P-3 on <current>. Contains P-2's work."
     A->>A: 0a classify — phase / contract change / minor edit
-    A->>A: 0b reconcile changes + review findings since last run
-    A->>A: 0c refresh needed? (default: unchanged)
+    A->>A: 0c refresh needed? (default: unchanged) — checked before 0b writes anything
     opt unhandled refresh trigger
         A-->>D: "Run Stage 3 (refresh) first: <reason>" — stop
     end
+    A->>A: 0b reconcile changes + review findings since last run
     A->>G: agent mode: branch from current, task-sized commits
     A->>A: run exit criteria (the only gate)
     A->>S: status=done, branch, prUrls, advance high-water mark
@@ -246,7 +251,7 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
   criteria, `AGENTS.md` in every session, and an independent Stage 5.
 - **Non-sequential phase IDs** confuse at first read. Deliberate (DD-5); the plan's summary
   table carries the running order.
-- **Volume.** ~2,900 lines of instruction across the seven stage files, the git supplement and
+- **Volume.** ~4,600 lines of instruction across the seven stage files, the git supplement and
   two templates; the three guides exist to keep the entry cost low (Q1). Splitting Stage 4
   (DD-21, DD-22) cut what one run loads, not the total.
 - **Git-dependent history.** Superseded design and plan versions exist only as commits, so a

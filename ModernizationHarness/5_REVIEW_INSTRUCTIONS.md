@@ -184,7 +184,7 @@ context mode.
 4. **Classify each finding** by severity:
    - **Blocker** — violates a constraint, a security hole, a broken/absent core requirement, or
      the build/tests fail.
-   - **Major** — a real defect or a meaningful gap that should be fixed before moving on.
+   - **Major** — a real defect or a meaningful gap, worth fixing soon.
    - **Minor** — quality/maintainability/test-coverage improvements; not gating — **unless a
      coverage-threshold constraint in `PROJECT_CONTEXT §4` sets a bar**, in which case a breach
      of it is a constraint violation and grades as a Blocker above. Absent such a constraint,

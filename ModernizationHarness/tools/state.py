@@ -14,8 +14,9 @@ Usage: python state.py [--file PATH] <command> ...
 add fills id, utc and the schema defaults, and requires:
   phases name | edits summary afterPhase | changeLog author origin summary |
   reviews target result blockerCount findingsCount
-  author: developer, implement-agent, review-agent; origin: developer-prompt, reconcile,
-  out-of-band, review-R-<n>; result: clean, findings. A phase's name never changes.
+  author: developer, context-agent, requirements-agent, design-agent, plan-agent,
+  implement-agent, review-agent; origin: developer-prompt, rerun, reconcile, out-of-band,
+  review-R-<n>; result: clean, findings. A phase's name never changes.
 
 PATH is dotted; a list segment matches an element by id, e.g. phases.P-3 or changeLog.12.
 A value is text, except: null; the integer fields (progress marks, rerunCount, blockerCount,
@@ -62,13 +63,15 @@ REQUIRED = {
     "changeLog": ("author", "origin", "summary"),
     "reviews": ("target", "result", "blockerCount", "findingsCount"),
 }
+# who may write a changeLog entry: the developer, or the agent of the stage that wrote it
+AUTHORS = ("developer", "context-agent", "requirements-agent", "design-agent", "plan-agent",
+           "implement-agent", "review-agent")
 # field -> (test, what it must be), for fields with a fixed set of values
 ALLOWED = {
-    "author": (lambda v: v in ("developer", "implement-agent", "review-agent"),
-               "developer, implement-agent or review-agent"),
-    "origin": (lambda v: v in ("developer-prompt", "reconcile", "out-of-band")
+    "author": (lambda v: v in AUTHORS, ", ".join(AUTHORS[:-1]) + " or " + AUTHORS[-1]),
+    "origin": (lambda v: v in ("developer-prompt", "rerun", "reconcile", "out-of-band")
                or bool(re.fullmatch(r"review-R-\d+", str(v))),
-               "developer-prompt, reconcile, out-of-band or review-R-<n>"),
+               "developer-prompt, rerun, reconcile, out-of-band or review-R-<n>"),
     "result": (lambda v: v in ("clean", "findings"), "clean or findings"),
 }
 SKIP_DIRS = {".git", "node_modules", "bin", "obj", "target", "dist", "ModernizationHarness"}

@@ -8,7 +8,7 @@ from the phased plan. A phase covers **any change that touches a contract**, inc
 retrofitting code earlier phases delivered. **Minor edits** — small changes touching no
 requirement, design contract, or plan scope — run from `4_MINOR_EDIT_INSTRUCTIONS.md`, not here.
 
-**Git:** if `context.repo.git` is `agent`, also load `GIT_DISCIPLINE.md` and follow it. Under
+**Git:** if `context.repo.git` is `agent` or missing, also load `GIT_DISCIPLINE.md` and follow it. Under
 `developer`, follow `AGENTS.md §Git mode`.
 
 Each run: **classify → reconcile → check the plan → implement → verify → hand off → stop.**

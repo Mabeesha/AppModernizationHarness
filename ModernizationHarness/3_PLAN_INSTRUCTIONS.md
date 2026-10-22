@@ -338,8 +338,8 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 > they live in `state.json` (`phases[]`, `changeLog[]`), and what is built and tested lives in
 > `FEATURE_STATUS.md`. Keeping them out of the plan is what makes branching and "redo from a
 > stage" tractable: the plan is rebuilt freely, the state and the ledger are never rebuilt.
-> You initialize `phases[]` and create the ledger; the change log is appended by the
-> Implement/Review stages and the developer.
+> You initialize `phases[]` and create the ledger; the change log is appended by stage reruns
+> (this one's refreshes included), the Implement and Review stages, and the developer.
 
 ---
 
@@ -444,8 +444,8 @@ A refresh re-slices the **phases that have not started** — those still `pendin
 re-planned, tested or not. (An approved mid-phase split
 (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §When You're Blocked`) trims the `in progress` phase
 itself, and parks the moved work for you to schedule.) **The developer starts every refresh** —
-after a Stage 4 run stopped with *"Run Stage 3 (refresh) first: <reason>"*, after a Stage 1 or
-Stage 2 rerun, or with Additional Instructions ("make P-5 smaller", "pull reporting earlier").
+after a Stage 4 run stopped with *"Run Stage 3 (refresh) first: <reason>"*, after a Stage 0, 1
+or 2 rerun, or with Additional Instructions ("make P-5 smaller", "pull reporting earlier").
 
 **Default to no change.** Re-slice only when there is a stated reason. Valid reasons:
 
@@ -494,7 +494,8 @@ must point at a remaining phase. Leave the `done` phase's `sizeReport` as writte
 says where its parked work went. **Never touch a `Tested` value**
 while doing this — that column is the developer's, and a re-slice says nothing about what
 they have run.
-Add a §3 Plan Revision History row and a `changeLog` entry noting the re-slice, and
+Add a §3 Plan Revision History row and a `changeLog` entry noting the re-slice
+(`author=plan-agent origin=rerun`), and
 increment `stages.plan.rerunCount`. **A refresh that changed nothing writes none of these** — it
 is not a revision, and recording it would bury the real ones — apart from the §3 row for a
 trigger it handled.

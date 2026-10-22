@@ -1,6 +1,6 @@
 # Token Savings — Options
 
-*Status: a proposal. Nothing in §3 is applied. Each option says whether it needs a design change
+*Status: a proposal. Of the options in §3, only Option 9 is applied (see §2). Each option says whether it needs a design change
 (and so a yes) or is only a way of running the harness. Last updated 2026-10-22.*
 
 ---

@@ -654,7 +654,8 @@ Field notes (the later stages depend on these; keep them exact):
   made **only in this stage**. Stages 2–4 read them to shape the internal API contract and the
   branch/PR flow; none of them decide or override. Changing either is a rerun of this stage
   plus a `changeLog` entry naming the downstream docs it invalidates.
-- **`repo.git`** — who runs git (Q16g), decided **only in this stage**; default `agent`. Under
+- **`repo.git`** — who runs git (Q16g), decided **only in this stage**; default `agent`, and a
+  missing key (a project set up before it existed) also means `agent`. Under
   `agent`, Stage 4 also loads `GIT_DISCIPLINE.md` and branches, commits, and opens PRs. Under
   `developer`, it runs no git command that changes the repository, leaves `branch` `null` and
   `prUrls` `[]`, and hands off a changed-files list and a suggested commit message
@@ -719,7 +720,7 @@ Field notes (the later stages depend on these; keep them exact):
   An edit is a **reviewable unit in its own right** — it ships code, so it can be a Review
   target exactly like a phase. Its lifecycle fields behave exactly as a phase's do, including
   forward-only status and `FEATURE_STATUS.md` owning whether a human tested it.
-- **`changeLog[]`** — the loop's memory. Each: `{ "id": <int>, "utc": "...", "author": "developer|implement-agent|review-agent", "origin": "developer-prompt|reconcile|review-<Rid>|out-of-band", "summary": "...", "docsTouched": ["requirements|design|plan|context"], "phasesAffected": ["P-3"], "editsAffected": ["E-1"] }`.
+- **`changeLog[]`** — the loop's memory. Each: `{ "id": <int>, "utc": "...", "author": "developer|context-agent|requirements-agent|design-agent|plan-agent|implement-agent|review-agent", "origin": "developer-prompt|rerun|reconcile|review-<Rid>|out-of-band", "summary": "...", "docsTouched": ["requirements|design|plan|context"], "phasesAffected": ["P-3"], "editsAffected": ["E-1"] }`.
 - **`reviews[]`** — created by the Review stage. Each: `{ "id": "R-1", "target": "P-3 | E-1 | whole-build", "utc": "...", "result": "clean|findings", "blockerCount": <int>, "findingsCount": <int> }`.
   **A review never blocks anything.** Its findings become `changeLog[]` entries that the next
   Implement run reconciles and fixes; `progress.lastProcessedReviewNumber` is what tracks
@@ -819,9 +820,9 @@ On rerun: **re-read `INTAKE.md`** as the current answers (not the previous
 `INTAKE_RESOLVED.md`, which is a record of the *last* run), load the existing
 `PROJECT_CONTEXT.md`, `INTAKE_RESOLVED.md` and `state.json`, apply the changes, **increment
 `stages.context.rerunCount`**, and — if a constraint, the layout, release model, topology or
-who runs git changed after later stages ran — **add a
-`changeLog` entry** describing the change and which downstream docs it invalidates, so the
-affected stages get rerun. Where phases already exist and the change binds the plan (a
+who runs git changed after later stages ran — **add a `changeLog` entry**
+(`author: context-agent`, `origin: rerun`) describing the change and which downstream docs it
+invalidates, so the affected stages get rerun. Where phases already exist and the change binds the plan (a
 constraint, the layout, release model, topology, or who runs git), start that entry's summary
 with `For Stage 3:` — the next phase run then stops until Stage 3 has planned for it. Diff the new answers against the previous `INTAKE_RESOLVED.md`,
 report what actually changed, then rewrite it for this run.

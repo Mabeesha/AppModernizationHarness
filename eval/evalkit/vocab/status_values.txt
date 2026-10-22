@@ -22,8 +22,14 @@ generate
 human
 derived
 developer
+context-agent
+requirements-agent
+design-agent
+plan-agent
 implement-agent
 review-agent
 developer-prompt
+# the changeLog origin `rerun` is left out: it is also the everyday verb, so listing it
+# flags ordinary prose ("rerun the design stage") as a variant spelling
 reconcile
 out-of-band

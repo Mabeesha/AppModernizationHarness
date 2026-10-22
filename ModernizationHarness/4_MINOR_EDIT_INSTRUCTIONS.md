@@ -7,7 +7,7 @@ requirement, design contract, or plan scope (a config value, a label, a log line
 fix), started with *"minor edit: …"*. Each run: **authority test → change → verify → record →
 report → stop.**
 
-**Git:** if `context.repo.git` is `agent`, also load `GIT_DISCIPLINE.md` and follow it. Under
+**Git:** if `context.repo.git` is `agent` or missing, also load `GIT_DISCIPLINE.md` and follow it. Under
 `developer`, follow `AGENTS.md §Git mode`.
 
 ## Inputs
@@ -24,8 +24,7 @@ report → stop.**
 
 ## Step 1 — The Authority Test *(before writing anything)*
 
-1. **Does the request match a planned phase?** → stop: *"This is P-N — run it as a phase
-   (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md`)."*
+1. **Does the request match a planned phase?** → stop: it is P-N; ask for a phase run.
 2. **Does it touch a requirement, a design contract, or plan scope?** → build nothing and edit
    no document. Say what would have to change and in which document, name the delivered phases
    it invalidates, and recommend the owning stage (normally *"rerun `2_DESIGN_INSTRUCTIONS.md`

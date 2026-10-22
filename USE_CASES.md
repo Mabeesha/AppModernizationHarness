@@ -243,7 +243,7 @@ tests, and audits four areas — requirements coverage, tests, security, static 
 code**. It writes `REVIEW_R-1_<App>_P-3.md`, appends to `reviews[]`, and turns each Blocker or
 Major into a change-log entry the next build run will pick up.
 
-**You get** PASS, or CHANGES REQUESTED. What happens next depends on severity — see Part 5.
+**You get** CLEAN, or FINDINGS. What happens next depends on severity — see Part 5.
 
 > Run it in the same session that built the code and you get a self-review, which is worth
 > nothing. That's why the instruction says separate run.
@@ -452,8 +452,8 @@ when you realize auth has to change.
 - **Land P-6 as-is** if it's genuinely unaffected — merge (or commit) it, then do Scenario 7.
 - **Reset the branch** (or discard the uncommitted changes), do the retrofit, then redo P-6.
 
-Redoing a half-built phase is cheap, because nothing depends on it yet. That's what the small
-you: nothing you'd have to unpick has been certified yet.
+Redoing a half-built phase is cheap, because nothing depends on it yet. That's what small
+phases buy you: nothing you'd have to unpick has been built on yet.
 
 ---
 
@@ -652,7 +652,7 @@ other target does: **it audits `FEATURE_STATUS.md` itself.**
 - Any row still marked `unscheduled` is a **Blocker** — that's work that was never delivered and
   no longer has a phase that would deliver it.
 - Any row that existed in an earlier version of the ledger and has since **disappeared** is also
-  a Blocker — found by reading the plan's git history. That's work a refresh silently dropped.
+  a Blocker — found by reading the ledger's git history. That's work a refresh silently dropped.
 
 This is the check that makes "the plan is a rolling forecast" safe. The phase list is allowed to
 move; **the matrix is the commitment.**
@@ -759,7 +759,7 @@ names the protocol's home in `AGENTS.md` and adds only the two details specific 
 
 ---
 
-# Interlude — the six invariants
+# Interlude — the eight invariants
 
 These live in `AGENTS.md`, which means they hold in **every** session — a formal stage run, or
 you asking a question at midnight:
@@ -771,10 +771,12 @@ you asking a question at midnight:
 3. **`changeLog[]` and `reviews[]` are append-only.** History is corrected by appending
    something that supersedes it, never by rewriting. And you never hand-edit `state.json` at all.
 4. **Status moves forward only** — `pending` → `in progress` → `done`, and `done` is terminal.
-   **Only you authorize a `passed`/`failed` mark** in `FEATURE_STATUS.md`, and it blocks nothing.
-5. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR bodies.
+5. **Only you authorize a `passed`/`failed` mark** in `FEATURE_STATUS.md`, and it blocks nothing.
+6. **No merging unless you ask, in those words** — and where you run git, none at all. Nothing
+   depends on a merge.
+7. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR bodies.
    Connection strings and IdP config come from environment or profiles.
-6. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, you
+8. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, you
    fix the mapping, never the database.
 
 If you ever catch an agent breaking one of these, the likeliest cause isn't the stage file —

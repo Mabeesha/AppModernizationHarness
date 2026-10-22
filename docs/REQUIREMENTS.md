@@ -12,7 +12,8 @@ application with a coding agent, **one small testable increment at a time**, wit
 control of scope, quality, or history.
 
 It ships as Markdown files the developer copies into their project and cites in prompts. No
-runtime, no installer, no tooling to maintain.
+runtime service to maintain: an optional installer copies the files into place, and one small
+standard-library Python script (`tools/state.py`, DD-18) reads and writes `state.json`.
 
 ## 2. Users & actors
 
@@ -77,7 +78,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | 1 Requirements | Business / Functional / Technical requirements |
 | 2 Design | HLD + LLD (the LLD is the authoritative contract) |
 | 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]`; every later refresh |
-| 4 Implement | Code and updated `FEATURE_STATUS.md` rows — plus a branch and a PR only where the agent runs git (R12) |
+| 4 Implement | Code, updated `FEATURE_STATUS.md` rows, and `HOW_TO_RUN.md` when running the app changed — plus a branch and a PR only where the agent runs git (R12) |
 | 5 Review | `REVIEW_<Rid>_<App>_<target>.md` + findings in `state.json` |
 
 - **R3.1** Every stage supports a **rerun with Additional Instructions**. Documents are amended
@@ -139,6 +140,10 @@ and anything that modifies the legacy source (read-only in every stage).
   integers) tells each run which entries it has already folded in.
 - **R7.4** The developer never hand-edits `state.json` — they say what happened, the agent
   records it and confirms.
+- **R7.5** Every `changeLog[]` entry records **who wrote it** — the developer, or the agent of
+  the stage that wrote it — and **why** (a developer prompt, a stage rerun, reconciliation, an
+  out-of-band change, or a review), from a fixed list. Every stage that writes an entry, reruns
+  of Stages 0–3 included, has a value of its own to use.
 
 ### R8 — Independent review
 - **R8.1** Review runs in a **separate session**; it never reviews code written in the same run.
@@ -190,7 +195,8 @@ and anything that modifies the legacy source (read-only in every stage).
 
 ### R12 — Git mode
 - **R12.1** Who runs git is decided once, in Stage 0, from the intake, and recorded as
-  `context.repo.git`: `agent` or `developer`. The default is `agent`.
+  `context.repo.git`: `agent` or `developer`. The default is `agent`, and a missing setting
+  (a project set up before it existed) also means `agent`.
 - **R12.2** Under `agent`, R11 applies. Its rules live in a separate file that Stage 4 loads
   only in this mode, so a project that does not use them does not pay for them.
 - **R12.3** Under `developer`, the agent runs **no git command that changes the repository** —
@@ -219,9 +225,13 @@ and anything that modifies the legacy source (read-only in every stage).
 1. Legacy source is **read-only**.
 2. `INTAKE.md` and the `*_TEMPLATE.md` files are **inputs, never written to**.
 3. `changeLog[]` and `reviews[]` are **append-only**.
-4. Only the developer authorizes a `passed`/`failed` mark — and it gates nothing.
-5. **No secrets** in code, docs, state, commit messages, or PR bodies.
-6. Never mutate a reused database's schema — fix the mapping instead.
+4. Phase and edit status moves **forward only** — `pending` → `in progress` → `done`; `done` is
+   terminal (R4.2).
+5. Only the developer authorizes a `passed`/`failed` mark — and it gates nothing.
+6. The agent **never merges unless the developer asks**, in those words — and under `developer`
+   git mode, never at all (R11.6, R12.3).
+7. **No secrets** in code, docs, state, commit messages, or PR bodies.
+8. Never mutate a reused database's schema — fix the mapping instead.
 
 ---
 

@@ -224,7 +224,7 @@ Optionally, in a **separate chat**, audit a phase:
 ```
 run stage 5 on P-1
 ```
-→ PASS, or findings that the next build run fixes. Run it in a fresh session — an agent can't
+→ CLEAN, or FINDINGS that the next build run fixes. Run it in a fresh session — an agent can't
 review its own work.
 
 ---
@@ -258,7 +258,7 @@ extra prompts.
 
 ---
 
-## Five things that'll trip you up
+## Things that'll trip you up
 
 - **Never edit `state.json` or `FEATURE_STATUS.md` by hand.** Just say what happened —
   "accept P-2", "search works", "P-2 failed" — and the agent writes it.
@@ -294,7 +294,7 @@ extra prompts.
 ## When you just want to chat
 
 Ask anything, anytime — questions and debugging are free. The moment the agent is about to
-**change code**, it asks whether to run it through the phase process or do it directly. If you
+**change code**, it asks whether to run it as a minor edit or a phase, or do it directly. If you
 say directly, it still logs the change so the next run knows the ground moved.
 
 ---
