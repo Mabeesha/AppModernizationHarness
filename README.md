@@ -16,20 +16,24 @@ reference, not a verified answer key).
 ## The whole thing, in one picture
 
 ```
- setup ─► [0] context ─► [1] requirements ─► [2] design ─► [3] plan ─┐
-          fill INTAKE     what it does        HLD + LLD    phases    │
-                                                                    ▼
-                        ┌──────────────────────────────────► [4] build one phase
-                        │                                           │
-                        └── next phase ◄─────────────────────────────┘
-                                    ├─► you test whenever you like
+ setup ─► [0] context ─► [1] requirements ─► [2] design ─► [3] plan ◄──────────────┐
+          fill INTAKE     what it does        HLD + LLD    phases                  │
+                                                            │                      │ refresh, when [4]
+                                                            ▼                      │ says it's needed
+                        ┌──────────────────────────────────► [4] build one phase ──┘
+                        │                                   │
+                        └── next phase ◄────────────────────┘
+                                    ├─► you commit or merge, and test, whenever you like
+                                    ├─► a small change? "minor edit: …" — its own short run
                                     └─► [5] review (separate chat, optional)
 ```
 
-Stages **0–3 run once each**, in order. Then **4 loops** — one phase at a time, until it's
-done. **Nothing blocks:** you can run three phases before testing any of them, then test and
-tick them off together. Testing is tracked per feature in `FEATURE_STATUS.md`, not per phase. Every document and the `state.json` that tracks progress live in
-`./out/`; the code the agent writes goes to your target repo.
+Stages **0–2 run once each**, in order, and **3** writes the plan. Then **4 loops** — one phase
+at a time, until it's done. Stage 3 runs again only when a build run says the plan needs a
+refresh (after a design change, say). **Nothing blocks:** you can run three phases before
+testing any of them, then test and tick them off together. Testing is tracked per feature in
+`FEATURE_STATUS.md`, not per phase. Every document and the `state.json` that tracks progress
+live in `./out/`; the code the agent writes goes to your target repo.
 
 ---
 
@@ -91,7 +95,8 @@ project conventions. If an upstream skill would land on a directory it doesn't o
 updater stops before changing anything. To take different .NET plugins, edit
 `DOTNET_PLUGINS` at the top of both `update-skills.sh` and `update-skills.ps1`.
 
-The six numbered stage files stay in `ModernizationHarness/` — you never copy those.
+The numbered stage files (and `GIT_DISCIPLINE.md`) stay in `ModernizationHarness/` — you never
+copy those.
 
 `AGENTS.md` does two jobs. It keeps the agent honest in *every* chat, not just formal runs —
 don't skip it. And its first section records where those stage files live, which is why you
@@ -178,8 +183,9 @@ Read each output before moving on. Unhappy with one? **`rerun stage 2 — the AP
 not GraphQL`** — everything after the dash is what you want changed. Reruns are normal, not a
 sign something went wrong.
 
-The plan is a rolling forecast, not a fixed schedule: delivered phases drop off it, and the
-remaining ones get re-checked before most build runs. What *doesn't* move is
+The plan is a rolling forecast, not a fixed schedule: delivered phases drop off it, and when the
+remaining ones need changing, a build run stops and asks you to **`run stage 3 — refresh`** —
+Stage 3 is the only stage that changes the plan. What *doesn't* move is
 **`FEATURE_STATUS.md`** — every requirement has a row there, and rows are never deleted.
 
 ## 4. Build it, one phase at a time
@@ -188,18 +194,22 @@ remaining ones get re-checked before most build runs. What *doesn't* move is
 run stage 4
 ```
 
-Branching and opening a PR is built in — you don't ask for it. It branches from **whatever
-branch you're standing on**, points the PR back at that branch, leaves you on the new branch,
-and **stops**. **It never merges** — every PR is yours. Then you:
+**Who runs git is your intake answer to Q16g.** If the agent does (the default), branching and
+opening a PR is built in — you don't ask for it. It branches from **whatever branch you're
+standing on**, points the PR back at that branch, leaves you on the new branch, and **stops**.
+**It never merges** — every PR is yours. If you run git yourself (say, because the agent's git
+tool hangs), it runs no git command that changes the repo and ends with the changed files and a
+suggested commit message. Then you:
 
-1. **Merge it, or don't.** Nothing waits on it. If you leave the PR open, the next phase simply
-   continues from this branch; merge it and check out your base branch, and the next phase starts
-   from there instead. Either way the code is where the next phase needs it.
+1. **Agent runs git: merge it, or don't.** Nothing waits on it. If you leave the PR open, the
+   next phase simply continues from this branch; merge it and check out your base branch, and the
+   next phase starts from there instead. Either way the code is where the next phase needs it.
+   **You run git: commit now**, before the next run.
 2. **Run the next phase whenever you want.** Nothing waits on you having tested anything either.
 3. **Test when it suits you** — open `FEATURE_STATUS.md`, walk the rows that say `untested`,
    and use `HOW_TO_RUN.md` to get the app running. Every hand-off report tells you how many
-   features are waiting, which ones this phase put back on the list, and which earlier PRs are
-   still open.
+   features are waiting, which ones this phase put back on the list, and (where the agent runs
+   git) which earlier PRs are still open.
 4. **Say one of these when you have tested:**
 
    | | |
@@ -207,7 +217,7 @@ and **stops**. **It never merges** — every PR is yours. Then you:
    | It works | **`accept P-1`** — ticks every feature P-1 delivered. Several at once is fine: **`accept P-1, P-2, P-3`** |
    | Part of it works | **`search works`** — ticks that one row |
    | It's broken | **`P-1 failed — search returns 500`** — records it; the fix is planned as new work, never by reopening P-1 |
-   | You want a change | describe it — the agent works out whether it's a minor edit or needs a design change first |
+   | You want a small change | **`minor edit: …`** — runs from its own small file; the agent checks it really is minor and, if it needs a design change first, says so |
 
 Optionally, in a **separate chat**, audit a phase:
 
@@ -221,7 +231,7 @@ review its own work.
 
 ## Changing the design halfway through
 
-You're at P-6 and need to change auth — which was built in P-3. **Two prompts:**
+You're at P-6 and need to change auth — which was built in P-3. **Three prompts:**
 
 ```
 rerun stage 2 — change auth from the local stub to OIDC against Keycloak,
@@ -231,14 +241,20 @@ bearer tokens
 **Be specific about what you want** — the agent will otherwise ask, or assume.
 
 ```
+run stage 3 — refresh
+```
+→ The plan gains **P-8 "migrate auth to OIDC"**, to run *before* P-6. Stage 3 is the only stage
+that changes the plan, and it can run on a cheaper model. (Skip this and the next build run
+stops and asks for it.)
+
+```
 run stage 4
 ```
-→ It proposes adding **P-8 "migrate auth to OIDC"**, to run *before* P-6. You approve; it
-builds it. P-3 is never reopened — what is built is built, and the retrofit is new work. The
-feature rows it changes go back to `untested` so you know to re-check them.
+→ It builds P-8. P-3 is never reopened — what is built is built, and the retrofit is new work.
+The feature rows it changes go back to `untested` so you know to re-check them.
 
-That's it. The second prompt is the one you always use, so a mid-build design change costs
-exactly one extra prompt.
+That's it. The third prompt is the one you always use, so a mid-build design change costs two
+extra prompts.
 
 ---
 
@@ -246,6 +262,8 @@ exactly one extra prompt.
 
 - **Never edit `state.json` or `FEATURE_STATUS.md` by hand.** Just say what happened —
   "accept P-2", "search works", "P-2 failed" — and the agent writes it.
+- **Where you run git, commit after every run** — before the next one, so each phase or edit is
+  its own commit.
 - **Merging is yours.** The agent never merges unless you say `merge P-3`, so untested code only
   reaches `main` if you put it there. The flip side: if you never merge, phases stack as a chain
   of open PRs — you land those **oldest first**, and GitHub re-points each remaining PR at your

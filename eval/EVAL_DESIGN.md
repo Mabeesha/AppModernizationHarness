@@ -162,7 +162,8 @@ a composite, modelled in `checks/size.py::STAGE_LOADOUTS`:
 | 1 | `AGENTS.md` + `1_REQUIREMENTS_…` + `PROJECT_CONTEXT.md` + `state.json` |
 | 2 | `AGENTS.md` + `2_DESIGN_…` + context + 3 requirements docs + `state.json` |
 | 3 | `AGENTS.md` + `3_PLAN_…` + context + designs + requirements + `state.json` |
-| 4 | `AGENTS.md` + `4_PHASE_…` + plan + designs + requirements + context + `state.json` |
+| 4 (phase) | `AGENTS.md` + `4_PHASE_…` + plan + `FEATURE_STATUS.md` + designs + requirements + context + `state.json` |
+| 4 (minor edit) | `AGENTS.md` + `4_MINOR_EDIT_…` + `FEATURE_STATUS.md` + context + LLD + requirements + `state.json` (an upper bound: an edit reads these only as far as it needs) |
 | 5 | `AGENTS.md` + `5_REVIEW_…` + all docs + `state.json` |
 
 Each composite splits in two:
@@ -170,6 +171,12 @@ Each composite splits in two:
 - **Fixed** — the instruction files. Always measurable from the set alone.
 - **Variable** — the generated artifacts. Only measurable against a real output
   directory (`--docs`).
+
+A load-out may also name an **optional add-on** — an instruction file only some
+projects load. Stage 4's `GIT_DISCIPLINE.md` is one: it is loaded only when
+`context.repo.git` is `agent`. It is reported as a second fixed figure (fixed +
+add-on, counted as one composite) and never folded into the total, so the plain
+fixed figure stays the cost of a project that does not use it.
 
 Three reporting rules keep this honest:
 
@@ -240,6 +247,16 @@ weakest check in the group and a prune candidate.
 `state.json.stages` — they are loop stages, not one-shot document stages — so
 requiring a `rerunCount` from them would be a false positive. The check reads
 which stages the schema actually tracks and only holds those to it.
+
+**A stage may span several instruction files.** Stage 4 runs from
+`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` or `4_MINOR_EDIT_INSTRUCTIONS.md`.
+`InstructionSet.stage_instruction_groups()` returns every `<n>_*_INSTRUCTIONS.md`
+file per stage (templates and unnumbered supplements excluded); C1 reads each
+file's inputs and pools the stage's outputs, C3 counts a stage once however many
+of its files declare an artifact, and C5 holds every file to an Additional
+Instructions block. A file that ships **in** the instruction set (e.g.
+`GIT_DISCIPLINE.md`) is never a pipeline artifact, so C1 treats a stage citing it
+as an input as exogenous.
 
 **C1 recognises unknown artifacts.** Canonical mapping falls back to a
 SCREAMING_SNAKE-shaped key for artifacts it does not know about; without that,
@@ -416,7 +433,8 @@ Two things to settle when enabling it:
    framed as a single user message; that convention must stay constant or
    cross-commit deltas stop being comparable. If the real stage harness splits
    system/user, re-baseline once and note it.
-2. **Volume.** A cold full run is ~15 calls (9 files + 6 composites) — cheap. The
+2. **Volume.** A cold full run is ~19 calls (10 files + 7 composites + 2 add-on
+   composites) — cheap. The
    cache keeps repeat runs at zero.
 
 **Caching** is keyed on `sha256(content) + backend + model`. Content rather than

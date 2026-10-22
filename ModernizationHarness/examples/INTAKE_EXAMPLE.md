@@ -501,19 +501,29 @@ Record these in `context.repo.frontendRoot` / `backendRoot`. They are **not** `n
 reproduces this tree in LLD §3a verbatim and every phase builds to it. No phase invents a
 directory layout.
 
-### 16g. Branch naming?
+### 16g. Who runs git — the agent, or you?
+
+*Tick one:*
+
+- [ ] The agent — it branches, commits, pushes, and opens a PR for each phase or edit
+- [ ] You — the agent runs no git command that changes the repo; you commit after each run
+
+**Answer:** TODO — tick one. Tick *you* where the agent's git tool hangs or git is not the
+agent's to run; 16h–16k then do not apply.
+
+### 16h. Branch naming?
 
 **Answer:** TODO — write *default* for one feature branch per phase.
 
-### 16h. Which branch do PRs target?
+### 16i. Which branch do PRs target?
 
 **Answer:** TODO — write *default* for the default branch.
 
-### 16i. Commit message conventions?
+### 16j. Commit message conventions?
 
 **Answer:** TODO
 
-### 16j. Required reviewers?
+### 16k. Required reviewers?
 
 **Answer:** TODO
 

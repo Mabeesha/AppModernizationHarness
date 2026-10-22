@@ -27,7 +27,8 @@ You also populate `state.json phases[]`.
 > no separate "replan" mode, and a mid-flight design change needs no special handling — it is
 > just an input to the next refresh.
 >
-> Most refreshes are invoked by the Implement stage's Step 0c, not by a human. See
+> **This is the only stage that changes the forward plan.** The Implement stage never re-slices:
+> it detects that a refresh is needed, stops, and the developer runs this stage. See
 > §Refreshing the Plan.
 
 This is not a flat task list. It divides the build into **ordered phases**, where:
@@ -68,7 +69,8 @@ in `state.json`, not in prose**.
 7. **`FEATURE_STATUS.md`** — the coverage ledger you created on the first run. Carry every row
    forward; never regenerate it from scratch (see §`FEATURE_STATUS.md`).
 8. **`state.json` `phases[]`, `changeLog[]`, `reviews[]`** — what is already built, and what
-   changed since the plan was last written. The **reason** for the refresh usually lives here.
+   changed since the plan was last written. The **reason** for the refresh usually lives here,
+   in `changeLog[]` entries whose summary starts `For Stage 3:`.
 9. **The design documents' `## 0. Revision History`** — tells you *what* changed in the design and
    *which delivered phases* it affects, which is what makes a retrofit phase necessary.
 
@@ -307,9 +309,11 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
      state.json. This section only grows.
 
 ## 3. Plan Revision History
-   - Table: date (UTC) / what changed in this refresh / why / phases added / phases removed.
-     One row per refresh. On the first run, a single row saying "initial plan".
-   - "No change" refreshes are NOT recorded here — only refreshes that altered the phase list.
+   - Table: date (UTC) / what changed in this refresh / why / triggers handled (`changeLog`
+     ids of `For Stage 3:` entries) / phases added / phases removed. One row per refresh. On
+     the first run, a single row saying "initial plan".
+   - A refresh that changed nothing is NOT recorded here — except one that handled a refresh
+     trigger, which records a row saying so (§Refreshing the Plan).
 
 ## 4. Assumptions & Prerequisites
    - Environment, access (data-store connection shape, auth info pending), tooling versions
@@ -437,23 +441,29 @@ Rules that hold the ledger together:
 
 A refresh re-slices the **phases that have not started** — those still `pending`. Anything
 `in progress` or `done` is history: **what is built is built**, it moves to §2, and it is never
-re-planned, tested or not. The exception is an approved mid-phase split
-(`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §When You're Blocked`), which trims the `in progress`
-phase to what was built and moves the rest to a new phase. Refreshes come from two places:
-
-- **The Implement stage's Step 0c**, at the start of most phase runs. This is the common case.
-- **A human**, with Additional Instructions — "make P-5 smaller", "pull reporting earlier".
+re-planned, tested or not. (An approved mid-phase split
+(`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §When You're Blocked`) trims the `in progress` phase
+itself, and parks the moved work for you to schedule.) **The developer starts every refresh** —
+after a Stage 4 run stopped with *"Run Stage 3 (refresh) first: <reason>"*, after a Stage 1 or
+Stage 2 rerun, or with Additional Instructions ("make P-5 smaller", "pull reporting earlier").
 
 **Default to no change.** Re-slice only when there is a stated reason. Valid reasons:
 
 | Reason | Typical response |
 |---|---|
-| A design or requirements doc gained a Revision History row | Add a phase retrofitting the delivered code; adjust remaining phases to build against the new contract |
-| A review left findings too large to fold into the next phase | Add a phase for them |
-| The last phase revealed the slicing was wrong (its `sizeReport` says *too large* or *too small*) | Split, merge, or reorder what remains. A *too large* already resolved by an approved split is not, alone, a reason — act only if the remaining phases look as large |
+| A design or requirements doc gained a Revision History row (its rerun's `For Stage 3:` entry) | Add a phase retrofitting the delivered code; adjust remaining phases to build against the new contract |
+| A `For Stage 3:` `changeLog` entry: changes to future phases found while reconciling | Update those phases' tasks, test guides and exit criteria |
+| A `For Stage 3:` entry: review findings too large to fold into a phase | Add a phase for them |
+| A `For Stage 3:` entry: a phase's `sizeReport` says the slicing was wrong (*too large* or *too small*) | Split, merge, or reorder what remains |
+| Work an approved split parked — `sizeReport.pushedLater[]` with `toPhase: null`, its ledger rows `unscheduled` | **Schedule it:** fold it into a remaining phase, or add a phase for it sequenced next |
 | The human asked for a different shape | Do what they asked, within the golden rule |
 
-If none applies, **make no edit** and report "plan unchanged". Churn is a real cost: it burns
+**A trigger is handled once a §3 row names its `changeLog` id** — that is how the next Stage 4
+run knows you have acted. So **every Stage 3 run — the first included — lists all
+`For Stage 3:` entries no §3 row names yet**, deals with each, and names them all in its §3 row — acted on, or reviewed and left
+— even when nothing in the plan changed (*"changeLog 38, 41 reviewed — phases unchanged"*); that
+row alone writes no `changeLog` entry and bumps no `rerunCount`. If no reason applies, **make no
+edit** and report "plan unchanged". Churn is a real cost: it burns
 the human's review attention and destabilizes what they thought they were getting next.
 
 ### Retrofit phases
@@ -472,18 +482,22 @@ not a reopened one. Plan the retrofit like any other phase:
 
 ### Bookkeeping
 
-Update `PLAN_<AppName>.md` (§1, §2, §3, §5 as applicable) and re-sync `phases[]` per
-Step 3. **Then re-point `FEATURE_STATUS.md`:** every row reading `scheduled in P-N` whose phase
+A refresh that changed the remaining phases — the phase list, or only their tasks, test guides
+or exit criteria — is a revision; record it as below. Update `PLAN_<AppName>.md` (§1, §2, §3,
+§5 as applicable) and re-sync `phases[]` per Step 3. **Then re-point `FEATURE_STATUS.md`:** every row reading `scheduled in P-N` whose phase
 this refresh **dropped or resequenced** must move to the phase that will now deliver it, or to
 `unscheduled` with a reason in §6. A row pointing at a phase that no longer exists is the one
-way a refresh can quietly lose coverage. Likewise, any row still reading `scheduled in` a phase
-that is now `done` — work a mid-phase split moved out (see that phase's
-`sizeReport.pushedLater`) — must point at a remaining phase. **Never touch a `Tested` value**
+way a refresh can quietly lose coverage. Likewise, every row a mid-phase split set to
+`unscheduled` (see that phase's `sizeReport.pushedLater`) must now read `scheduled in` the
+phase you gave the work, and any row still reading `scheduled in` a phase that is now `done`
+must point at a remaining phase. Leave the `done` phase's `sizeReport` as written; the §3 row
+says where its parked work went. **Never touch a `Tested` value**
 while doing this — that column is the developer's, and a re-slice says nothing about what
 they have run.
 Add a §3 Plan Revision History row and a `changeLog` entry noting the re-slice, and
-increment `stages.plan.rerunCount`. **A "no change" refresh writes none of these** — it is not
-a revision, and recording it would bury the real ones.
+increment `stages.plan.rerunCount`. **A refresh that changed nothing writes none of these** — it
+is not a revision, and recording it would bury the real ones — apart from the §3 row for a
+trigger it handled.
 
 **One exception, on every refresh including "no change":** move phases that have become
 `done` since the last run out of §5 into §2 Completed. That is bookkeeping, not a revision —
@@ -534,9 +548,14 @@ and to a whole-build review.
 - [ ] **No `FEATURE_STATUS.md` row points at a phase this refresh dropped, or reads
       `scheduled in` a `done` phase** — each was re-pointed or moved to `unscheduled` with a §6
       reason; no `Tested` value was touched.
-- [ ] On a refresh that changed the phase list: §3 Plan Revision History row added,
+- [ ] Every piece of work a mid-phase split parked (`pushedLater[].toPhase: null`) is scheduled
+      in a remaining phase, and its ledger rows read `scheduled in` that phase.
+- [ ] Every `For Stage 3:` `changeLog` entry no earlier §3 row named is named in this run's
+      §3 row (the first run's "initial plan" row included) — acted on, or reviewed and left.
+- [ ] On a refresh that changed the remaining phases: §3 Plan Revision History row added,
       `changeLog` entry appended, `stages.plan.rerunCount` incremented. On a "no change"
-      refresh: none of these written, and "plan unchanged" reported.
+      refresh: none of these written, and "plan unchanged" reported — except a §3 row naming
+      each refresh trigger it handled.
 - [ ] Any retrofit phase names the delivered phases it changes, and is sequenced before any
       remaining phase that would otherwise build on the superseded contract.
 - [ ] `stages.plan.status` set to `complete`.

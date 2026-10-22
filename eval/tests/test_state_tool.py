@@ -234,6 +234,25 @@ class StateToolTest(unittest.TestCase):
         self.assertEqual(self.state()["phases"][0]["sizeReport"], {"verdict": "right"})
         self.assertIn("JSON object", self.refused("set", "phases.P-1", "sizeReport=oops"))
 
+    def test_split_work_may_wait_unscheduled(self):
+        # An approved mid-phase split parks the moved work with no target phase until Stage 3
+        # schedules it (DD-23), so toPhase: null must be stored as null and pass check.
+        self.run_tool("add", "phases", "name=A")
+        report = {"pushedLater": [{"work": "export screen", "toPhase": None}],
+                  "verdict": "too large", "splitSuggestion": "export as its own phase"}
+        self.run_tool("set", "phases.P-1", self.write_payload({"sizeReport": report}))
+        self.assertEqual(self.state()["phases"][0]["sizeReport"], report)
+        self.run_tool("check")
+
+    def test_check_accepts_both_git_modes(self):
+        # context.repo.git is written by Stage 0 (DD-21); the tool must leave either value alone.
+        for mode in ("agent", "developer"):
+            data = self.state()
+            data["context"]["repo"]["git"] = mode
+            self.file.write_text(json.dumps(data), encoding="utf-8")
+            self.run_tool("check")
+            self.assertEqual(json.loads(self.run_tool("get", "context.repo.git").stdout), mode)
+
     # --- encoding (review findings 1, 5) ------------------------------------------------------
 
     def test_file_input_keeps_non_ascii_in_utf8_and_utf16(self):

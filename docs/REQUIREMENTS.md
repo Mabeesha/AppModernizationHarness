@@ -1,6 +1,6 @@
 # Requirements — Modernization Harness
 
-*What the harness is required to do, as currently implemented. Reverse-engineered from the six stage
+*What the harness is required to do, as currently implemented. Reverse-engineered from the stage
 files, the two templates, and `DEVELOPER_GUIDE.md`.*
 
 ---
@@ -76,8 +76,8 @@ and anything that modifies the legacy source (read-only in every stage).
 | 0 Context | `PROJECT_CONTEXT.md`, `INTAKE_RESOLVED.md`, `state.json` |
 | 1 Requirements | Business / Functional / Technical requirements |
 | 2 Design | HLD + LLD (the LLD is the authoritative contract) |
-| 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]` |
-| 4 Implement | Code, a PR, updated `FEATURE_STATUS.md` rows |
+| 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]`; every later refresh |
+| 4 Implement | Code and updated `FEATURE_STATUS.md` rows — plus a branch and a PR only where the agent runs git (R12) |
 | 5 Review | `REVIEW_<Rid>_<App>_<target>.md` + findings in `state.json` |
 
 - **R3.1** Every stage supports a **rerun with Additional Instructions**. Documents are amended
@@ -99,22 +99,35 @@ and anything that modifies the legacy source (read-only in every stage).
 ### R5 — Rolling plan
 - **R5.1** The plan covers **remaining work only**; `done` phases drop to a Completed line,
   tested or not.
-- **R5.2** Stage 4 re-checks the remaining plan before most runs, and **defaults to no change**.
-- **R5.3** A re-slice must be **proposed and approved** before it is applied.
+- **R5.2** **Stage 3 is the only stage that changes the forward plan.** Before each phase run,
+  Stage 4 checks whether the remaining plan needs a refresh, **defaults to no change**, and — if
+  a trigger applies that Stage 3 has not yet handled — stops and names it, having written
+  nothing but the developer's notes. Triggers are change-log entries marked `For Stage 3:` —
+  written by every requirements or design rerun, a context rerun that binds the plan, and Stage 4 — and a trigger is handled once a
+  row of the plan's Revision History names its id.
+- **R5.3** A re-slice is made only by a **Stage 3 run the developer starts**, never by Stage 4
+  on its own. Stage 4 may still edit the **current** phase's tasks, test guide and exit criteria
+  when reconciliation requires it.
 - **R5.4** Phase IDs are **permanent** — never renumbered or reused. Execution order lives in
   the plan document, not in the IDs.
 - **R5.5** **`FEATURE_STATUS.md`** holds one row per requirement, and rows are **never
   deleted** — the plan is a forecast, the ledger is the commitment.
+- **R5.6** Work moved out of a phase by an approved mid-phase split is parked — recorded in
+  `sizeReport.pushedLater` with no target phase, its ledger rows `unscheduled` — and the next
+  Stage 3 refresh schedules it.
 
 ### R6 — Changes mid-build
 - **R6.1** The agent classifies each request itself — **phase**, **contract change**, or **minor
   edit**. The test is *authority*, not size.
 - **R6.2** A change touching a requirement, design contract, or plan scope is **not implemented
   that run**: the agent names the owning document, recommends the stage, logs it, and stops.
+  The developer then reruns the owning stage, runs Stage 3 (refresh), and runs the next phase.
 - **R6.3** `done` phases are **never reopened** for a design change. The fix is a new
   **retrofit phase**, sequenced before anything that would build on the old contract.
-- **R6.4** Minor edits (`E-n`) get their own id, branch, PR, status, and review identity, and
-  behave exactly like phases throughout.
+- **R6.4** Minor edits (`E-n`) get their own id, status, and review identity — and their own
+  branch and PR where the agent runs git (R12) — and behave like phases throughout. They run
+  from their own instruction file, started by the developer ("minor edit: …"); a phase run that
+  receives one stops and asks for that run instead.
 
 ### R7 — Machine state
 - **R7.1** `state.json` is the single source of truth for progress, lineage, and change history;
@@ -155,6 +168,8 @@ and anything that modifies the legacy source (read-only in every stage).
   review findings — plus the rows this phase put at risk.
 
 ### R11 — Git discipline
+*All of R11 applies only where the agent runs git (`context.repo.git` is `agent`, R12).*
+
 - **R11.1** Branch per unit of work, small self-describing commits, a PR whose body records
   initial task / reasoning / outcome.
 - **R11.2** The agent branches from **the currently checked-out branch** and targets its PR at
@@ -173,6 +188,20 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R11.6** The agent merges **only** on an explicit instruction naming the item. It never merges
   unasked and never asks for a merge, since nothing depends on one.
 
+### R12 — Git mode
+- **R12.1** Who runs git is decided once, in Stage 0, from the intake, and recorded as
+  `context.repo.git`: `agent` or `developer`. The default is `agent`.
+- **R12.2** Under `agent`, R11 applies. Its rules live in a separate file that Stage 4 loads
+  only in this mode, so a project that does not use them does not pay for them.
+- **R12.3** Under `developer`, the agent runs **no git command that changes the repository** —
+  no branch, checkout, commit, push, merge, or PR. Read-only commands (`status`, `diff`, `log`,
+  `show`) are allowed. `branch` stays `null` and `prUrls` empty.
+- **R12.4** Under `developer`, every hand-off lists the changed files and a suggested commit
+  message, and the changed files are recorded in the phase's or edit's `notes`. The developer
+  commits after each run, before the next.
+- **R12.5** Under `developer`, the predecessor's work is checked by content — its files and
+  symbols exist in the working tree — exactly as R11.3 checks it under `agent`.
+
 ---
 
 ## 5. Quality requirements
@@ -182,8 +211,8 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q1 | **Readable in five minutes** — `README.md` gets a developer running; `DEVELOPER_GUIDE.md` carries the reasoning; `USE_CASES.md` walks the situations by example |
 | Q2 | **No duplicated rules** — a constraint-specific rule lives in its obligation, once |
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
-| Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra |
-| Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and a git commit |
+| Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly two extra (rerun the owning stage, then a Stage 3 refresh) |
+| Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and a git commit (under `developer` git mode, the developer's commit) |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)
 

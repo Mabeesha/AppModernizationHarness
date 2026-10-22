@@ -128,11 +128,28 @@ class InstructionSet:
         return None
 
     def stage_documents(self) -> dict[str, Document]:
-        """Stage id -> document, for files named with a leading stage number."""
+        """Stage id -> document, for files named with a leading stage number.
+
+        One document per stage: where a stage spans several files, the last in name
+        order wins. Use ``stage_instruction_groups`` to see every instruction file.
+        """
         out: dict[str, Document] = {}
         for d in self.documents:
             if d.stage:
                 out[d.stage] = d
+        return out
+
+    def stage_instruction_groups(self) -> dict[str, list[Document]]:
+        """Stage id -> every ``<n>_*_INSTRUCTIONS.md`` file for that stage, in name order.
+
+        A stage may run from more than one instruction file (Stage 4: a phase file and
+        a minor-edit file). Templates (``0_INTAKE_TEMPLATE.md``) are not instruction
+        files and are left out, as are unnumbered supplements (``GIT_DISCIPLINE.md``).
+        """
+        out: dict[str, list[Document]] = {}
+        for d in sorted(self.documents, key=lambda d: d.name):
+            if d.stage and d.name.endswith("_INSTRUCTIONS.md"):
+                out.setdefault(d.stage, []).append(d)
         return out
 
 

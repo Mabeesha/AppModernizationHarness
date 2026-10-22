@@ -260,9 +260,8 @@ target may have none of these; a DB-reuse migration will have the first):
   - *Plan (constraint added late).* If a Stage 0 rerun introduces this bar after phases are
     already delivered, the binding phase is the **next unstarted phase**. Phases already
     `done` are never reopened to meet it (`AGENTS.md` §How a mid-flight change is handled):
-    bringing their code to the bar is either a **retrofit phase** the developer approves at the
-    next Step 0c,
-    or an explicit scope-out recorded in the plan's **§6 Risks & Open Questions** — the
+    bringing their code to the bar is either a **retrofit phase** planned by the next Stage 3
+    refresh, or an explicit scope-out recorded in the plan's **§6 Risks & Open Questions** — the
     constraint must say which. A plan refresh must never apply the bar retroactively to
     shipped code and call the result a plan.
   - *Implement:* the gate runs and passes within the phase — under *CI-only* that means the
@@ -378,7 +377,8 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
 
 - The **three locations**, stated separately even when they coincide: **legacy source**
   (read-only everywhere), **documents** (context/resolved intake/requirements/design/plan/`state.json`), and
-  the **target code repository** (where Stage 4 branches, commits, and opens PRs). State
+  the **target code repository** (where Stage 4 writes code — and, under `agent` git mode,
+  branches, commits, and opens PRs). State
   explicitly if the target repo is the same one holding the legacy source — the agent must
   know whether it is adding a new tree beside a frozen legacy one.
 - **Repository layout (Q16e) — decided here, once.** State whether frontend and backend live in a
@@ -400,8 +400,13 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
 - Where either answer is defaulted rather than given, mark it `ASSUMPTION:` and surface it in
   the hand-off report like any other default — both are expensive to change once Stage 2 has
   designed against them.
-- Branch naming, PR target branch, commit conventions, required reviewers. Stage 4 mandates
-  branch + small commits + PR; this is where it learns the house rules. **Branch naming and
+- **Who runs git (Q16g) — decided here, once.** `agent` (the agent branches, commits, pushes,
+  and opens PRs) or `developer` (the agent runs no git command that changes the repository;
+  read-only ones are allowed, and the developer commits after each run). Record it in
+  `context.repo.git` and in §3. *Default when unanswered: `agent`.* Under `developer`, the
+  conventions below are recorded for the developer only.
+- Branch naming, PR target branch, commit conventions, required reviewers. Under `agent`,
+  Stage 4 mandates branch + small commits + PR; this is where it learns the house rules. **Branch naming and
   commit conventions bind the agent. PR target branch and required reviewers are recorded for
   humans only** — Stage 4 targets the branch it branched from, and never merges unasked, so
   neither field changes what it does. Record them anyway: they tell the developer where work is
@@ -502,6 +507,8 @@ many times across a build — so **state each fact once and cross-reference; nev
   given, an explicit note that Stage 2 fixes them in the LLD and later stages build to that.
 - **Release model:** shipped together as one versioned unit, or released independently — plus
   the API-compatibility obligation that follows from the answer.
+- **Who runs git:** the agent, or the developer (the agent then runs no git command that changes
+  the repository, and the developer commits after each run).
 - **Repository conventions:** branch naming, PR target, commit conventions, reviewers.
 
 ## 4. Constraints (non-negotiable)
@@ -617,6 +624,7 @@ empty. This stage writes the file directly — every later write goes through th
       "sharedWithLegacy": false
     },
     "repo": { "layout": "single | split", "release": "together | independent",
+              "git": "agent | developer",
               "frontendRoot": "<path within its repo, or null — then Design fixes it>",
               "backendRoot": "<path within its repo, or null — then Design fixes it>",
               "branchNaming": "", "prTarget": "", "conventions": "" },
@@ -646,10 +654,15 @@ Field notes (the later stages depend on these; keep them exact):
   made **only in this stage**. Stages 2–4 read them to shape the internal API contract and the
   branch/PR flow; none of them decide or override. Changing either is a rerun of this stage
   plus a `changeLog` entry naming the downstream docs it invalidates.
+- **`repo.git`** — who runs git (Q16g), decided **only in this stage**; default `agent`. Under
+  `agent`, Stage 4 also loads `GIT_DISCIPLINE.md` and branches, commits, and opens PRs. Under
+  `developer`, it runs no git command that changes the repository, leaves `branch` `null` and
+  `prUrls` `[]`, and hands off a changed-files list and a suggested commit message
+  (`AGENTS.md §Git mode`). Changing it is a rerun of this stage.
 - **`repo.prTarget`** — the branch the work is ultimately for (e.g. `dev`, or the repository's
   default branch). **Nothing reads it.** It is a note for humans and for PR bodies only: the
   Implement stage branches from the branch that is currently checked out and points the PR back
-  at that same branch (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From the Right Base`),
+  at that same branch (`GIT_DISCIPLINE.md §Starting From the Right Base`),
   and it never merges. Keep the field because it tells a reader where work is headed; never
   write a rule that depends on it. If untested work should stay off `main`, the developer keeps
   an integration branch checked out — that, not this field, is what decides where work lands.
@@ -672,8 +685,8 @@ Field notes (the later stages depend on these; keep them exact):
   removing, or re-scoping a row is a rerun of this stage plus a `changeLog` entry.
 - **`stages.<name>.status`** — `pending` → `in progress` → `complete`. `rerunCount`
   increments each time a stage is rerun with additional instructions. For `plan`, it counts
-  **substantive refreshes only** — a Step 0c check that left the phase list unchanged is not a
-  rerun and writes nothing.
+  **substantive refreshes only** — a refresh that left the remaining phases unchanged is not a
+  rerun and writes nothing, except the plan §3 row naming any refresh trigger it handled.
 - **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "sizeReport": null, "notes": "" }`.
   - **Status moves forward only:** `pending` → `in progress` → `done`. There is no `accepted`
     status and nothing rewinds — **what is built is built.** A phase the developer reports as
@@ -687,10 +700,13 @@ Field notes (the later stages depend on these; keep them exact):
   - `branch` / `prUrls` are written by the Implement stage so the work is findable later.
     `prUrls` is **always an array** — one element under a `single` layout, one per repo under
     `split`, and **empty where the developer asked for no PR**. Never a bare string, so nothing
-    downstream has to test its shape.
+    downstream has to test its shape. Under `repo.git` = `developer`, `branch` stays `null`,
+    `prUrls` stays `[]`, and `notes` lists the changed files instead.
   - `sizeReport` is written by the Implement stage when it marks the phase `done` — how the
     phase's size held up (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Step 2`). It is the
-    evidence a later plan refresh uses to re-slice; `null` until then.
+    evidence a later plan refresh uses to re-slice; `null` until then. A
+    `pushedLater[].toPhase` of `null` is work a mid-phase split moved out that the next plan
+    refresh must schedule.
   - **No stage records whether work was merged, and no stage depends on it.** A phase's branch
     starts from the branch that is currently checked out, so the predecessor's code is there
     whether or not anything was merged. Presence is always checked **by content**.
@@ -802,9 +818,12 @@ aren't questionnaire answers.
 On rerun: **re-read `INTAKE.md`** as the current answers (not the previous
 `INTAKE_RESOLVED.md`, which is a record of the *last* run), load the existing
 `PROJECT_CONTEXT.md`, `INTAKE_RESOLVED.md` and `state.json`, apply the changes, **increment
-`stages.context.rerunCount`**, and — if a constraint changed after later stages ran — **add a
+`stages.context.rerunCount`**, and — if a constraint, the layout, release model, topology or
+who runs git changed after later stages ran — **add a
 `changeLog` entry** describing the change and which downstream docs it invalidates, so the
-affected stages get rerun. Diff the new answers against the previous `INTAKE_RESOLVED.md`,
+affected stages get rerun. Where phases already exist and the change binds the plan (a
+constraint, the layout, release model, topology, or who runs git), start that entry's summary
+with `For Stage 3:` — the next phase run then stops until Stage 3 has planned for it. Diff the new answers against the previous `INTAKE_RESOLVED.md`,
 report what actually changed, then rewrite it for this run.
 
 **A previous run in the older format** — the ledger in `PROJECT_CONTEXT.md §5` with no
@@ -828,6 +847,7 @@ in full. Say in the report that you did.
 - [ ] Repository layout (single / split) and release model (together / independent) are both
   stated, with every target path — in `PROJECT_CONTEXT.md §3` and in `state.json`
   (`context.repo.layout`, `context.repo.release`). No later stage decides these.
+- [ ] Who runs git (`agent` / `developer`) is stated in §3 and in `context.repo.git`.
 - [ ] Deployable units (single-artifact / separate-artifacts) and runtime topology
   (same-origin / separate-origins) are both stated in §3 and in `state.json`
   (`context.deployment.*`), along with the local dev arrangement and how config/secrets are

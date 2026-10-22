@@ -20,8 +20,8 @@ rather than answered here. That is deliberate: those answers are marked `ASSUMPT
 listed for confirmation instead of hard-stopping.
 
 Questions this file leaves out, or leaves with an empty Answer, are blank: they take the
-template's default, and Stage 0 reports every default it applied. That includes the git
-conventions (16g–16j).
+template's default, and Stage 0 reports every default it applied. That includes who runs git
+(16g — default: the agent) and the git conventions (16h–16k).
 -->
 
 ---

@@ -21,6 +21,9 @@ from ..registry import Context, check
 # Stage load-outs: what a single run of each stage actually pulls into context.
 #
 # `fixed`    - instruction files, always present in the set, always measurable.
+# `optional` - instruction files a run loads only in some projects (Stage 4's git
+#              supplement, loaded only when `context.repo.git` is `agent`). Reported
+#              as a second fixed figure, never folded into the first.
 # `variable` - generated artifacts, only measurable against a real output dir
 #              (--docs). Globs, because <AppName> varies per project.
 #
@@ -54,11 +57,24 @@ STAGE_LOADOUTS: dict[str, dict[str, list[str]]] = {
             "TECHNICAL_REQUIREMENTS_*.md",
         ],
     },
-    "stage-4": {
+    # Stage 4 runs from one of two files: a planned phase, or a minor edit.
+    "stage-4 (phase)": {
         "fixed": ["AGENTS_TEMPLATE.md", "4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md"],
+        "optional": ["GIT_DISCIPLINE.md"],
         "variable": [
-            "PROJECT_CONTEXT.md", "state.json", "PLAN_*.md",
+            "PROJECT_CONTEXT.md", "state.json", "PLAN_*.md", "FEATURE_STATUS.md",
             "HIGH_LEVEL_DESIGN_*.md", "LOW_LEVEL_DESIGN_*.md",
+            "BUSINESS_REQUIREMENTS_*.md", "FUNCTIONAL_REQUIREMENTS_*.md",
+            "TECHNICAL_REQUIREMENTS_*.md",
+        ],
+    },
+    # A minor edit reads the LLD, requirements and context only as far as the change
+    # needs; this is the upper bound (all of them), never the plan or the HLD.
+    "stage-4 (minor edit)": {
+        "fixed": ["AGENTS_TEMPLATE.md", "4_MINOR_EDIT_INSTRUCTIONS.md"],
+        "optional": ["GIT_DISCIPLINE.md"],
+        "variable": [
+            "PROJECT_CONTEXT.md", "state.json", "FEATURE_STATUS.md", "LOW_LEVEL_DESIGN_*.md",
             "BUSINESS_REQUIREMENTS_*.md", "FUNCTIONAL_REQUIREMENTS_*.md",
             "TECHNICAL_REQUIREMENTS_*.md",
         ],
@@ -181,6 +197,17 @@ def a3_stage_budget(ctx: Context) -> CheckResult:
         fixed_texts, fixed_missing = _resolve(spec["fixed"], ctx.iset.documents, ctx.iset.root)
         fixed_tokens = ctx.counter.count_composite(fixed_texts) if fixed_texts else 0
 
+        # Optional add-on: counted as its own composite (fixed + add-on), since token
+        # counts are not additive. None when the stage declares no add-on.
+        with_optional = None
+        optional_missing: list[str] = []
+        if spec.get("optional"):
+            opt_texts, optional_missing = _resolve(
+                spec["optional"], ctx.iset.documents, ctx.iset.root
+            )
+            if opt_texts:
+                with_optional = ctx.counter.count_composite(fixed_texts + opt_texts)
+
         var_tokens = None
         var_missing: list[str] = []
         if spec["variable"]:
@@ -202,6 +229,9 @@ def a3_stage_budget(ctx: Context) -> CheckResult:
                     "fixed_tokens": fixed_tokens,
                     "fixed_files": spec["fixed"],
                     "fixed_missing": fixed_missing,
+                    "optional_files": spec.get("optional", []),
+                    "optional_missing": optional_missing,
+                    "fixed_with_optional_tokens": with_optional,
                     "variable_tokens": var_tokens if var_tokens is not None else "unmeasured",
                     "variable_patterns": spec["variable"],
                     "variable_missing": var_missing,

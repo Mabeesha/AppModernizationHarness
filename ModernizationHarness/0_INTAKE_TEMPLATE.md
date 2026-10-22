@@ -657,7 +657,8 @@ and degrades to change-log-only without it.
 
 ### 16c. Where is the target code repository?
 
-Where the build branches, commits, and opens PRs.
+Where the build writes code — and, when the agent runs git (16g), branches, commits, and opens
+PRs.
 
 *Default: the current working repository.*
 
@@ -709,25 +710,45 @@ to it.*
 
 **Answer:**
 
-### 16g. Branch naming?
+### 16g. Who runs git — the agent, or you?
+
+*Tick one:*
+
+- [ ] The agent — it branches, commits, pushes, and opens a PR for each phase or edit
+- [ ] You — the agent runs no git command that changes the repo; you commit after each run
+
+*Default: the agent.*
+
+**Answer:**
+
+<details><summary>Why this matters</summary>
+
+Pick *you* where the agent cannot or must not run git — for example, where its git tool hangs.
+The agent may still run read-only commands (`status`, `diff`, `log`). It ends each run with the
+list of changed files and a suggested commit message; commit them before the next run.
+16h–16k apply only when the agent runs git.
+
+</details>
+
+### 16h. Branch naming?
 
 *Default: one feature branch per phase.*
 
 **Answer:**
 
-### 16h. Which branch do PRs target?
+### 16i. Which branch do PRs target?
 
 *Default: the default branch.*
 
 **Answer:**
 
-### 16i. Commit message conventions?
+### 16j. Commit message conventions?
 
 *Default: none stated.*
 
 **Answer:**
 
-### 16j. Required reviewers?
+### 16k. Required reviewers?
 
 *Default: none stated.*
 

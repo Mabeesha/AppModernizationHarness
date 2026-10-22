@@ -28,7 +28,9 @@ anything** — you find, classify, and hand back a report. Fixes go through the 
 
 1. **`state.json`** — `phases[]` (what's built), `edits[]` (what each minor edit was
    and where it landed), and prior `reviews[]`. Read the array your
-   target lives in. You **append a new entry to `reviews[]`** and, for each actionable finding,
+   target lives in. Its entry says where the work landed: `branch` and `prUrls` under
+   `context.repo.git` = `agent`; under `developer` (no branch or PR), the changed-files list in
+   its `notes`, plus its `FEATURE_STATUS.md` rows. You **append a new entry to `reviews[]`** and, for each actionable finding,
    append a `changeLog[]` entry so the Implement stage picks it up. You write nothing else to
    `state.json` — there is no status on a target for a review to set.
 1b. **`FEATURE_STATUS.md`** — the coverage ledger: what is built, how to check it, and what the
@@ -89,8 +91,10 @@ what's wrong, why it matters, and the requirement/design/constraint it violates.
 - **On a `whole-build` target, audit `FEATURE_STATUS.md` itself.** Any row still marked
   `unscheduled` is a **Blocker** — the plan is a rolling forecast, so an unscheduled row is work
   that was never delivered and no longer has a phase that would deliver it. Also verify no row
-  present in an earlier version of the ledger has disappeared (`git log` on it); a
-  vanished row is work silently dropped, and is likewise a Blocker.
+  present in an earlier version of the ledger has disappeared — read-only `git log` on it (in
+  either git mode); where it is not in git, check every requirement ID has a row and every row
+  `changeLog[]` names still exists. A vanished row is work silently dropped, and is likewise a
+  Blocker.
 - Find **divergences** — behavior that doesn't match the FR/BR or the LLD contract (wrong
   endpoint shape, missing validation, altered business rule, wrong field mapping).
 - Check the **parity stance** (`PROJECT_CONTEXT §1`): under strict parity, an "improvement"

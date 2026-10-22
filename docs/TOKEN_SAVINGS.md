@@ -43,6 +43,22 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   (`AGENTS_TEMPLATE.md §Reading and Writing state.json`).
 - Stage 4's Git Discipline and Definition of Done were tidied.
 
+**Applied 2026-10-22 — the Stage 4 redesign (`docs/STAGE4_REDESIGN_PLAN.md`):**
+
+- **Option 9 — a slim minor-edit file.** `4_MINOR_EDIT_INSTRUCTIONS.md` (DD-22, R6.4). The
+  developer starts it with *"minor edit: …"*; a phase run that receives one stops and asks for it.
+  A minor-edit run's fixed load is ~4,500 tokens (tiktoken), against 14,095 for any Stage 4 run
+  before.
+- **Git as a setting.** `context.repo.git` = `agent` | `developer` (intake Q16g; DD-21, R12).
+  The git rules moved to `GIT_DISCIPLINE.md`, loaded only under `agent`; under `developer` the
+  agent runs no git command that changes the repository (read-only ones are allowed). Saves
+  ~2,200 tokens per Stage 4 run where the agent does not run git.
+- **Re-planning moved to Stage 3.** Stage 4's Step 0c no longer re-slices; it detects a needed
+  refresh and stops (DD-23, R5). A design change now costs three prompts, and the middle one
+  (Stage 3) can use a cheaper model (Option 1).
+- The phase file was compacted (repetition only). A phase run's fixed load, developer git mode,
+  is ~10,370 tokens (from 14,095), missing the 9,500 target; with `GIT_DISCIPLINE.md`, ~12,660.
+
 ---
 
 ## 3. Options
@@ -79,8 +95,8 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   chat after its stage has handed off.
 - **Do not restart inside a Stage 4 run** (between Step 0 and hand-off): Step 0b appends a
   reconcile entry to `changeLog[]`, but the high-water marks advance only at hand-off, so a
-  fresh session would reconcile the same changes twice. Answer a Step 0c re-slice proposal in
-  the same session.
+  fresh session would reconcile the same changes twice. (Step 0c no longer proposes re-slices: a
+  needed refresh stops the run, and Stage 3 runs in its own session.)
 - **Saves:** stops sessions growing across unrelated work.
 - **Risk:** none.
 - **Change:** none.
@@ -89,8 +105,8 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 
 - **What:** ask Stage 3 for smaller phases ("make P-5 smaller"). Mid-phase, Stage 4 already
   stops at a runnable point and proposes a split when a phase proves too large
-  (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §When You're Blocked`); the rest becomes a new phase
-  in a fresh session.
+  (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §When You're Blocked`); the next Stage 3 refresh
+  schedules the rest, and it is built in a fresh session.
 - **Saves:** session cost grows faster than session length, so two half-size phases usually cost
   less than one full-size phase.
 - **Risk:** too-small phases pay the fixed reload (~27k+ tokens on the sample) too often. Use
@@ -159,7 +175,7 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   in a section nobody named. **Option 7 achieves the same saving more safely; prefer it.**
 - **Touches:** Stage 3 (phase template), Stage 4 inputs, DESIGN.md, REQUIREMENTS.md.
 
-#### Option 9 — A slim instruction file for minor edits
+#### Option 9 — A slim instruction file for minor edits *(applied 2026-10-22 — see §2)*
 
 - **What:** a short file for minor edits only. It keeps the authority test ("does this touch a
   requirement, design contract or plan scope? If yes, stop and run full Stage 4") and the
@@ -224,8 +240,9 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 
 - **What:** the Agent Skills pattern (supported by GitLab Duo, Claude Code, Codex, Gemini CLI):
   keep the core steps in the main file and move rarely needed parts into separate files the agent
-  opens only when the case arises. In Stage 4: minor edits, re-running a failed phase, the
-  mid-phase split procedure, reference implementations, split-layout git rules.
+  opens only when the case arises. In Stage 4: re-running a failed phase, the mid-phase split
+  procedure, reference implementations. (Minor edits and the git rules were split out on
+  2026-10-22 — see §2.)
 - **Saves:** moderate, on every run that does not hit those cases.
 - **Risk:** the agent does not open a part it needed and misses a rule. Measure first.
 - **Touches:** every stage file it applies to, the "ships as Markdown files" description in
@@ -290,6 +307,6 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 4. **First design change:** Option 7, tried on one test app and compared before/after. Prefer
    it to Option 8.
 5. **Cheap, low-risk tidy-ups:** Option 12 (or its smaller alternative) and Option 13.
-6. **Only if needed:** Option 9 (minor edits are frequent), Options 10–11 (Options 4–5 by hand
+6. **Only if needed:** Options 10–11 (Options 4–5 by hand
    prove too manual), Option 14 (after a measured run), Option 15 (for easier starting), Option
    16 (state-tool commands cause real trouble).

@@ -1,6 +1,6 @@
 ## Running a stage
 
-The six numbered stage files live in **`ModernizationHarness/`**, relative to the root of this
+The numbered stage files live in **`ModernizationHarness/`**, relative to the root of this
 working tree. *Keeping them somewhere else? Change that path here, once — it is the only place
 it is written down.*
 
@@ -12,8 +12,9 @@ outright; neither form is more official. **Load that file and follow it:**
 | "stage 0", "project context", "intake" | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` |
 | "stage 1", "requirements" | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` |
 | "stage 2", "design" | `2_DESIGN_INSTRUCTIONS.md` |
-| "stage 3", "plan", "replan" | `3_PLAN_INSTRUCTIONS.md` |
+| "stage 3", "plan", "replan", "refresh" | `3_PLAN_INSTRUCTIONS.md` |
 | "stage 4", "next phase", "build P-4", "implement" | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` |
+| "minor edit", "small fix", "edit:" | `4_MINOR_EDIT_INSTRUCTIONS.md` |
 | "stage 5", "review", "audit" | `5_REVIEW_INSTRUCTIONS.md` |
 
 - **Everything after the stage name is that stage's Additional Instructions** ("rerun stage 2 —
@@ -27,7 +28,7 @@ outright; neither form is more official. **Load that file and follow it:**
   and let them confirm.
 
 **Always open the file and work from it.** These instructions change; a stage run from memory
-of what the stage usually does is not a stage run.
+is not a stage run.
 
 ---
 
@@ -63,33 +64,29 @@ front of the edit.
 
 - **Reading, explaining, diagnosing, running tests** → just do it.
 - **About to change target application code** → this is a phase or a minor edit. Stop and ask:
-  > "This changes built code. Run it through `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` — branch,
-  > tests, docs, state, PR — or make the change directly?"
+  > "This changes built code. Run it as a minor edit (`4_MINOR_EDIT_INSTRUCTIONS.md`) or a
+  > phase — tests, docs, state — or make the change directly?"
 
   If they choose "directly", **still append a `changeLog[]` entry** (author `developer`, origin
   `out-of-band`) naming what changed. Skipping the process is their call; skipping the record is
-  not — the next Implement run reconciles against this log, and an unrecorded change makes its
-  baseline silently wrong.
-- **About to change a pipeline document** (requirements, HLD, LLD, plan) → **don't.** Name the
-  stage that owns it and offer to rerun it; these documents are the contract later stages are
-  judged against. This governs **ad-hoc requests outside a stage run**. A stage writes the
-  documents it owns, and Stage 4 owns the **forward plan**: at Step 0c it may add, remove,
-  reorder, split, and merge the **remaining** phases (with the developer's approval) and updates
-  statuses, tasks, and test guides — but changes design or requirements only by a purely
-  clarifying fix.
+  not — the next Implement run reconciles against this log.
+- **About to change a pipeline document** (requirements, HLD, LLD, plan) outside a stage run →
+  **don't.** Name the owning stage and offer to rerun it; these documents are the contract later
+  stages are judged against. **Stage 3 alone changes the forward plan**; Stage 4 edits only the
+  current phase's tasks, test guide and exit criteria, and design or requirements only by a
+  purely clarifying fix.
 
 ---
 
 ## How a mid-flight change is handled
 
-A design or requirements change — even one affecting something delivered many phases ago — has
-**one** path:
+A design or requirements change — even to something delivered long ago — has **one** path:
 
 1. **The owning stage amends its document** (normally Stage 2 for design, Stage 1 for
    requirements) and adds a `## 0. Revision History` row naming the delivered phases it
    invalidates.
-2. **The next Stage 4 run's Step 0c re-plans**, proposing a **retrofit phase** for the
-   invalidated code; the developer approves it.
+2. **Stage 3 (refresh) re-plans**, adding a **retrofit phase** for the invalidated code. A
+   Stage 4 run that finds the refresh missing stops and asks for it.
 3. **That phase is built like any other**, and the `FEATURE_STATUS.md` rows it changes reset to
    `untested`.
 
@@ -115,9 +112,9 @@ it — and a phase ID is **never reused or renumbered**.
    changed that feature's behavior. **That mark gates nothing:** no stage waits on it, so never
    ask for it — least of all as a precondition for something else, which turns an attestation
    into a reflexive yes.
-6. **Never merge, ask to merge, or offer to — unless the developer asks, in those words.** Every
-   PR is theirs, to merge whenever they choose or never. Nothing depends on a merge: a phase
-   branches from the branch currently checked out, which already has its predecessor's code.
+6. **Never merge, ask to merge, or offer to — unless the developer asks, in those words** — and
+   under `developer` git mode, never at all (§Git mode). Nothing depends on a merge: what is
+   checked out already has the predecessor's code.
 7. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR bodies.
    Connection strings, IdP config, and credentials come from environment or profiles.
 8. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, fix
@@ -139,30 +136,33 @@ plain language; you write it and confirm what you wrote:
 | "search works" / "the export screen is fine" | the matching row(s) only → `passed <today>` |
 | "P-2 failed — search returns 500" | the affected row(s) → `failed <today> — search returns 500`, **plus** a `changeLog[]` entry (`author: developer`, `origin: developer-prompt`). P-2 stays `done`; the fix is forward work |
 | "I hand-fixed X myself" | a `changeLog[]` entry, `author: developer`, `origin: out-of-band` |
-| "do it on this branch" / "no PR" | commit to the current branch; no new branch, no PR; `prUrls` stays `[]` |
-| "merge P-3" | merge every PR in its `prUrls` and report what you merged; **write nothing** — no field records merges |
+| "do it on this branch" / "no PR" *(agent git mode)* | commit to the current branch; no new branch, no PR; `prUrls` stays `[]` |
+| "merge P-3" *(agent git mode)* | merge every PR in its `prUrls`, report what you merged, and say which branch they are now on — the merged one is spent; **write nothing** — no field records merges |
 | "I merged P-3 myself" | nothing to write |
 
-After either merge, the one thing worth saying is which branch they are now on: the merged one is
-spent, so the next phase should start elsewhere (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting
-From the Right Base`).
-
-Phases and edits behave **identically** here: both are units of shipped work with a status, a
-branch and a PR, and both are tested through the feature rows they touched, never as units.
+Phases and edits are recorded **identically**: tested through the feature rows they touched,
+never as units.
 
 **Recording testing:**
 
-1. **Several at once is fine, when they name them.** "accept P-2, P-3 and P-4" is legitimate —
-   they may have deferred testing deliberately. Tick each phase's rows in turn. The vague bulk
-   ("accept everything so far") is turned into the explicit list and read back for confirmation.
+1. **Several at once is fine, when they name them** — "accept P-2, P-3 and P-4"; tick each
+   phase's rows in turn. The vague bulk ("accept everything so far") is turned into the explicit
+   list and read back for confirmation.
 2. **Say what they are attesting to**, per phase: *"Recording that you tested P-2's two features
    and P-3's four against their checks in `FEATURE_STATUS.md`."* They should register the claim,
    not just see boxes tick.
 
-**Open each PR against the branch you branched from**, report the link, and stop. Where earlier
-phases' PRs are still open, name them in one line so the developer sees how much has stacked up —
-a report, not a request. They land such a chain **oldest first**: as each PR merges, the host
-re-points the one above it at the base branch.
+---
+
+## Git mode
+
+`context.repo.git` says who runs git. **`agent`:** Stage 4 also loads `GIT_DISCIPLINE.md`
+(beside the stage files) and follows it. **`developer`:** in any stage or chat, run **no git
+command that changes the repository** — no branch, checkout, commit, push, merge, rebase,
+stash, or PR; read-only `status`, `diff`, `log`, `show` are fine (if one hangs, drop git and
+say so). `branch` stays `null`, `prUrls` `[]`. A run that changed files ends with the
+changed-files list (also in the phase's or edit's `notes`) and a suggested commit message —
+task, reasoning, outcome. The developer commits after each run, before the next.
 
 ---
 

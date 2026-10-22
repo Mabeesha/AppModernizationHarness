@@ -185,7 +185,10 @@ keyed by backend, so tiktoken results are never served to the Anthropic backend.
 
 The per-stage composite splits into **fixed** (instruction files, always
 measurable) and **variable** (generated artifacts). Without `--docs` the variable
-half reads `unmeasured` — deliberately not estimated.
+half reads `unmeasured` — deliberately not estimated. Stage 4 has two rows — a
+phase run and a minor-edit run — and a **Fixed + optional add-on** column showing
+the load with `GIT_DISCIPLINE.md`, which only projects where the agent runs git
+(`context.repo.git` = `agent`) pay for.
 
 ```bash
 uv run run.py --set ../ModernizationHarness --checks A --docs ../samples/employee-search/reference-output

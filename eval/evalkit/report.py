@@ -133,19 +133,35 @@ def render_markdown(
             "per-file counts (token counts are not additive). Legacy source excluded."
         )
         out.append("")
-        out.append("| Stage | Fixed (instructions) | Variable (generated) | Total | Not measured |")
-        out.append("|---|---:|---:|---:|---|")
+        out.append(
+            "| Stage | Fixed (instructions) | Fixed + optional add-on | Variable (generated) "
+            "| Total | Not measured |"
+        )
+        out.append("|---|---:|---:|---:|---:|---|")
         for m in sorted(budgets, key=lambda m: m.context["stage"]):
             c = m.context
+            opt = c.get("fixed_with_optional_tokens")
+            opt_s = (
+                f"{_fmt_int(opt)} (+ {', '.join(f'`{f}`' for f in c.get('optional_files', []))})"
+                if isinstance(opt, int) else "—"
+            )
             var = c["variable_tokens"]
             var_s = _fmt_int(var) if isinstance(var, int) else f"*{var}*"
             total_s = _fmt_int(m.value) if c["complete"] else f"{_fmt_int(m.value)}+"
             missing = c.get("variable_missing") or []
             miss_s = ", ".join(f"`{p}`" for p in missing) if missing else "—"
             out.append(
-                f"| {c['stage']} | {_fmt_int(c['fixed_tokens'])} | {var_s} | {total_s} | {miss_s} |"
+                f"| {c['stage']} | {_fmt_int(c['fixed_tokens'])} | {opt_s} | {var_s} "
+                f"| {total_s} | {miss_s} |"
             )
         out.append("")
+        if any(isinstance(m.context.get("fixed_with_optional_tokens"), int) for m in budgets):
+            out.append(
+                "*Fixed + optional add-on is what the run loads in projects that use the "
+                "add-on (Stage 4's git file, only when `context.repo.git` is `agent`). Total "
+                "uses the plain Fixed figure.*"
+            )
+            out.append("")
         if any(not m.context["complete"] for m in budgets):
             out.append(
                 "*A `+` total is a floor, not a measurement: one or more generated artifacts "

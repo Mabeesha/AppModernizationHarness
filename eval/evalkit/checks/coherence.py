@@ -116,9 +116,11 @@ def _declared_outputs(doc) -> set[str]:
     return out
 
 
-def _stage_order(ctx: Context) -> list[tuple[str, object]]:
-    stages = ctx.iset.stage_documents()
-    return sorted(stages.items(), key=lambda kv: int(kv[0].split("-")[1]))
+def _stage_order(ctx: Context) -> list[tuple[str, list]]:
+    """(stage id, its instruction files) in stage order. A stage may span several
+    files (Stage 4: phase + minor edit); each check decides whether to pool them."""
+    groups = ctx.iset.stage_instruction_groups()
+    return sorted(groups.items(), key=lambda kv: int(kv[0].split("-")[1]))
 
 
 @check("C1", "Stage handoff closure")
@@ -132,13 +134,17 @@ def c1_handoff(ctx: Context) -> CheckResult:
         return res
 
     produced_by: dict[str, str] = {}
-    for stage, doc in ordered:
-        for artifact in _declared_outputs(doc):
-            produced_by.setdefault(artifact, stage)
+    for stage, docs in ordered:
+        for doc in docs:
+            for artifact in _declared_outputs(doc):
+                produced_by.setdefault(artifact, stage)
 
     exogenous_keys = {canonical(n) or n for n in EXOGENOUS}
+    # A file shipped in the instruction set itself (e.g. the GIT_DISCIPLINE.md supplement
+    # a stage loads) is an instruction, not a pipeline artifact: no stage produces it.
+    exogenous_keys |= {canonical(d.name) or d.name for d in ctx.iset.documents}
 
-    for stage, doc in ordered:
+    for stage, doc in ((st, d) for st, docs in ordered for d in docs):
         idx = int(stage.split("-")[1])
         for artifact in sorted(_declared_inputs(doc)):
             if artifact in exogenous_keys:
@@ -184,8 +190,10 @@ def c3_lifecycle(ctx: Context) -> CheckResult:
         return res
 
     creators: dict[str, list[str]] = defaultdict(list)
-    for stage, doc in ordered:
-        for artifact in _declared_outputs(doc):
+    for stage, docs in ordered:
+        # Pool a stage's files: two files of one stage declaring an artifact is still
+        # one creating stage.
+        for artifact in set().union(*(_declared_outputs(d) for d in docs)):
             creators[artifact].append(stage)
 
     for artifact, stages in sorted(creators.items()):
@@ -239,7 +247,7 @@ def c5_rerun(ctx: Context) -> CheckResult:
         "stage-3": "plan",
     }
 
-    for stage, doc in ordered:
+    for stage, doc in ((st, d) for st, docs in ordered for d in docs):
         if not doc.has_heading("Additional Instructions"):
             res.findings.append(
                 Finding(
