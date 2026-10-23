@@ -392,6 +392,7 @@ because everything downstream will be built to whatever you choose here.
 - [ ] Full traceability both directions (requirement ↔ design element).
 - [ ] Open questions surfaced, not silently resolved; assumptions marked.
 - [ ] `stages.design.status` set to `complete` in `state.json`.
+- [ ] Every message to the developer, including the closing report, follows `AGENTS.md §Writing for the Developer`.
 
 ---
 

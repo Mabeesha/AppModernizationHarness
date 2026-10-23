@@ -107,8 +107,10 @@ walk the ledger's defaulted and inferred rows and confirm each has a home in
 `PROJECT_CONTEXT.md`, or genuinely shapes nothing downstream.
 
 **Surface what you defaulted.** In your hand-off report, list every question you answered by
-**default or inference** — question number, the value you used, and the constraint or stage it
-shapes — under a heading like *"Answered without you — confirm or override."* A defaulted
+**default or inference** — the question in words with its number in brackets, the value you
+used, and what it shapes, named in words (`AGENTS.md §Writing for the Developer`) — under a
+heading like *"Answered without you — confirm or override."* Group a long list by topic, one
+plain line each. A defaulted
 answer is a decision the human never made, and it silently propagates into constraints and
 every downstream stage. Never bury these in the document alone. Point them at their
 `INTAKE.md` as the place to correct any of them.
@@ -862,6 +864,7 @@ in full. Say in the report that you did.
 - [ ] The document states each fact once: `INTAKE_RESOLVED.md` is a terse provenance ledger,
   each recurring quirk/open question lives once (in §7 or its §4 obligation) and is
   cross-referenced elsewhere, and §1 is lean — while §4 obligations stay fully detailed.
+- [ ] Every message to the developer, including the closing report, follows `AGENTS.md §Writing for the Developer`.
 
 ---
 

@@ -248,6 +248,7 @@ next, and then the Implement stage's Step 0c plans any retrofit. Say that in you
 - [ ] Non-functional requirements captured with evidence and open questions surfaced.
 - [ ] Assumptions marked `ASSUMPTION:`; unresolved items marked `OPEN QUESTION:`.
 - [ ] `stages.requirements.status` set to `complete` in `state.json`.
+- [ ] Every message to the developer, including the closing report, follows `AGENTS.md §Writing for the Developer`.
 
 ---
 

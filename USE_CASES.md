@@ -36,6 +36,7 @@ agent reads in **every** session, and it carries the things that have to hold ev
 | **The out-of-band recording rule** — your hand-fixes get logged | 18 |
 | **The invariants** — legacy read-only, append-only history, forward-only status, only you authorize a tested mark, the agent runs no git, no secrets, templates are inputs, never mutate a reused schema | all of them |
 | **The authority ladder** — who wins when sources contradict each other | Part 7 |
+| **How it writes to you** — plain English, summary and "what I need from you" first, every term and ID explained | every report you read |
 
 Skip it and the pipeline still runs. What you lose is everything that happens *between* the
 stage runs — which is exactly where drift comes from.

@@ -362,7 +362,8 @@ test guide where the change surface warrants.
      A refusal stops the chain: fix that write and rerun the rest.
 6. **Prepare the commit hand-off** (see §Version Control): the files this run changed, per repo
    under `split`, and a suggested commit message. Run no git command.
-7. **Report to the developer** — a re-slice applied under advance approval goes first:
+7. **Report to the developer**, per `AGENTS.md §Writing for the Developer` — after its opening
+   summary and "What I need from you", a re-slice applied under advance approval comes first:
    - Where you built and what it already contained (see §Starting From the Right Code).
    - What was reconciled in Step 0 (or "no changes"), and whether the plan was refreshed
      ("plan unchanged" or what was re-sliced); your classification (phase vs. minor edit).
@@ -380,7 +381,8 @@ test guide where the change surface warrants.
      `untested`, so the developer re-walks those rather than the whole ledger.
    - **The changed files and the suggested commit message** from item 6. Committing, pushing
      and merging are the developer's, whenever they choose — never ask for any of them.
-   - Deviations, follow-ups, `OPEN QUESTION:`s and `ASSUMPTION:`s.
+   - Deviations and follow-ups. Open questions and assumptions go in "What I need from you",
+     restated in words (`AGENTS.md §Writing for the Developer`).
    - The next phase's ID and one-line goal, and a suggestion to run the **Review stage** if
      appropriate.
 8. **Stop.** Do not begin the next phase.
@@ -671,6 +673,7 @@ no plan test guide of its own and does not displace the current phase.
 - [ ] **The two counts are in the report** — features awaiting testing, and open review
       findings — asked for or not.
 - [ ] Open questions and assumptions reported, not silently resolved.
+- [ ] Every message to the developer, including the closing report, follows `AGENTS.md §Writing for the Developer`.
 
 ---
 

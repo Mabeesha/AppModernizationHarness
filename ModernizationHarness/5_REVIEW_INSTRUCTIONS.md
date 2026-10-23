@@ -252,7 +252,8 @@ filenames unique and ordered — two reviews of the same target never collide:
 # Review: <AppName> — <target> — <date>
 ## Outcome: CLEAN | FINDINGS
 ## Summary
-- One paragraph: what was reviewed, the headline result.
+- One paragraph: what was reviewed, the headline result. Written per
+  `AGENTS.md §Writing for the Developer`.
 ## Built vs. asked for
 - `FEATURE_STATUS.md` rows in scope, counted by `Build`: built / scheduled / unscheduled.
 - **Every row that is missing entirely** — asked for in the requirements or design and absent
@@ -261,7 +262,7 @@ filenames unique and ordered — two reviews of the same target never collide:
 - The design revision this target was judged against, and whether any later revision
   supersedes it (and if so, whether a retrofit phase is planned or landed).
 ## Findings
-| # | Area | Severity | Location | Finding | Violates | Fix direction |
+| # | Area | Severity | Location | Finding | Violates (what it is — ID) | Fix direction |
 |---|------|----------|----------|---------|----------|---------------|
 - Coverage / Tests / Security / Performance findings, most severe first.
 ## Untested
@@ -269,9 +270,10 @@ filenames unique and ordered — two reviews of the same target never collide:
   `failed`. Not a criticism — a list of what no human has confirmed, so the developer can
   choose where to spend an hour.
 ## Constraint Compliance
-- One line per C#: honored / violated (+ evidence).
+- One line per constraint: what it is in words (C#) — honored / violated (+ evidence).
 ## What I would fix before building further
-- Plain advice, naming the Blockers and why. Say it even though nothing enforces it.
+- Plain advice, naming the Blockers and why. Say it even though nothing enforces it. Written per
+  `AGENTS.md §Writing for the Developer`.
 ## Follow-ups (Minors)
 ```
 
@@ -317,6 +319,7 @@ reviewing is read-only on all of them. The only things you write are the `review
 - [ ] **`whole-build` only:** `FEATURE_STATUS.md` audited — no `unscheduled` rows, and no row
       missing for a requirement ID or a design element the plan traces. Either is a Blocker.
 - [ ] Review report written; no code/design/requirements modified.
+- [ ] Every message to the developer, including the closing report, follows `AGENTS.md §Writing for the Developer`. So do the report's Summary and "What I would fix" sections; every finding names what it is in words, not only by ID.
 
 ---
 

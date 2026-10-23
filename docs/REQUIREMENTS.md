@@ -181,6 +181,25 @@ and anything that modifies the legacy source (read-only in every stage).
   any `pending` phase; which of its tasks are done is judged by content. If the prompt names
   other work, the agent asks which comes first.
 
+### R12 — Reports the developer can act on without asking again
+- **R12.1** Every message an agent writes to the developer — a stage's closing report, a
+  question, a blocker, a chat answer — is in **plain English**. A closing report, a stop or a
+  blocker opens with a short summary, then **what it needs from the developer** (or says it
+  needs nothing).
+- **R12.2** Every technical, harness or project term is **explained the first time it is used
+  in each message**, and **nothing is named by its ID alone**: a constraint, requirement, phase
+  or intake question is described in words, with the ID in brackets — and so is a file, table or
+  endpoint when it is the subject of a decision, blocker or finding. Anything from the
+  legacy app, the design or an earlier phase gets one sentence of context, because the developer
+  may not remember it.
+- **R12.3** Each decision asked for states the choice, why it matters, the options and their
+  effects, a recommendation, and what the agent assumes — or what stays stopped — until
+  answered. Each blocker states what is stopped, why, and what would unblock it.
+- **R12.4** Plain wording never drops a fact the stage must report, and never softens a
+  severity, and never adds a tool call: reminders are written from what was already read. The
+  documents a stage writes keep their precise style; this governs messages, and the summary and
+  advice sections of a review report. Lists the developer copies (files, commands) stay exact.
+
 ---
 
 ## 5. Quality requirements
@@ -193,6 +212,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra (plus the re-slice approval, unless it is given in advance — R5.3) |
 | Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and, once the developer commits it, a git commit |
 | Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, and avoids calls whose only purpose is to re-check its own writes |
+| Q7 | **No explain-again round trips** — a report the developer cannot follow costs a whole extra request to clarify; R12 makes the first answer self-explanatory |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)
 

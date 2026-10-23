@@ -92,6 +92,8 @@ updater stops before changing anything. To take different .NET plugins, edit
 `DOTNET_PLUGINS` at the top of both `update-skills.sh` and `update-skills.ps1`.
 
 The six numbered stage files stay in `ModernizationHarness/` — you never copy those.
+Moving a project that is already part-way through onto a newer harness version? See
+`DEVELOPER_GUIDE.md §Upgrading the Harness Mid-Project` — don't re-run the installer for that.
 
 `AGENTS.md` does two jobs. It keeps the agent honest in *every* chat, not just formal runs —
 don't skip it. And its first section records where those stage files live, which is why you

@@ -485,6 +485,11 @@ rather than sit in a document nobody rebuilt against.
   changes, not the schema.
 - **Secrets stay out of everything** — config/env only.
 - **Review is independent.** Don't run it in the same session that built the code.
+- **Reports are written for you to act on without asking again.** Every stage ends with a short
+  plain-English summary, then **"What I need from you"** (or "Nothing"), then the detail. Terms
+  are explained the first time, and nothing is named by ID alone — "the rule that the old
+  database must not change (C3)", not "C3". If a report still loses you, say which part; if you
+  want terser reports, edit `§Writing for the Developer` in your `AGENTS.md`.
 
 ---
 
@@ -513,6 +518,115 @@ larger edits. The rest is how **you** run it:
 5. **Review selectively.** Review the phases that carry risk (auth, data mapping, anything a
    constraint governs) rather than every one, and run `run stage 5 whole-build` at milestones.
    Each review run pays its own read-and-report overhead.
+
+---
+
+## Upgrading the Harness Mid-Project
+
+You can move a project that is part-way through its build onto a newer harness version. Do it
+**between two runs**, never while a stage is running. Below, `<harness>` means the
+`ModernizationHarness` folder of the newer harness checkout, e.g.
+`D:\tools\modernization-harness\ModernizationHarness`.
+
+**Before you start, check what changed.** Compare the two versions' `ModernizationHarness/`
+folders (`git diff <old> <new> -- ModernizationHarness`). The steps below are enough when
+`tools/state.py` and the `state.json` schema are unchanged and no stage you already ran gained a
+new output. If either changed, read the new version's `docs/DESIGN.md` first — you may need a
+stage rerun.
+
+### 1. Find your stage folder
+
+The installer never copies the stage files. Your project's `AGENTS.md` names where they live, in
+its first section ("The six numbered stage files live in …"). That path is your **stage
+folder**:
+
+| Case | `AGENTS.md` points to… | What to do |
+|---|---|---|
+| **A** | the harness checkout itself | Check out the newer version there. Skip step 3 |
+| **B** | `ModernizationHarness/` inside your project | Do every step |
+| **C** | some other folder | Do every step, using that folder in place of `ModernizationHarness` |
+
+### 2. Back up (PowerShell, in your project folder)
+
+```powershell
+Copy-Item AGENTS.md AGENTS.md.bak                                # everyone
+Copy-Item -Recurse ModernizationHarness ModernizationHarness.bak # cases B and C
+```
+
+The backup name must not already exist, or the copy lands *inside* it.
+
+### 3. Copy in the new stage files (cases B and C)
+
+```powershell
+Copy-Item -Recurse -Force <harness>\* .\ModernizationHarness\
+```
+
+This overwrites changed files and deletes nothing. If the new version **removed** a file, delete
+it by hand.
+
+### 4. Update `AGENTS.md`
+
+```powershell
+Copy-Item -Force <harness>\AGENTS_TEMPLATE.md .\AGENTS.md
+```
+
+Then compare it with `AGENTS.md.bak` and:
+
+- copy back any lines you added yourself (house rules, glossary);
+- put your stage-folder path back in the first section — the template says
+  `ModernizationHarness/`, which is right only for case B.
+
+### 5. Check `state.json`
+
+Run from your project folder — the tool finds `state.json` by searching the folder you run it
+from:
+
+```powershell
+python <stage folder>\tools\state.py check
+```
+
+If it is not found, put `--file <path>` before `check`.
+
+### 6. Carry on
+
+```
+run stage 4 — apply any re-slice without asking
+```
+
+If the last run stopped half-way, Stage 4 finishes that phase or edit first.
+
+**Do not re-run the installer to upgrade.** It does not update the stage files, and it would
+reset `out/INTAKE.md` to the blank template and overwrite `AGENTS.md` (both are backed up to
+`.harness-backups\<timestamp>\`, but your filled-in intake would no longer be in place).
+
+### If something goes wrong
+
+Close any agent session, editor or terminal that has files open in the stage folder — a locked
+file can stop a delete half-way. Then:
+
+```powershell
+Copy-Item -Force AGENTS.md.bak AGENTS.md                         # everyone
+Remove-Item -Recurse -Force ModernizationHarness; if ($?) { Rename-Item ModernizationHarness.bak ModernizationHarness }  # B and C
+```
+
+In case A, check out the older version in the harness checkout again.
+
+### Upgrading from a version before "the agent runs no git" (DD-24)
+
+The steps above are all you need: the state tool and `state.json` are unchanged, and stages 0–3
+changed only in wording, so nothing you have produced is redone. Before your next run:
+
+- **Check out the branch with your latest phase's code.** The old Stage 4 left you on its last
+  phase branch; the new one builds on whatever files are on disk.
+- **Earlier phases' open PRs and branches are yours now.** The report no longer lists them —
+  merge or close them when you like.
+- **Keep uncommitted work** from an interrupted run; Stage 4 resumes from the files.
+- **`branch` / `prUrls` values already in `state.json` stay as they are.**
+- **Your `PROJECT_CONTEXT.md` may still say Stage 4 branches and opens PRs.** Leave it; the new
+  Stage 4 overrides that wording (§Version Control).
+- **Expect one extra note in the first report:** a design or requirements Revision History row
+  with no matching change-log entry is logged as a hand edit and folded in, because document
+  changes are no longer detected through git. It happens once.
 
 ---
 

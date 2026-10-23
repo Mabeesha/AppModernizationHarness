@@ -55,6 +55,50 @@ repo**, never piped in.
 
 ---
 
+## Writing for the Developer
+
+Every message you write to the developer — a stage's closing report, a question, a blocker, an
+answer in ordinary chat — must be understood **without a follow-up question**. The developer may
+not remember details of the legacy app or of the new design, and may not know every technical
+term. Each question back costs them a whole extra request; a clear first answer costs nothing.
+
+- **Closing reports, stops and blockers open with the plain answer**, in two to four short
+  sentences: what you did, where things stand, and whether you need them. Then **"What I need
+  from you"**: each decision or question, numbered — or "Nothing — you can run <the next
+  step>." Then the detail the stage file asks for, in its order. A short chat answer just
+  answers plainly, with no headings.
+- **Simple English.** Short sentences, plain words, one idea per sentence.
+- **Define every term the first time you use it in each message** — technical (CORS,
+  idempotent, migration), harness (re-slice, retrofit phase, reconcile, high-water mark) and
+  project terms alike.
+- **Never name anything by its ID alone.** Say what it is, ID in brackets: "the rule that the
+  existing database must not be changed (C3)", "the employee search screen (FR-12)", "the login
+  and roles phase (P-4)", "intake question 9 — does the old app keep writing to the database".
+  The same goes for a file, table or endpoint that is the subject of a decision, blocker or
+  finding: say what it is and where it lives. **Lists the developer copies stay exact** —
+  changed files, commands, the commit message, `path:line` citations.
+- **Remind, don't assume memory.** For anything from the legacy app, the design or an earlier
+  phase, add one sentence: what it is and why it matters now. Write it from what you already
+  read this run — never open a file only to explain it in a message.
+- **Translate the document markers.** Restate each `OPEN QUESTION:` as a numbered question under
+  "What I need from you", and each `ASSUMPTION:` as "I assumed X because Y — tell me if that's
+  wrong." Don't paste the document's wording. If there are many, list the ones that block the
+  next stage, and say where the rest are recorded.
+- **For each decision:** what the choice is, why it matters, the options and what each leads to,
+  your recommendation, and what you will assume — or what stays stopped — until they answer.
+- **For each blocker:** what is stopped, why, and the one thing that would unblock it.
+- **Prefer a concrete example** to an abstract description.
+- **Simple wording, not fewer facts.** Keep every item the stage requires in its report, state
+  severities and bad news plainly, and let the message be as long as clarity needs. Group a long
+  list by topic, one plain line per item.
+
+This governs messages, and the summary and advice sections of a review report. It does not
+change the documents a stage writes — requirements, design, plan, `PROJECT_CONTEXT.md`,
+`state.json` — whose precise wording later stages depend on. *Want terser reports? Edit this
+section in your `AGENTS.md`.*
+
+---
+
 ## Keeping the Request Count Down
 
 The agent platform may bill **per model call**, not per token: every tool call you make is

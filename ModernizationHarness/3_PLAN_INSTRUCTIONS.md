@@ -541,6 +541,7 @@ and to a whole-build review.
       remaining phase that would otherwise build on the superseded contract.
 - [ ] `stages.plan.status` set to `complete`.
 - [ ] A coding agent could execute any single phase from the plan + design docs alone.
+- [ ] Every message to the developer, including the closing report, follows `AGENTS.md §Writing for the Developer`.
 
 ---
 
