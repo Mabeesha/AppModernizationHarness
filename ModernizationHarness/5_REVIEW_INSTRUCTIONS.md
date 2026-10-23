@@ -88,9 +88,10 @@ what's wrong, why it matters, and the requirement/design/constraint it violates.
   planned; do report it if the retrofit is nowhere in the plan.
 - **On a `whole-build` target, audit `FEATURE_STATUS.md` itself.** Any row still marked
   `unscheduled` is a **Blocker** — the plan is a rolling forecast, so an unscheduled row is work
-  that was never delivered and no longer has a phase that would deliver it. Also verify no row
-  present in an earlier version of the ledger has disappeared (`git log` on it); a
-  vanished row is work silently dropped, and is likewise a Blocker.
+  that was never delivered and no longer has a phase that would deliver it. Also verify every
+  requirement ID in the three requirements files, and every design element the plan traces
+  (HLD/LLD), still has its row — run no git for this; one with no row is work silently dropped, and is
+  likewise a Blocker.
 - Find **divergences** — behavior that doesn't match the FR/BR or the LLD contract (wrong
   endpoint shape, missing validation, altered business rule, wrong field mapping).
 - Check the **parity stance** (`PROJECT_CONTEXT §1`): under strict parity, an "improvement"
@@ -314,7 +315,7 @@ reviewing is read-only on all of them. The only things you write are the `review
 - [ ] The design revision the target was judged against was identified, and any superseding
       revision checked for a landed or planned retrofit phase.
 - [ ] **`whole-build` only:** `FEATURE_STATUS.md` audited — no `unscheduled` rows, and no row
-      dropped since an earlier version. Either is a Blocker.
+      missing for a requirement ID or a design element the plan traces. Either is a Blocker.
 - [ ] Review report written; no code/design/requirements modified.
 
 ---

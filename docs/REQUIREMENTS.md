@@ -18,7 +18,7 @@ runtime, no installer, no tooling to maintain.
 
 | Actor | Role |
 |---|---|
-| **Developer** | Drives the pipeline, merges, and is the *only* one who can record that something was tested |
+| **Developer** | Drives the pipeline, does all version control (branches, commits, PRs, merges), and is the *only* one who can record that something was tested |
 | **Build agent** | Any LLM coding agent, running one stage per session |
 | **Review agent** | The same, in a *separate* session, auditing what the build agent produced |
 
@@ -77,11 +77,11 @@ and anything that modifies the legacy source (read-only in every stage).
 | 1 Requirements | Business / Functional / Technical requirements |
 | 2 Design | HLD + LLD (the LLD is the authoritative contract) |
 | 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]` |
-| 4 Implement | Code, a PR, updated `FEATURE_STATUS.md` rows |
+| 4 Implement | Code, updated `FEATURE_STATUS.md` rows, and a hand-off the developer commits from |
 | 5 Review | `REVIEW_<Rid>_<App>_<target>.md` + findings in `state.json` |
 
 - **R3.1** Every stage supports a **rerun with Additional Instructions**. Documents are amended
-  in place with a Revision History row; git is the only version history.
+  in place with a Revision History row; git, which the developer keeps, is the only version history.
 
 ### R4 — One gate, and a testing record
 - **R4.1** The agent may set a phase `done` only when its **mechanical, falsifiable** exit
@@ -113,7 +113,7 @@ and anything that modifies the legacy source (read-only in every stage).
   that run**: the agent names the owning document, recommends the stage, logs it, and stops.
 - **R6.3** `done` phases are **never reopened** for a design change. The fix is a new
   **retrofit phase**, sequenced before anything that would build on the old contract.
-- **R6.4** Minor edits (`E-n`) get their own id, branch, PR, status, and review identity, and
+- **R6.4** Minor edits (`E-n`) get their own id, status, and review identity, and
   behave exactly like phases throughout.
 
 ### R7 — Machine state
@@ -154,24 +154,28 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R10.4** Every hand-off report carries **two counts** — features awaiting testing, and open
   review findings — plus the rows this phase put at risk.
 
-### R11 — Git discipline
-- **R11.1** Branch per unit of work, small self-describing commits, a PR whose body records
-  initial task / reasoning / outcome.
-- **R11.2** The agent branches from **the currently checked-out branch** and targets its PR at
-  it. **It never merges.** Nothing in the pipeline depends on a merge, because the next phase
-  starts from where the previous phase's code already is; merging is the developer's housekeeping
-  alone. `context.repo.prTarget` records intent and **no rule reads it**.
-- **R11.3** Presence of work is checked **by content**, never by branch-merge status: git is the
-  truth and `state.json` is a cache. No merge is recorded anywhere. Work merged or edited outside
-  the harness is detected, not reported by the developer.
-- **R11.4** Where the developer asks for the change **on the current branch**, the agent creates
-  no branch and opens no PR; `prUrls` stays empty and the PR body's history moves into the commit
-  messages. Under a `split` layout this applies per repo.
-- **R11.5** Before branching, the agent checks whether the current branch is **already merged or
-  deleted on the remote** — the normal state after the developer merges on the host — and proposes
-  the branch it was merged into rather than building on a spent branch.
-- **R11.6** The agent merges **only** on an explicit instruction naming the item. It never merges
-  unasked and never asks for a merge, since nothing depends on one.
+### R11 — Version control is the developer's
+- **R11.1** **No agent runs a git command** — not to branch, commit, push, open or merge a PR,
+  and not to read history or status. The agent edits files in the working tree; branching,
+  committing, pushing, PRs and merging are the developer's, done whenever they choose or not at
+  all. Nothing in the pipeline depends on any of them.
+- **R11.2** Each phase builds on the files as they stand in the target repository's working
+  tree, so the previous phase's work is there whether or not anyone has committed or merged it.
+- **R11.3** Presence of the previous phase's work is checked **by content** — the files and
+  symbols it delivered — never by git state; `state.json` is a cache. Work changed outside the
+  harness is logged when the developer reports it, or when the agent finds code it did not
+  expect.
+- **R11.4** Every hand-off lists the files the run changed (per repo under a `split` layout) and
+  a **suggested commit message** recording initial task / reasoning / outcome, following the
+  commit conventions in `PROJECT_CONTEXT §3`, so the developer can commit the run as one unit.
+- **R11.5** `branch` and `prUrls` are recorded only when the developer says where the work went;
+  the agent never fills them itself. Branch naming, `context.repo.prTarget` and required
+  reviewers are notes for the developer, and **no rule reads them**.
+- **R11.6** Changes to the documents between runs are detected from `changeLog[]` entries and
+  the documents' Revision History rows, not from git history.
+- **R11.7** A phase or edit left `in progress` by a run that stopped early is resumed before
+  any `pending` phase; which of its tasks are done is judged by content. If the prompt names
+  other work, the agent asks which comes first.
 
 ---
 
@@ -183,7 +187,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q2 | **No duplicated rules** — a constraint-specific rule lives in its obligation, once |
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra |
-| Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and a git commit |
+| Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and, once the developer commits it, a git commit |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)
 

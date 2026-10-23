@@ -241,8 +241,8 @@ increment (Hard Rule 1):
 - **One coherent theme per phase.** Group small related feature areas into one phase; split a
   large area across several. The goal states in one sentence without joining unrelated work
   with "and also".
-- **Within one sitting.** Its developer test guide can be walked in one sitting, and its PR
-  read by a reviewer in one pass. A phase that fails either is split, however coherent its
+- **Within one sitting.** Its developer test guide can be walked in one sitting, and its
+  changes read by a reviewer in one pass. A phase that fails either is split, however coherent its
   theme.
 - **Roughly even.** Even in the amount of building and checking work — endpoints, screens,
   business rules, and test-guide steps — not in task count. A phase markedly larger than the

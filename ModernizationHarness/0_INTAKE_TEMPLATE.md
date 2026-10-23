@@ -650,14 +650,15 @@ under version control.
 
 <details><summary>Why this matters</summary>
 
-Keep these in git if you can: reconciliation diffs them to detect what changed between runs,
-and degrades to change-log-only without it.
+Keep these in git if you can — your commits are their only history. The agent runs no git: it
+sees what changed between runs through the change log and each document's Revision History.
 
 </details>
 
 ### 16c. Where is the target code repository?
 
-Where the build branches, commits, and opens PRs.
+Where the build writes code. The agent runs no git there — branching, commits and PRs are
+yours.
 
 *Default: the current working repository.*
 
@@ -722,6 +723,8 @@ to it.*
 **Answer:**
 
 ### 16i. Commit message conventions?
+
+The agent follows it in the commit message it suggests at each hand-off.
 
 *Default: none stated.*
 

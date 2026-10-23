@@ -50,8 +50,8 @@ appended to). It is safe to re-run: identical files are left alone, and anything
 overwrite is moved to `.harness-backups/<timestamp>/` first — so a filled-in `INTAKE.md`
 is never lost.
 
-Note `./out/` is deliberately **not** ignored — the agent diffs those documents and
-`state.json` between runs, so they belong in git.
+Note `./out/` is deliberately **not** ignored — those documents and `state.json` are the
+project's history, so they belong in git (which you run; the agent runs none).
 
 Useful flags (same meaning in both, `--flag` in bash, `-Flag` in PowerShell):
 `--target <dir>` to install somewhere other than the current directory, `--dry-run` to see
@@ -188,18 +188,16 @@ remaining ones get re-checked before most build runs. What *doesn't* move is
 run stage 4
 ```
 
-Branching and opening a PR is built in — you don't ask for it. It branches from **whatever
-branch you're standing on**, points the PR back at that branch, leaves you on the new branch,
-and **stops**. **It never merges** — every PR is yours. Then you:
+**The agent runs no git** — no branch, commit, push, PR or merge. It builds in your working
+tree, hands you the list of changed files and a suggested commit message, and **stops**.
+Version control is yours. Then you:
 
-1. **Merge it, or don't.** Nothing waits on it. If you leave the PR open, the next phase simply
-   continues from this branch; merge it and check out your base branch, and the next phase starts
-   from there instead. Either way the code is where the next phase needs it.
+1. **Commit it, or don't.** Nothing waits on it. The next phase builds on the files as they
+   stand, committed or not. If you switch branches, stay on one that has this phase's code.
 2. **Run the next phase whenever you want.** Nothing waits on you having tested anything either.
 3. **Test when it suits you** — open `FEATURE_STATUS.md`, walk the rows that say `untested`,
    and use `HOW_TO_RUN.md` to get the app running. Every hand-off report tells you how many
-   features are waiting, which ones this phase put back on the list, and which earlier PRs are
-   still open.
+   features are waiting, and which ones this phase put back on the list.
 4. **Say one of these when you have tested:**
 
    | | |
@@ -246,15 +244,12 @@ exactly one extra prompt.
 
 - **Never edit `state.json` or `FEATURE_STATUS.md` by hand.** Just say what happened —
   "accept P-2", "search works", "P-2 failed" — and the agent writes it.
-- **Merging is yours.** The agent never merges unless you say `merge P-3`, so untested code only
-  reaches `main` if you put it there. The flip side: if you never merge, phases stack as a chain
-  of open PRs — you land those **oldest first**, and GitHub re-points each remaining PR at your
-  base branch as the one below it merges. Watch the open-PR line in each report.
-- **After merging on GitHub, check out your base branch.** GitHub usually deletes the merged
-  branch, but your checkout stays on it — so the next phase would branch off something spent. The
-  agent notices and offers the right branch, but switching first saves the round trip.
-- **Want the change on the branch you're on?** Say *"do it on this branch"* — no new branch, no
-  PR, just commits where you are.
+- **Git is yours, all of it.** The agent runs no git, so untested code only reaches `main` if
+  you put it there. The flip side: if you never commit, several phases pile up as one big
+  uncommitted change with no rollback point between them. Commit each phase using the message
+  the report suggests.
+- **Want the work findable later?** Say *"P-3 is on branch phase/P-3"* or *"P-3's PR is
+  <url>"* — the agent records it on the phase. Nothing else fills those fields.
 - **"accept" records testing; it unblocks nothing.** You can accept several at once when you
   name them. What gets challenged is the vague version — "accept everything so far" — which
   usually means nothing was tested; the agent turns it into the explicit list and asks you to
@@ -264,9 +259,10 @@ exactly one extra prompt.
   has run a long way ahead of anyone checking it.
 - **Read the "Answered without you" list** after stage 0. Those are decisions you didn't make,
   and they propagate everywhere.
-- **Keep `./out/` and `state.json` in git.** The agent diffs them to work out what changed
-  between runs — and git is the only history of superseded design and plan versions, since
-  documents are amended in place rather than copied to new filenames.
+- **Keep `./out/` and `state.json` in git.** Your commits are the only history of superseded
+  design and plan versions, since documents are amended in place rather than copied to new
+  filenames. The agent itself reads no git — it sees changes through the change log, so log any
+  hand edit to a document.
 - **Phase numbers stop being sequential.** A retrofit added at P-8 may run before P-6. That's
   deliberate: IDs are permanent so PRs and reviews keep meaning what they said. Read the plan
   for the running order.

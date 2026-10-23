@@ -23,7 +23,7 @@ of work, writes state, and stops.
 | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | stage | Legacy code → business / functional / technical requirements |
 | `2_DESIGN_INSTRUCTIONS.md` | stage | Requirements → HLD + LLD |
 | `3_PLAN_INSTRUCTIONS.md` | stage | Design → phased plan + `phases[]` |
-| `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | stage | Build one phase or one minor edit; open a PR; stop |
+| `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | stage | Build one phase or one minor edit; hand off; stop |
 | `5_REVIEW_INSTRUCTIONS.md` | stage | Independent audit; findings back into `state.json` |
 | `tools/state.py` | tool | Reads and writes `state.json` for every stage after 0 (DD-18) |
 | `DEVELOPER_GUIDE.md` / `README.md` / `USE_CASES.md` | guide | The reasoning / the five-minute start / the situations you'll hit, by example |
@@ -46,13 +46,13 @@ flowchart TD
     S3 --> PL[PLAN.md — remaining work]
     S3 --> FS[FEATURE_STATUS.md — one row<br/>per requirement, never deleted]
     PL --> S4[4 · Implement one phase]
-    S4 --> PR[Branch + PR + HOW_TO_RUN.md]
+    S4 --> HO[Changed files + suggested commit<br/>+ HOW_TO_RUN.md]
     S4 -->|rows built / reset to untested| FS
-    PR --> DEV{Developer — merges and<br/>tests whenever they choose}
+    HO --> DEV{Developer — commits, merges<br/>and tests whenever they choose}
     DEV -- next phase --> S4
     DEV -- accept P-N / P-N failed --> FS
     S4 -.->|Step 0c re-slices| S3
-    PR --> S5[5 · Review · separate session]
+    HO --> S5[5 · Review · separate session]
     S5 -->|findings, never a gate| ST
     ST -.->|reconciled at Step 0b| S4
 ```
@@ -76,10 +76,11 @@ Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 | **DD-8** | **`AGENTS.md` always loaded** | Stage rules only bind when a stage is invoked; most drift happens in ordinary chat |
 | **DD-9** | **`HOW_TO_RUN.md` (how to run it) + `FEATURE_STATUS.md` (what is built and tested)** | Per-phase test docs went stale, and one regenerated file duplicated the plan's own test guides. Splitting *how to run* from *what to check* leaves each written once: the run doc changes only when running changes, and each feature's check sits beside the column the developer ticks (R10) |
 | **DD-13** | **Testing is tracked per feature, not per phase** | A phase is a batch of work; a later phase can change what an earlier one delivered, and a phase-level mark cannot express that. A feature row can — it gains the new phase and resets to `untested` (R4.3, UL-5) |
-| **DD-14** | **Branch from the currently checked-out branch, PR back at it, and never merge unasked** | The developer's git state becomes the instruction, so nothing needs configuring — and because the next phase starts from where the last one's code already is, *no merge is required for the pipeline to work*. That removes the merge trigger, the permission question, `mergePolicy` and `mergedUtc` in one go. The agent still merges on an explicit "merge P-3", because refusing a direct instruction about the developer's own repo buys nothing (R11.2) |
-| **DD-17** | **Before branching, detect a branch that is already merged or gone from the remote, and propose the alternative** | Reading the current branch makes the *unusual* path (never merging) frictionless and the *common* one broken: the developer merges on the host, the host deletes the branch, their checkout stays on it, and every content check still passes because the code is present. Without this the next phase silently targets a branch that no longer exists (R11.5) |
-| **DD-15** | **Git is the truth; `state.json` is a cache** — presence checked by content, never by branch-merge status | The developer may merge or edit outside the harness and should not have to report it; squash and rebase merges make branch-based checks answer "not merged" when every line is present. Nothing records merges at all, so there is nothing to keep in step (R11.3) |
-| **DD-16** | **`prTarget` is kept as a human note that no rule reads** | Where work lands is decided by which branch the developer stands on, not by a field. Keeping the field documents intent; reading it would resurrect a setting the branching rule replaced |
+| **DD-24** | **No agent runs git; version control is the developer's.** The agent edits the working tree and hands off a list of changed files and a suggested commit message; the developer branches, commits, pushes, opens PRs and merges | In the developer's environments the agent's git tool hangs, and their projects forbid agent git. Nothing in the pipeline ever needed git *actions*: each phase builds on the files as they stand, so the previous phase's work is present whether or not it was committed. Change detection between runs already had a git-free path — `changeLog[]` and Revision History rows. Replaces DD-14 and DD-17; folds in DD-16. Numbered 24, not 21, so it does not collide with DD-21..23 on the unmerged `stage4-redesign` branch (R11) |
+| **DD-14** | *Replaced by DD-24.* Was: branch from the currently checked-out branch, PR back at it, and never merge unasked | Kept so references to it still resolve |
+| **DD-17** | *Replaced by DD-24.* Was: before branching, detect a branch that is already merged or gone from the remote | With no agent branching there is no spent branch to detect |
+| **DD-15** | **The working tree is the truth; `state.json` is a cache** — presence checked by content, never by git state | The developer may commit, merge or edit outside the harness and need not report it; only the files decide whether the previous phase's work is there (R11.3) |
+| **DD-16** | *Folded into DD-24.* `prTarget` is kept as a human note that no rule reads | Now widened to every git field: branch naming, PR target and reviewers are the developer's notes (R11.5) |
 | **DD-10** | **Plan defaults to "no change"** | Churn burns the developer's review attention and destabilizes what they thought was coming next |
 | **DD-11** | **Review is a separate session, read-only on code, and never blocks** | An agent cannot audit its own work; read-only keeps the verdict honest. The gate it used to hold only ever fired for a developer who chose to run it, and its findings already survive through the change log — so it reports and advises instead (R8) |
 | **DD-12** | **Documents amended in place; git is the history** | No `_v2` filenames; Revision History rows plus commits give lineage |
@@ -136,25 +137,24 @@ sequenceDiagram
     participant A as Build agent
     participant S as state.json
     participant F as FEATURE_STATUS.md
-    participant G as Git
+    participant W as Working tree
 
-    D->>A: "Next phase. Branch and open a PR."
+    D->>A: "Next phase."
     A->>S: read phases[], changeLog[] > mark, reviews[] > mark
-    A->>G: read CURRENT branch; check by content for predecessor's work
-    A-->>D: "Branching P-3 from <current>. Contains P-2's work."
+    A->>W: check by content for predecessor's work
+    A-->>D: "Building P-3 in <target repo>. Contains P-2's work."
     A->>A: 0a classify — phase / contract change / minor edit
     A->>A: 0b reconcile changes + review findings since last run
     A->>A: 0c refresh plan (default: unchanged)
     opt re-slice needed
         A-->>D: propose; wait for approval
     end
-    A->>G: branch from current, task-sized commits
+    A->>W: edit files task by task — no git
     A->>A: run exit criteria (the only gate)
-    A->>S: status=done, branch, prUrls, advance high-water mark
+    A->>S: status=done, advance high-water mark
     A->>F: rows built in P-3; rows P-3 changed reset to untested
-    A->>G: push + open PR targeting the branch it came from
-    A-->>D: report + 2 counts + PR link (+ other open PRs)
-    Note over D,G: the developer merges whenever they choose, or not at all
+    A-->>D: report + 2 counts + changed files + suggested commit message
+    Note over D,W: the developer commits, pushes and merges whenever they choose, or not at all
     Note over D,F: testing happens whenever — "accept P-3" ticks rows, gates nothing
 ```
 
@@ -202,7 +202,7 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
 | R8 review | Stage 5 §Outcome; `reviews[]`; findings reconciled at Stage 4 Step 0b |
 | R9 governance | `AGENTS.md` invariants + authority ladder |
 | R10 testability | Stage 4 Step 2.3–2.4 (`FEATURE_STATUS.md`, `HOW_TO_RUN.md`); plan test guides |
-| R11 git | Stage 4 §Git Discipline, §Starting From the Right Base (incl. the spent-branch check) |
+| R11 version control | DD-24, DD-15; Stage 4 §Version Control, §Starting From the Right Code; `AGENTS.md` invariant 6 |
 
 ## 10. Known trade-offs
 
@@ -211,12 +211,12 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
   Defensible for a modernization build with one user and nothing deployed; it would not be for
   a team shipping to production, and whoever inherits this harness should know that is the
   trade that was made.
-- **Untested code reaches a branch only when the developer merges it there.** The agent never
-  merges, so nothing lands on `main` without a human clicking Merge. The cost is the mirror
-  image: if they never merge, phases stack as a chain of open PRs, landed later **oldest first**
-  (each merge makes the host re-point the PR above it at the base branch). The hand-off report
-  names the other open PRs so the height of that stack is at least visible — there is no setting
-  that controls this, and no agent-side protection to rely on.
+- **Nothing is committed until the developer commits it.** The agent runs no git (DD-24), so a
+  run's work sits uncommitted in the working tree until the developer commits it. Untested code
+  reaches a branch only when they put it there. The cost: if they never commit, several phases'
+  work piles up as one large uncommitted change, with no per-phase rollback point. Each hand-off
+  lists its changed files and a suggested commit message, so committing per phase costs one
+  command.
 - **Prompt-only enforcement.** Almost every rule depends on the agent following instructions.
   The exception is `state.json`'s mechanical rules, which the state tool enforces (DD-18) —
   but only when the agent uses it; nothing stops a direct edit. Mitigated by falsifiable exit
@@ -225,5 +225,9 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
   table carries the running order.
 - **Volume.** ~2,900 lines of instruction across the six stage files and two templates;
   the three guides exist to keep the entry cost low (Q1).
-- **Git-dependent history.** Superseded design and plan versions exist only as commits, so a
-  project that keeps `./out/` out of git loses the lineage the Implement stage diffs against.
+- **Git-dependent history.** Superseded design and plan versions exist only as commits the
+  developer makes, so a project that keeps `./out/` out of git loses that lineage. The Implement
+  stage does not read git: it sees a document change only through `changeLog[]` and Revision
+  History rows, so a hand edit to a document with neither goes unnoticed until the developer
+  reports it. The same holds for code: with no git, a hand edit to built code is noticed only
+  when the developer reports it or a run happens to read that file.

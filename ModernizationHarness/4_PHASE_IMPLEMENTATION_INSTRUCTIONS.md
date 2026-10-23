@@ -17,8 +17,8 @@ developer does not have to classify it for you:
   phase.
 
 Each run: **classify → reconcile → refresh the plan → implement → verify → hand off → stop.**
-Then the developer merges when they choose, tests when they choose, the Review stage may audit,
-and the next run begins. Do **not** roll into the next phase on your own — the loop exists so
+Then the developer commits when they choose (you run no git — §Version Control), tests when
+they choose, the Review stage may audit, and the next run begins. Do **not** roll into the next phase on your own — the loop exists so
 each increment is small, reviewable and separately testable.
 
 > **Nothing in this stage blocks on the developer having tested anything.** Phases move
@@ -52,7 +52,10 @@ each increment is small, reviewable and separately testable.
 3. **The phase or edit to perform** — from the prompt. If a phase isn't named, execute the
    earliest `pending` entry in `phases[]`. Note that phase IDs are **not renumbered** when the
    plan is refreshed, so "earliest" means earliest in the plan's stated **execution order**,
-   not lowest ID.
+   not lowest ID. **A phase or edit already `in progress`** is a run that stopped before
+   hand-off: resume it before any `pending` phase — check by content which of its tasks are
+   done, say so, and finish the rest. If the prompt names different work, say what is half
+   built and ask which comes first.
 
    **The predecessor's testing state is irrelevant here.** A phase that is `done` is built, and
    that is all the next phase needs. Never ask the developer to accept, approve or sign off
@@ -65,9 +68,9 @@ each increment is small, reviewable and separately testable.
    may proceed. Where a finding is too large to absorb, say so and let Step 0c plan it; don't
    stall the run.
 
-   **Then check your branch actually contains the predecessor's work** before writing
-   anything, and say what you found (see §Starting From the Right Base). A phase built on a
-   branch missing the previous phase silently breaks "each phase builds on the last".
+   **Then check the target code actually contains the predecessor's work** before writing
+   anything, and say what you found (see §Starting From the Right Code). A phase built on code
+   missing the previous phase silently breaks "each phase builds on the last".
 4. **Reference — the design documents** (HLD + LLD). The LLD is the authoritative contract.
 5. **Reference — the three requirements files** — intent, business rules, exact values.
 6. **Reference — `PROJECT_CONTEXT.md`** — target stack, constraints by ID (with their
@@ -178,8 +181,11 @@ shape is a contract change; a hundred-line refactor behind a stable interface is
 
    You will advance both marks at hand-off (Step 2). Entries at or below the marks were folded
    in by a previous run — do not re-apply them.
-2. **Check the design/requirements/context docs for changes** (use `git log`/`git diff` on
-   them if tracked; otherwise rely on change-log entries).
+2. **Check the design/requirements/context docs for changes** through the `changeLog[]`
+   entries above — every stage rerun appends one naming what it changed. You run no git. A
+   design or requirements **Revision History** row that no `changeLog` entry accounts for means
+   a hand edit: log it (`author: developer`, `origin: out-of-band`) and reconcile it like any
+   other change. A hand edit with neither a row nor an entry is invisible to you.
 3. **Read developer notes in the prompt** — treat them as change-log-grade input and **append
    them to `changeLog[]`** (author `developer`) so the paper trail is complete.
 4. **Classify each change:**
@@ -256,8 +262,8 @@ Only when plan, design, requirements, context, and codebase are consistent do yo
 
 ## Step 1 — Execute (for a phase)
 
-Set the phase `in progress` in `state.json`. **Create a working branch** for the phase (see
-§Git Discipline). For each task `P-N.T-M` in dependency order:
+Set the phase `in progress` in `state.json`. Work directly in the target repository's working
+tree — **no branch, no commit** (§Version Control). For each task `P-N.T-M` in dependency order:
 
 1. **Read** the task and the design/requirements it references; confirm prerequisites are done.
 2. **Implement** the smallest correct change satisfying the task's scope, honoring the LLD's
@@ -266,7 +272,7 @@ Set the phase `in progress` in `state.json`. **Create a working branch** for the
 4. **Verify** — run the build and tests; exercise the task's "done when" conditions (call the
    endpoint, render the screen).
 5. **Confirm constraints** — every *Implement* obligation touching this task still holds.
-6. **Commit** this task as a small, self-describing commit (see §Git Discipline).
+6. **Note the files** this task created, changed or deleted — you list them at hand-off.
 7. **Move on** to the next unblocked task.
 
 **Regression rule:** at the end, everything the **previous** phase's test guide covered must
@@ -318,8 +324,10 @@ test guide where the change surface warrants.
    - Set the phase `status: "done"`. That is the terminal status — there is nothing further to
      set and nothing to wait for. Whether a human has tested the work lives in
      `FEATURE_STATUS.md`, per feature.
-   - Record the `branch` and `prUrls` on the phase (or on the `edits[]` entry, for an edit).
-     `prUrls` stays `[]` where the developer asked for no PR.
+   - **Leave `branch` and `prUrls` as they are** on the phase (or `edits[]` entry) — `null`
+     and `[]` unless the developer has named them. You never fill them; they are written only
+     when the developer says where the work went (`AGENTS.md §Recording What the Developer
+     Tells You`).
    - **Record `sizeReport` on the phase** — how its size held up, so a later refresh has
      evidence to re-slice on:
      `{ "pushedLater": [{ "work": "<what moved>", "toPhase": "P-<n>" }], "verdict": "right |
@@ -336,11 +344,10 @@ test guide where the change surface warrants.
      **not** simply take the highest id present: an entry a developer added mid-run that you
      never folded in would be marked processed and silently lost.
    - Ensure any task/guide edits are saved to the plan.
-6. **Open a Pull Request for the branch** (see §Git Discipline) with a descriptive body,
-   targeting the branch you started from. Skip this only where the developer asked to work on
-   the current branch.
+6. **Prepare the commit hand-off** (see §Version Control): the files this run changed, per repo
+   under `split`, and a suggested commit message. Run no git command.
 7. **Report to the developer:**
-   - Which branch you built on and what it contained (see §Starting From the Right Base).
+   - Where you built and what it already contained (see §Starting From the Right Code).
    - What was reconciled in Step 0 (or "no changes"), and whether the plan was refreshed
      ("plan unchanged" or what was re-sliced); your classification (phase vs. minor edit).
    - What was built, task by task (brief), and how it was verified.
@@ -355,14 +362,12 @@ test guide where the change surface warrants.
      are the only standing signal of how far ahead of verification the build has run.
    - **Which `FEATURE_STATUS.md` rows this phase put at risk** — the rows you reset to
      `untested`, so the developer re-walks those rather than the whole ledger.
-   - **The PR link, and which branch it targets — it is yours to merge, whenever you choose.**
-     Where PRs from earlier phases are also still open, name them in one line: *"P-4, P-5 and
-     P-6 have open PRs that haven't been merged."* That is the only signal of how much work has
-     stacked up unlanded, and it costs a sentence.
+   - **The changed files and the suggested commit message** from item 6. Committing, pushing
+     and merging are the developer's, whenever they choose — never ask for any of them.
    - Deviations, follow-ups, `OPEN QUESTION:`s and `ASSUMPTION:`s.
    - The next phase's ID and one-line goal, and a suggestion to run the **Review stage** if
      appropriate.
-8. **Stop.** Do not begin the next phase. Leave the developer on the branch you created.
+8. **Stop.** Do not begin the next phase.
 
 ### Minor Edits
 
@@ -370,8 +375,8 @@ A **minor edit** is a change that touches no requirement, design contract, or pl
 config value, a label, a log line, an obvious bug fix. Anything larger is a doc change followed
 by a phase (§When a Change Touches a Contract); do not stretch this category to avoid that.
 
-The shape is the same as a phase, minus phase-status transitions: branch, make the change with
-tests/docs/state updated, verify, update the ledger, open a PR, report, stop.
+The shape is the same as a phase, minus phase-status transitions: make the change with
+tests/docs/state updated, verify, update the ledger, prepare the commit hand-off, report, stop.
 
 **The documents on an edit run.** In `FEATURE_STATUS.md`, edit in place the `How to check` of
 any row whose behavior this edit changed, add `E-<n>` to its `Phase(s)`, and **reset its
@@ -383,12 +388,12 @@ configured.
 **Register every minor edit in `state.json edits[]`.** An edit ships code — it deserves an id,
 a status, and a reviewable identity, not just a change-log line. Append
 `{ "id": "E-<n>", "utc": ..., "summary": ..., "afterPhase": "<the phase it follows>",
-"status": "done", "branch": ..., "prUrls": [...], "notes": "" }`
+"status": "done", "branch": null, "prUrls": [], "notes": "" }`
 with `add edits "summary=..." afterPhase=P-<n>` — the tool allocates the `E-<n>` id, prints it,
 and fills the other defaults; never pass an `id`. Reference that printed id in the
 `editsAffected` field of any related `changeLog[]` entry.
 
-**Edits behave like phases throughout.** Status moves forward only; branching and the PR follow
+**Edits behave like phases throughout.** Status moves forward only; the commit hand-off follows
 the same rule; the developer records testing against the **feature rows** the edit touched, not
 against `E-1` itself; and it can be handed to the Review stage as a target in its own right. A failure
 the developer reports against an edit is forward work, exactly as for a phase — see
@@ -396,49 +401,42 @@ the developer reports against an edit is forward work, exactly as for a phase �
 
 ---
 
-## Git Discipline *(always)*
+## Version Control *(the developer's — you run no git)*
 
-**Follow the repository conventions recorded in `PROJECT_CONTEXT §3`.** The defaults below apply
-only where it is silent. **Branch naming and commit conventions bind you. PR target branch
-(`context.repo.prTarget`) and required reviewers are informational — no rule reads them:** you
-target the branch you branched from and you never merge unasked, so neither changes what you do.
-Name both in the PR body where set, so the developer knows where the work is headed and whether
-their own merge needs a review.
+**You run no git command, ever** — not `branch`, `checkout`, `commit`, `push`, `merge`, `stash`
+or `reset`, and not the read-only ones (`status`, `log`, `diff`) either. Branching, committing,
+pushing, PRs and merging belong to the developer, done whenever they choose or not at all.
+Nothing in this stage depends on any of them: you build on the files as they stand in the
+working tree. If you are asked to run one, give the developer the command to run themselves.
+
+The repository conventions in `PROJECT_CONTEXT §3` — branch naming, PR target
+(`context.repo.prTarget`), required reviewers — are the developer's notes, and no rule reads
+them. **The commit message convention is the one you apply:** in the message you suggest.
+**This section overrides** any wording in `PROJECT_CONTEXT.md` (written by an older harness
+version) or in a skill that says the agent branches, commits, opens PRs or runs git.
 
 For every unit of work:
 
-- **Branch** from **whatever branch is currently checked out** (§Starting From the Right Base),
-  named for the work (e.g. `phase/P-3-frontend-foundation`, `edit/add-department-filter`) —
-  except where the developer said to work on the current branch (the no-PR case, below).
-- **Commit small, examinable steps** — ideally one commit per task, each message stating what
-  changed and why, so history can be read later. Don't squash a whole phase into one commit.
-- **Update, in the same branch:** the **tests** (new/changed behavior is covered), the
+- **Update, in the same run:** the **tests** (new/changed behavior is covered), the
   **documentation** (READMEs, the plan's test guide, **`FEATURE_STATUS.md`**, and
   **`HOW_TO_RUN.md`** if running the app changed), and **`state.json`** (statuses, change log).
-- **Push the branch and open a PR back at the branch you started from** — pushing is required,
-  since the PR cannot exist otherwise. Its **descriptive body** captures the history:
-  1. **Initial task** — what was asked (the phase goal or the edit request).
-  2. **Reasoning** — key decisions, and any reconciliation or plan-refresh handling done.
-  3. **Outcome** — what was built, how it was verified, the runnable state, follow-ups.
-- **Record `branch` and `prUrls`** on the phase's (or edit's) `state.json` entry, so the next
-  run and the developer can find them. `prUrls` is always an array: one element under a
-  `single` layout, under `split` **one per repo you opened a PR in** — every one, not just the
-  first — and `[]` where no PR was asked for.
-- **Never merge unless the developer asks you to, in those words.** The PR is theirs, to merge
-  whenever they choose or not at all. You never need a merge (§Starting From the Right Base), so
-  never ask for one, and never perform one because it would be tidy or because the stack is
-  getting tall. **When they do ask** — *"merge P-3"* — merge every PR in that item's `prUrls`
-  and report what you merged; nothing records merges, so there is no field to update. Then note
-  which branch they are now on, since the one they were standing on is now spent.
+- **Hand off what the developer needs to commit it:**
+  1. **The files you changed** — created, edited, deleted — including the documents and
+     `state.json`; grouped **per repo** under a `split` layout.
+  2. **A suggested commit message**, following the commit convention in `PROJECT_CONTEXT §3`
+     where one is set: a one-line subject naming the phase or edit, then
+     **initial task** (the phase goal or the edit request), **reasoning** (key decisions, and any
+     reconciliation or plan-refresh handling), **outcome** (what was built, how it was
+     verified, follow-ups). Under `split`, one message per repo, each naming the others.
+- **Never fill `branch` or `prUrls` yourself.** They stay `null` / `[]` until the developer
+  says where the work went; then record what they said.
 
 **Layout, file locations and release model are given — never your call.** Build to them and
 don't re-open them:
 
-- **Repository layout** (`context.repo.layout`, `PROJECT_CONTEXT §3`). **`single`** — one branch
-  and one PR per unit of work. **`split`** — branch every repo the work touches under the *same*
-  branch name, and open a PR per repo whose body cross-references the others. The unit of work
-  is still one phase, and it is not finished until every repo's PR is open and its parts run
-  together per the test guide.
+- **Repository layout** (`context.repo.layout`, `PROJECT_CONTEXT §3`). **`single`** — the work
+  lives in one repo. **`split`** — the work touches every repo it needs, and it is not finished
+  until each repo's part is built and they run together per the test guide.
 - **Where files go** — the source tree in **LLD §3a** (`context.repo.frontendRoot` /
   `backendRoot` where those are set). If the tree you need isn't described there, stop and
   report it as a design gap — don't pick a directory layout mid-phase, because later phases and
@@ -449,63 +447,28 @@ don't re-open them:
 If the developer wants the layout or release model changed, that is a Stage 0 rerun, not a
 decision you make mid-build.
 
-### Starting From the Right Base
+### Starting From the Right Code
 
-Phases are built in sequence, so a phase's branch must start from something that already
-contains the previous phase's work. The rule needs **no configuration at all** — the
-developer's git state is the instruction:
+Phases are built in sequence, so a phase must start from code that already contains the
+previous phase's work. You build on the files as they stand in the target repository's working
+tree (`context.locations.targetRepo`, plus `targetRepoFrontend` under `split`) — whether the
+developer has committed, merged or switched branches is not yours to inspect.
+**The working tree is the truth; `state.json` is a cache.** Before writing anything:
 
-1. **Read the branch that is currently checked out**, and name it in your report — **per repo**
-   under a `split` layout; each repo is read and branched on its own.
-2. **Branch from it**, do the work, and **open the PR back at it**.
-3. **Leave the developer on the branch you created**, and stop.
-4. **Unless they said to work on the current branch** — then create no branch and open no PR;
-   commit there directly (below).
+1. **Confirm the predecessor's work is present by content** — check that the files and symbols
+   the previous phase delivered actually exist there; **per repo** under `split`.
+2. **Say what you found, in one line, before you start:**
+   > "Building P-3 in `./app`. It contains P-2's work (`EmployeeController`, the employee
+   > routes)."
+3. If the predecessor's work is **missing**, stop and ask — don't guess and never silently
+   rebuild it. The usual cause is a checkout without it. Offer the ways forward: they switch to
+   code that has it, or you build here anyway because they know why it's absent.
 
-If they merged the last phase and are standing on `dev`, you branch from `dev` and the PR
-targets `dev`. If they didn't and are still on `phase/P-2`, you branch from that and the PR
-targets `phase/P-2`. Neither case is exceptional, and nothing stalls: **the next phase always
-has its predecessor's code, because it starts from where that code is.** That is why nothing
-here needs a merge to have happened.
-
-**Git is the truth; `state.json` is a cache.** Before writing anything:
-
-1. **Confirm the predecessor's work is present by content, not by name** — check that
-   files/symbols the previous phase delivered actually exist there. Branch names and PR state
-   are unreliable: squash-merge and rebase workflows discard the predecessor's branch and commit
-   ids entirely, so a branch holding every line of P-2 can still report "not merged".
-2. **Check whether the current branch is already finished** — its work merged into another
-   branch, or the branch itself gone from the remote. This is the **common** case, not an edge
-   one: the developer merges the previous phase's PR in the web UI, the host deletes the branch,
-   and their local checkout stays on it. Every other check here still passes, because the code is
-   present — the branch is simply spent. Branching off it produces a PR that targets a branch
-   which no longer exists on the remote, so the work stops flowing toward where it was headed.
-   **Say so and name the branch you would use instead**, then do what they say:
-   > "You're on `phase/P-2`, which is already merged into `dev` and gone from the remote. I'd
-   > branch P-3 from `dev` instead — it has P-2's work. Confirm, or name another branch."
-   Prefer the branch it was merged into. Never push a deleted branch back up to make a PR fit,
-   and never target a branch you know is spent.
-3. **Say what you found, in one line, before you start:**
-   > "Branching P-3 from `phase/P-2`. It contains P-2's work. (Note: `dev` has 2 commits not in
-   > this branch.)"
-   This one line is what makes branching from wherever they stand safe rather than reckless.
-4. If the predecessor's work is **missing**, stop and ask — don't guess and never silently
-   rebuild it. Offer the ways forward: they merge it or switch branch, you branch from the
-   branch that does have it, or you build here anyway because they know why it's absent.
-
-**"Work on this branch" — the no-PR case.** When the developer says to make the change on the
-branch they are standing on (*"do it on this branch"*, *"no PR, just commit here"*), do exactly
-that: **no new branch, no PR.** Everything else is unchanged — small self-describing commits,
-tests, docs, `FEATURE_STATUS.md`, `state.json`. Record the branch you committed to in `branch`
-and leave `prUrls` as `[]`. The PR body's history (initial task / reasoning / outcome) goes in
-the commit messages instead. Under **`split`** this applies **per repo**: commit on each repo's
-currently checked-out branch, touching only the repos the work needs; if those branches are not
-the same name, say so before you start, so a later reader knows where each half landed.
-
-**Work merged or changed outside the harness is normal.** The developer may merge a PR in the
-web UI, hand-fix a file, or resolve a conflict while merging, and they are **not** required to
-report it. You still notice code you didn't write: append a `changeLog` entry
-(`author: developer`, `origin: out-of-band`) and reconcile it at Step 0b before building.
+**Work changed outside the harness is normal.** The developer may hand-fix a file, merge, or
+resolve a conflict, and they are **not** required to report it. When you find code you did not
+expect — present where no phase or edit delivered it, or different from what one delivered —
+append a `changeLog` entry (`author: developer`, `origin: out-of-band`) and reconcile it at
+Step 0b before building.
 
 ### Recording Developer Decisions
 
@@ -536,9 +499,8 @@ What happens instead:
 4. Whatever fixes it sets that row back to `untested` — the developer re-walks the check and
    ticks it themselves.
 
-**Never** re-open the original phase, re-use its ID, or push fixes onto its merged branch. If
-its branch is still unmerged and the developer is standing on it, the fix naturally lands on
-top of it like any other work.
+**Never** re-open the original phase or re-use its ID. The fix lands in the working tree on top
+of whatever is there, like any other work.
 
 ---
 
@@ -579,9 +541,9 @@ top of it like any other work.
     if the phase seems to require the other one, stop and report.
 11. **Don't touch the source app or the existing database schema.** Read-only on the legacy
     side; non-destructive on the DB. **This holds even when the legacy source shares a
-    repository with the target code** (`context.locations.sharedWithLegacy`) — you may branch
-    and commit in that repo, but legacy files are never modified, moved, or deleted, and no
-    commit of yours may touch them. Build the new tree beside it.
+    repository with the target code** (`context.locations.sharedWithLegacy`) — you write in
+    that repo, but legacy files are never modified, moved, or deleted, and no change of yours
+    may touch them. Build the new tree beside it.
 12. **Never self-authorize a scope change.** Recommend the doc edit and the re-slice; let the
     developer decide. Apply an approved refresh, never a silent one.
 
@@ -605,8 +567,8 @@ Stop and report (rather than improvising) if:
   schema that doesn't match the mapping; deferred auth specifics; unavailable connection
   config). Do what the obligation says for the blocked case if it specifies one; otherwise
   report and wait.
-- The predecessor's work is **missing** from the branch you were handed and the developer has
-  not said to build there anyway (§Starting From the Right Base).
+- The predecessor's work is **missing** from the target code and the developer has not said
+  to build there anyway (§Starting From the Right Code).
 - An external dependency, credential, or access is unavailable.
 - **The phase proves too large** to finish within the sizing rules (`3_PLAN_INSTRUCTIONS.md
   §Step 2` — walkable in one sitting, reviewable in one pass; e.g. the remaining tasks would
@@ -632,8 +594,9 @@ Stop and report (rather than improvising) if:
   the evidence.
 
 **Not blockers** — never stop for these: a phase the developer hasn't tested, a
-`FEATURE_STATUS.md` row still `untested` or marked `failed`, an unmerged PR, or open review
-findings. The first three are recorded and reported; findings are reconciliation input.
+`FEATURE_STATUS.md` row still `untested` or marked `failed`, uncommitted or unmerged work, or
+open review findings. The first two are recorded and reported; committing and merging are the
+developer's; findings are reconciliation input.
 
 State the blocker, what you tried, and the options — let the developer decide. Record unresolved
 items as `OPEN QUESTION:` and assumptions as `ASSUMPTION:`.
@@ -675,18 +638,13 @@ no plan test guide of its own and does not displace the current phase.
 - [ ] Code sits in the LLD §3a source tree; no directory layout invented.
 - [ ] No hard-coded origins or hosts — the `PROJECT_CONTEXT §3` runtime topology is honored
       through LLD §7 config keys.
-- [ ] Before any code: the **current branch** was read, checked **by content** for the
-      predecessor's work and for being **merged or deleted on the remote**, and **named in the
-      report**; a spent branch was raised with a proposed alternative, not built on.
-- [ ] **Branch created from the current branch; small commits pushed; tests, docs and
-      `state.json` updated; PR opened against its source branch with a descriptive body
-      (initial task / reasoning / outcome)** — or, where the developer asked to work on the
-      current branch, committed there with no branch, no PR, and `prUrls` left `[]`.
-- [ ] **Nothing merged unless the developer asked in those words** — otherwise the PR is left
-      open for them; other phases' open PRs named in the report.
-- [ ] `branch` and `prUrls` recorded on the phase (or `edits[]` entry) — every repo's PR under
-      `split`, `[]` where no PR was asked for; a minor edit registered in `edits[]` with its own
-      `E-<n>` id.
+- [ ] Before any code: the target code was checked **by content** for the predecessor's work,
+      and what was found **named in the report**; missing work was raised, not rebuilt.
+- [ ] **No git command run.** Tests, docs and `state.json` updated; the report lists the
+      changed files (per repo under `split`) and a suggested commit message (initial task /
+      reasoning / outcome).
+- [ ] `branch` and `prUrls` left as they were unless the developer said where the work went; a
+      minor edit registered in `edits[]` with its own `E-<n>` id.
 - [ ] `progress.lastProcessedChangeLogId` and `lastProcessedReviewNumber` advanced to exactly
       what this run folded in — never blindly to the highest present.
 - [ ] Review findings folded in are named in the report; any too large went to Step 0c rather
@@ -703,6 +661,6 @@ no plan test guide of its own and does not displace the current phase.
 *(The prompt may append run-specific guidance — plan/design/requirements/context/state file
 paths, the phase to execute or the edit to make, approval of a plan refresh proposed by a
 previous run, developer feedback/change notes from testing, Review findings to address, the
-target repo/branch, or commit/PR conventions. Treat these as overrides/additions; fold change
+target repo, or the commit message convention. Treat these as overrides/additions; fold change
 notes through Step 0. You classify the work yourself — the prompt need not declare whether it
 is a phase or an edit.)*

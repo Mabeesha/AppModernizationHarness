@@ -378,7 +378,7 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
 
 - The **three locations**, stated separately even when they coincide: **legacy source**
   (read-only everywhere), **documents** (context/resolved intake/requirements/design/plan/`state.json`), and
-  the **target code repository** (where Stage 4 branches, commits, and opens PRs). State
+  the **target code repository** (where Stage 4 writes code; it runs no git). State
   explicitly if the target repo is the same one holding the legacy source — the agent must
   know whether it is adding a new tree beside a frozen legacy one.
 - **Repository layout (Q16e) — decided here, once.** State whether frontend and backend live in a
@@ -400,12 +400,12 @@ differently. Record all of the following in `PROJECT_CONTEXT.md §3`:
 - Where either answer is defaulted rather than given, mark it `ASSUMPTION:` and surface it in
   the hand-off report like any other default — both are expensive to change once Stage 2 has
   designed against them.
-- Branch naming, PR target branch, commit conventions, required reviewers. Stage 4 mandates
-  branch + small commits + PR; this is where it learns the house rules. **Branch naming and
-  commit conventions bind the agent. PR target branch and required reviewers are recorded for
-  humans only** — Stage 4 targets the branch it branched from, and never merges unasked, so
-  neither field changes what it does. Record them anyway: they tell the developer where work is
-  headed and whether their own merge needs a review.
+- Branch naming, PR target branch, commit conventions, required reviewers. **No stage runs
+  git** — the developer branches, commits, opens PRs and merges. **Only the commit convention
+  is read by an agent:** Stage 4 follows it in the commit message it suggests at each hand-off.
+  Branch naming, PR target branch and required reviewers are recorded for the developer only.
+  Record them anyway: they tell the developer where work is headed and whether their own merge
+  needs a review.
 
 ## Step 4 — Write the Artifacts
 
@@ -643,16 +643,16 @@ empty. This stage writes the file directly — every later write goes through th
 Field notes (the later stages depend on these; keep them exact):
 
 - **`repo.layout` / `repo.release`** — the repository-layout and release-model decisions,
-  made **only in this stage**. Stages 2–4 read them to shape the internal API contract and the
-  branch/PR flow; none of them decide or override. Changing either is a rerun of this stage
+  made **only in this stage**. Stages 2–4 read them to shape the internal API contract and how
+  work is split across repos; none of them decide or override. Changing either is a rerun of this stage
   plus a `changeLog` entry naming the downstream docs it invalidates.
 - **`repo.prTarget`** — the branch the work is ultimately for (e.g. `dev`, or the repository's
-  default branch). **Nothing reads it.** It is a note for humans and for PR bodies only: the
-  Implement stage branches from the branch that is currently checked out and points the PR back
-  at that same branch (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting From the Right Base`),
-  and it never merges. Keep the field because it tells a reader where work is headed; never
-  write a rule that depends on it. If untested work should stay off `main`, the developer keeps
-  an integration branch checked out — that, not this field, is what decides where work lands.
+  default branch). **Nothing reads it.** It is a note for the developer only: the Implement
+  stage runs no git (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Version Control`) — it builds on
+  the files as they stand, and the developer branches, commits, opens PRs and merges. Keep the
+  field because it tells a reader where work is headed; never write a rule that depends on it.
+  The same holds for `branchNaming`. Only `conventions` (commit messages) is read — by the
+  Implement stage, for the commit message it suggests.
 - **`repo.frontendRoot` / `repo.backendRoot`** — where each part's tree lives inside its repo.
   Set here when the developer states them; otherwise `null`, and **Stage 2 fixes them in the
   LLD source-tree section**, after which Stages 3–4 build to that and nothing invents a
@@ -684,16 +684,17 @@ Field notes (the later stages depend on these; keep them exact):
     entry. IDs therefore stop matching execution order — the plan document holds the order.
     A dropped id is recorded in a top-level `droppedPhases[]` (created by the state tool on the
     first drop; absent until then) so "next unused" still skips it.
-  - `branch` / `prUrls` are written by the Implement stage so the work is findable later.
-    `prUrls` is **always an array** — one element under a `single` layout, one per repo under
-    `split`, and **empty where the developer asked for no PR**. Never a bare string, so nothing
-    downstream has to test its shape.
+  - `branch` / `prUrls` are written only when the developer says where the work went — the
+    Implement stage runs no git and never fills them itself. `prUrls` is **always an array** —
+    one element per PR the developer names, one per repo under `split`, and **empty until they
+    name one**. Never a bare string, so nothing downstream has to test its shape.
   - `sizeReport` is written by the Implement stage when it marks the phase `done` — how the
     phase's size held up (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Step 2`). It is the
     evidence a later plan refresh uses to re-slice; `null` until then.
-  - **No stage records whether work was merged, and no stage depends on it.** A phase's branch
-    starts from the branch that is currently checked out, so the predecessor's code is there
-    whether or not anything was merged. Presence is always checked **by content**.
+  - **No stage records whether work was committed or merged, and no stage depends on it.**
+    Each phase builds on the files as they stand in the working tree, so the predecessor's code
+    is there whether or not anything was committed or merged. Presence is always checked
+    **by content**.
   - **Whether a human has tested a phase's work is not recorded here.** That belongs to
     `FEATURE_STATUS.md`, per feature, because a later phase can change what an earlier one
     delivered and a phase-level mark cannot express that.

@@ -339,7 +339,7 @@ grades the result.
 | Stages | Cost | Automation |
 |---|---|---|
 | 0–3 (document-producing) | Moderate | Fully automated. No code execution, no git, deterministic file outputs. |
-| 4–5 (code-producing) | High | Opt-in via `--with-build`. Needs a scratch git repo, a toolchain, and produces PRs. |
+| 4–5 (code-producing) | High | Opt-in via `--with-build`. Needs a scratch repo and a toolchain, and produces code. |
 
 The 0–3 path is the default: it exercises most of the instruction surface at a
 fraction of the cost, and it is where instruction-set changes usually land.

@@ -63,8 +63,8 @@ front of the edit.
 
 - **Reading, explaining, diagnosing, running tests** → just do it.
 - **About to change target application code** → this is a phase or a minor edit. Stop and ask:
-  > "This changes built code. Run it through `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` — branch,
-  > tests, docs, state, PR — or make the change directly?"
+  > "This changes built code. Run it through `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` — tests,
+  > docs, state, commit hand-off — or make the change directly?"
 
   If they choose "directly", **still append a `changeLog[]` entry** (author `developer`, origin
   `out-of-band`) naming what changed. Skipping the process is their call; skipping the record is
@@ -115,9 +115,11 @@ it — and a phase ID is **never reused or renumbered**.
    changed that feature's behavior. **That mark gates nothing:** no stage waits on it, so never
    ask for it — least of all as a precondition for something else, which turns an attestation
    into a reflexive yes.
-6. **Never merge, ask to merge, or offer to — unless the developer asks, in those words.** Every
-   PR is theirs, to merge whenever they choose or never. Nothing depends on a merge: a phase
-   branches from the branch currently checked out, which already has its predecessor's code.
+6. **Never run a git command** — not to branch, commit, push, open or merge a PR, and not the
+   read-only ones either. Version control is the developer's, done whenever they choose or never,
+   and nothing depends on it: each phase builds on the files as they stand in the working tree.
+   Asked to run one, give them the command to run themselves; never ask them to run one. This
+   overrides any skill or older project document that says to commit or run git.
 7. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR bodies.
    Connection strings, IdP config, and credentials come from environment or profiles.
 8. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, fix
@@ -139,16 +141,12 @@ plain language; you write it and confirm what you wrote:
 | "search works" / "the export screen is fine" | the matching row(s) only → `passed <today>` |
 | "P-2 failed — search returns 500" | the affected row(s) → `failed <today> — search returns 500`, **plus** a `changeLog[]` entry (`author: developer`, `origin: developer-prompt`). P-2 stays `done`; the fix is forward work |
 | "I hand-fixed X myself" | a `changeLog[]` entry, `author: developer`, `origin: out-of-band` |
-| "do it on this branch" / "no PR" | commit to the current branch; no new branch, no PR; `prUrls` stays `[]` |
-| "merge P-3" | merge every PR in its `prUrls` and report what you merged; **write nothing** — no field records merges |
-| "I merged P-3 myself" | nothing to write |
+| "P-3 is on branch `phase/P-3`" / "P-3's PR is <url>" | that phase's (or edit's) `branch` / `prUrls` — the only way either is ever filled |
+| "commit P-3" / "merge P-3" / "open a PR" | **run nothing** (invariant 6) — give them the git commands, with the suggested commit message from that run's hand-off |
+| "I committed P-3" / "I merged P-3 myself" | nothing to write |
 
-After either merge, the one thing worth saying is which branch they are now on: the merged one is
-spent, so the next phase should start elsewhere (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Starting
-From the Right Base`).
-
-Phases and edits behave **identically** here: both are units of shipped work with a status, a
-branch and a PR, and both are tested through the feature rows they touched, never as units.
+Phases and edits behave **identically** here: both are units of shipped work with a status and a
+commit hand-off, and both are tested through the feature rows they touched, never as units.
 
 **Recording testing:**
 
@@ -158,11 +156,6 @@ branch and a PR, and both are tested through the feature rows they touched, neve
 2. **Say what they are attesting to**, per phase: *"Recording that you tested P-2's two features
    and P-3's four against their checks in `FEATURE_STATUS.md`."* They should register the claim,
    not just see boxes tick.
-
-**Open each PR against the branch you branched from**, report the link, and stop. Where earlier
-phases' PRs are still open, name them in one line so the developer sees how much has stacked up —
-a report, not a request. They land such a chain **oldest first**: as each PR merges, the host
-re-points the one above it at the base branch.
 
 ---
 

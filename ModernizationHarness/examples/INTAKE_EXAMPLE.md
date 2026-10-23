@@ -462,7 +462,7 @@ backend. State both ports in HLD §9.
 
 ### 16b. Where are the documents written?
 
-**Answer:** TODO `<path>` — keep in git; reconciliation diffs it.
+**Answer:** TODO `<path>` — keep in git; your commits are its history.
 
 ### 16c. Where is the target code repository?
 
