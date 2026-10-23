@@ -21,7 +21,7 @@ reference, not a verified answer key).
                                                                     ▼
                         ┌──────────────────────────────────► [4] build one phase
                         │                                           │
-                        └── next phase ◄─────────────────────────────┘
+                        └── next phase ◄── you commit (optional) ────┘
                                     ├─► you test whenever you like
                                     └─► [5] review (separate chat, optional)
 ```
@@ -212,8 +212,11 @@ Optionally, in a **separate chat**, audit a phase:
 ```
 run stage 5 on P-1
 ```
-→ PASS, or findings that the next build run fixes. Run it in a fresh session — an agent can't
+→ CLEAN, or FINDINGS that the next build run fixes — never a gate. Run it in a fresh session — an agent can't
 review its own work.
+
+**A run stopped halfway** (timeout, crash)? Just `run stage 4` again — it finishes the
+half-built phase first, judged by what is in the files.
 
 ---
 
@@ -233,14 +236,16 @@ run stage 4
 ```
 → It proposes adding **P-8 "migrate auth to OIDC"**, to run *before* P-6. You approve; it
 builds it. P-3 is never reopened — what is built is built, and the retrofit is new work. The
-feature rows it changes go back to `untested` so you know to re-check them.
+feature rows it changes go back to `untested` so you know to re-check them. To skip the
+approval stop, write `run stage 4 — apply any re-slice without asking`; it applies the re-slice
+and reports it first (that run only).
 
 That's it. The second prompt is the one you always use, so a mid-build design change costs
-exactly one extra prompt.
+exactly one extra prompt (plus your yes to the re-slice, unless you pre-approved it).
 
 ---
 
-## Five things that'll trip you up
+## Things that'll trip you up
 
 - **Never edit `state.json` or `FEATURE_STATUS.md` by hand.** Just say what happened —
   "accept P-2", "search works", "P-2 failed" — and the agent writes it.
@@ -268,6 +273,10 @@ exactly one extra prompt.
   for the running order.
 
 ---
+
+**Paying per request?** If your platform bills per model call (GitLab Duo does), see
+`DEVELOPER_GUIDE.md §Keeping the Request Bill Down` — model choice, pre-answered questions and
+fewer review runs cut the bill more than anything else.
 
 ## When you just want to chat
 

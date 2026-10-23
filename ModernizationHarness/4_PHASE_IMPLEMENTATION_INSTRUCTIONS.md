@@ -108,6 +108,11 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.
 
+**Read the document inputs in one command** once their paths are known — the plan,
+`FEATURE_STATUS.md`, the HLD and LLD, the three requirements files and `PROJECT_CONTEXT.md` —
+per `AGENTS.md §Keeping the Request Count Down`. Read them fresh every run, even in a chat that
+read them before — the developer may have changed them since.
+
 ---
 
 ## Constraints (must hold in the running app)
@@ -228,6 +233,11 @@ building to it.** Present: what changed, which phases you would add/remove/reord
 you would run next. Do not apply it silently — a plan that shifts while the developer's
 attention is on testing the last phase is exactly how scope moves unnoticed.
 
+**Approval given in advance counts.** Where **this run's** prompt says to apply a re-slice
+without asking (*"apply any re-slice"*) — an earlier prompt's approval does not carry over —
+apply it without stopping and put it **first in your report**: what changed, the phases
+added/removed/reordered, and which you ran. It is approved, not silent.
+
 When the change invalidates a **design contract a delivered phase built to**, the proposal is a
 **retrofit phase** (new ID, sequenced before anything that would build on the old contract) —
 **never** a reopened phase, and never a `[reconciliation]` task folded into this run. A `done`
@@ -236,7 +246,8 @@ retrofit is new work that supersedes its behavior.
 
 Once approved, apply the refresh per `3_PLAN_INSTRUCTIONS.md` (plan doc §1/§2/§3/§5,
 `phases[]` sync, revision-history row, `changeLog` entry, `stages.plan.rerunCount`), then build
-the phase the developer named.
+the phase the developer named — or, under advance approval, the next phase in the refreshed
+plan.
 
 ### When a Change Touches a Contract
 If the work would change a requirement, a design contract, or plan scope, **you do not
@@ -269,8 +280,8 @@ tree — **no branch, no commit** (§Version Control). For each task `P-N.T-M` i
 2. **Implement** the smallest correct change satisfying the task's scope, honoring the LLD's
    contracts and the constraints. Match the conventions of the code built in earlier phases.
 3. **Test** — add/adjust automated tests for the behavior; cover edge cases from the requirements.
-4. **Verify** — run the build and tests; exercise the task's "done when" conditions (call the
-   endpoint, render the screen).
+4. **Verify** — run the build, tests and linter **in one chained command**; exercise the task's
+   "done when" conditions (call the endpoint, render the screen).
 5. **Confirm constraints** — every *Implement* obligation touching this task still holds.
 6. **Note the files** this task created, changed or deleted — you list them at hand-off.
 7. **Move on** to the next unblocked task.
@@ -282,7 +293,8 @@ test guide where the change surface warrants.
 ## Step 2 — Hand Off
 
 1. **Run the phase's exit criteria** — the only gate. All must pass. You may only
-   mark `done` if they do.
+   mark `done` if they do. Run every criterion that is a command **in one chained command**;
+   if the chain stops, name the criterion that failed and those that did not run.
 2. **Walk the developer test guide yourself** end to end; if a step is now wrong, fix it in the
    plan (don't leave it stale).
 3. **Update `FEATURE_STATUS.md`** — the coverage ledger, one file for the whole project, in the
@@ -344,9 +356,13 @@ test guide where the change surface warrants.
      **not** simply take the highest id present: an entry a developer added mid-run that you
      never folded in would be marked processed and silently lost.
    - Ensure any task/guide edits are saved to the plan.
+   - **Make these `state.json` writes in one chained command** — status, `sizeReport` and the
+     high-water marks (`AGENTS.md §Keeping the Request Count Down`). Any `add` this run makes
+     (`changeLog`, `edits`) has already run on its own, so the marks can include its printed id.
+     A refusal stops the chain: fix that write and rerun the rest.
 6. **Prepare the commit hand-off** (see §Version Control): the files this run changed, per repo
    under `split`, and a suggested commit message. Run no git command.
-7. **Report to the developer:**
+7. **Report to the developer** — a re-slice applied under advance approval goes first:
    - Where you built and what it already contained (see §Starting From the Right Code).
    - What was reconciled in Step 0 (or "no changes"), and whether the plan was refreshed
      ("plan unchanged" or what was re-sliced); your classification (phase vs. minor edit).
@@ -545,7 +561,8 @@ of whatever is there, like any other work.
     that repo, but legacy files are never modified, moved, or deleted, and no change of yours
     may touch them. Build the new tree beside it.
 12. **Never self-authorize a scope change.** Recommend the doc edit and the re-slice; let the
-    developer decide. Apply an approved refresh, never a silent one.
+    developer decide. Apply an approved refresh (approved in advance counts), never a silent
+    one.
 
 ---
 
@@ -613,7 +630,8 @@ no plan test guide of its own and does not displace the current phase.
       code; developer notes and reconciliation appended to `changeLog[]` (or "no changes"
       confirmed).
 - [ ] **Step 0c done:** "plan unchanged" reported, or a re-slice **proposed, approved, and
-      applied** per `3_PLAN_INSTRUCTIONS.md` — never applied silently.
+      applied** per `3_PLAN_INSTRUCTIONS.md` — or applied under this run's prompt's advance approval
+      and reported first — never applied silently.
 - [ ] Nothing touching a requirement, design contract, or plan scope was built or doc-edited —
       such requests were routed to their owning stage and stopped on — apart from an approved
       Step 0c refresh or mid-phase split.

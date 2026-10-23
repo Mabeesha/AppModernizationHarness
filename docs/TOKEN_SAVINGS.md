@@ -1,7 +1,37 @@
 # Token Savings — Options
 
 *Status: a proposal. Nothing in §3 is applied. Each option says whether it needs a design change
-(and so a yes) or is only a way of running the harness. Last updated 2026-10-22.*
+(and so a yes) or is only a way of running the harness. Last updated 2026-10-23.*
+
+---
+
+## 0. Read first — GitLab Duo bills per call, not per token (2026-10-23)
+
+This proposal was written to cut **tokens**. GitLab Credits are charged per **model call**: one
+chat message is "one or more billable requests, because one or more LLM calls are made", the
+price per call depends on the model, and there is no token formula
+([GitLab Credits docs](https://docs.gitlab.com/subscriptions/gitlab_credits)). Every tool call
+the agent makes is followed by another billed call; reading more in one call is free up to the
+context limit. So the goal is **fewer calls**, and some options below now cost more:
+
+| Option | Under per-call billing |
+|---|---|
+| 1 Smaller model where routine | **Still helps — likely the largest saving** (calls per credit vary widely by model) |
+| 2 Fresh session per run | **Backfires** — a new session re-reads everything; stay in one chat where context allows |
+| 3 Keep Stage 4 phases small | **Backfires** — more runs, each with fixed read/reconcile/hand-off calls |
+| 4, 5, 10, 11 Split Stage 1 / Stage 2 work into more runs | **Backfire** — more runs |
+| 6 Review each phase soon | **Backfires** — review the risky phases, and `whole-build` at milestones |
+| 7 Split Stage 4 into prepare and build | **Backfires** — two runs instead of one |
+| 8 Read only plan-named sections | **Backfires** — more, smaller reads |
+| 13 Mechanical checks as scripts | Still helps — one call replaces several |
+| 9, 12, 14, 15, 16 | Neutral, or help only if they remove calls |
+
+What was applied for per-call billing (DD-25, Q6, on branch `no-agent-git`): `AGENTS.md
+§Keeping the Request Count Down` (batched reads, chained commands, fewer edits, no re-read to
+verify); Stage 4 batch points (inputs in one command, build/test/lint and exit criteria
+chained, hand-off state writes chained); a re-slice may be approved in advance in the prompt;
+and `DEVELOPER_GUIDE.md §Keeping the Request Bill Down` for how the developer runs it. Removing
+all agent git (DD-24) also removed roughly 8–15 calls per phase.
 
 ---
 
@@ -163,7 +193,7 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 
 - **What:** a short file for minor edits only. It keeps the authority test ("does this touch a
   requirement, design contract or plan scope? If yes, stop and run full Stage 4") and the
-  bookkeeping (`edits[]`, `FEATURE_STATUS.md`, PR).
+  bookkeeping (`edits[]`, `FEATURE_STATUS.md`, commit hand-off).
 - **Saves:** most of each minor edit's cost, which today loads the full Stage 4 file and every
   document. Worth it only if minor edits are frequent.
 - **Risk:** something non-minor is treated as minor; the stop rule is the safeguard.
@@ -211,7 +241,7 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 
 #### Option 13 — Move other mechanical checks into scripts
 
-- **What:** the state tool shows the pattern. Candidates: checking the branch contains the
+- **What:** the state tool shows the pattern. Candidates: checking the working tree contains the
   predecessor phase's work; checking `FEATURE_STATUS.md` and `state.json` agree at hand-off;
   later, extracting the phase brief for Option 7.
 - **Saves:** a script costs almost no tokens and never skips a step; fewer agent steps and
@@ -225,7 +255,7 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 - **What:** the Agent Skills pattern (supported by GitLab Duo, Claude Code, Codex, Gemini CLI):
   keep the core steps in the main file and move rarely needed parts into separate files the agent
   opens only when the case arises. In Stage 4: minor edits, re-running a failed phase, the
-  mid-phase split procedure, reference implementations, split-layout git rules.
+  mid-phase split procedure, reference implementations, split-layout hand-off rules.
 - **Saves:** moderate, on every run that does not hit those cases.
 - **Risk:** the agent does not open a part it needed and misses a rule. Measure first.
 - **Touches:** every stage file it applies to, the "ships as Markdown files" description in

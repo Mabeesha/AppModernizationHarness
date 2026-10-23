@@ -55,6 +55,34 @@ repo**, never piped in.
 
 ---
 
+## Keeping the Request Count Down
+
+The agent platform may bill **per model call**, not per token: every tool call you make is
+followed by another billed call. Reading more in one call costs nothing extra. So, in every
+stage and in ordinary chat:
+
+- **Batch independent reads.** Read several known files in **one command** that labels each
+  one — bash: `tail -n +1 FILE1 FILE2`; PowerShell: `Get-ChildItem FILE1, FILE2 | % { "==> $_";
+  Get-Content -LiteralPath $_.FullName }` — or, where your tools allow several calls in one
+  step, issue them together.
+- **Don't re-read what cannot have changed.** Within one run, a file only you have touched need
+  not be read again. **Every stage run reads its inputs fresh** — between runs the developer,
+  a formatter or a build may have changed any of them, and you cannot see that from memory.
+- **Chain dependent commands** — build, tests and linter; a run of state-tool writes — into one
+  shell command that stops at the first failure (bash: `a && b && c`; Windows PowerShell 5.1:
+  `a; if ($?) { b; if ($?) { c } }`). When a chain stops, say which step failed and which did
+  not run. **Never chain a write that needs an id printed by an earlier `add`** — run that `add`
+  on its own first. If your shell tool refuses chained commands, run them one at a time.
+- **Write in as few edits as possible.** Write a new file whole; group changes to one file into
+  one edit where the tool allows.
+- **Don't spend a call checking your own write.** A failed write or edit reports itself; re-read
+  only when a later step needs the content.
+
+These never override a rule elsewhere: a stage's checks, stops and reports all still happen —
+they are just done in fewer calls.
+
+---
+
 ## Before you write anything
 
 Classify what you are about to do **at the moment you are about to write**, not when you read

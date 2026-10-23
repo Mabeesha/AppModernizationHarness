@@ -712,11 +712,15 @@ to it.*
 
 ### 16g. Branch naming?
 
+A note for you and your team — the agent runs no git.
+
 *Default: one feature branch per phase.*
 
 **Answer:**
 
 ### 16h. Which branch do PRs target?
+
+A note for you and your team — the agent runs no git.
 
 *Default: the default branch.*
 

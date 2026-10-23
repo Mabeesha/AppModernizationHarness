@@ -11,8 +11,9 @@ The harness is a **prompt-based process** — not code — that lets one develop
 application with a coding agent, **one small testable increment at a time**, without losing
 control of scope, quality, or history.
 
-It ships as Markdown files the developer copies into their project and cites in prompts. No
-runtime, no installer, no tooling to maintain.
+It ships as Markdown files the developer copies into their project and cites in prompts, plus
+one small stdlib-Python state tool, vendored agent skills, and install scripts that copy it all
+into place. No runtime or service to maintain.
 
 ## 2. Users & actors
 
@@ -100,7 +101,10 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R5.1** The plan covers **remaining work only**; `done` phases drop to a Completed line,
   tested or not.
 - **R5.2** Stage 4 re-checks the remaining plan before most runs, and **defaults to no change**.
-- **R5.3** A re-slice must be **proposed and approved** before it is applied.
+- **R5.3** A re-slice must be **proposed and approved** before it is applied. The approval may
+  come **in advance**, in that run's prompt ("apply any re-slice without asking") — it does not
+  carry over to later runs; the agent then applies it and leads its report with exactly what
+  changed.
 - **R5.4** Phase IDs are **permanent** — never renumbered or reused. Execution order lives in
   the plan document, not in the IDs.
 - **R5.5** **`FEATURE_STATUS.md`** holds one row per requirement, and rows are **never
@@ -186,8 +190,9 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q1 | **Readable in five minutes** — `README.md` gets a developer running; `DEVELOPER_GUIDE.md` carries the reasoning; `USE_CASES.md` walks the situations by example |
 | Q2 | **No duplicated rules** — a constraint-specific rule lives in its obligation, once |
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
-| Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra |
+| Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra (plus the re-slice approval, unless it is given in advance — R5.3) |
 | Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and, once the developer commits it, a git commit |
+| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, and avoids calls whose only purpose is to re-check its own writes |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)
 
@@ -195,8 +200,9 @@ and anything that modifies the legacy source (read-only in every stage).
 2. `INTAKE.md` and the `*_TEMPLATE.md` files are **inputs, never written to**.
 3. `changeLog[]` and `reviews[]` are **append-only**.
 4. Only the developer authorizes a `passed`/`failed` mark — and it gates nothing.
-5. **No secrets** in code, docs, state, commit messages, or PR bodies.
-6. Never mutate a reused database's schema — fix the mapping instead.
+5. **The agent never runs git** — version control is the developer's (R11).
+6. **No secrets** in code, docs, state, commit messages, or PR bodies.
+7. Never mutate a reused database's schema — fix the mapping instead.
 
 ---
 
@@ -212,5 +218,6 @@ stateDiagram-v2
 ```
 
 *Forward only. `done` is terminal — a failure the developer reports, or a design change that
-invalidates the work, becomes new forward work, never a reopened phase. Whether a human has
+invalidates the work, becomes new forward work, never a reopened phase. A run that stops early
+leaves the phase `in progress`; the next run resumes it (R11.7). Whether a human has
 tested it is tracked separately, per feature, in `FEATURE_STATUS.md`.*

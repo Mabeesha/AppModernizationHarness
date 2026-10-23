@@ -9,7 +9,7 @@ up front, in a Project Context, and every later stage reads them from there.
 > **The load-bearing pieces**: a **Stage 0 Project Context** that parameterizes stacks /
 > CI/CD / constraints and forces a decision on load-bearing questions; a **`state.json`** file
 > that holds all machine state (statuses, lineage, change log) so the doc stays readable and
-> branching is tractable; **mechanical (falsifiable) exit criteria** as the only gate; an explicit
+> lineage is mechanical; **mechanical (falsifiable) exit criteria** as the only gate; an explicit
 > **rolling plan** that covers remaining work only and is refreshed before most build runs; and an
 > independent **Stage 5 Review/QA** that feeds findings back into the loop.
 
@@ -292,8 +292,8 @@ ledger rows asked for but never built — and **what's untested**.
 said plainly and with reasons — but nothing enforces it, and you are free to carry on. The gate
 it used to hold only ever fired for someone who chose to run a review in the first place, and
 its findings already survived without it, through the change log. With no hard gates left in the
-pipeline, this stage is your main independent check: run it more often than you think you need
-to.
+pipeline, this stage is your main independent check: run it on every phase that carries risk,
+and on the whole build at milestones (see §Keeping the Request Bill Down).
 
 ---
 
@@ -393,7 +393,9 @@ Step 0c reads the revision-history row and proposes a re-slice: a **retrofit pha
 old contract, plus any adjustment to P-6/P-7. You approve; it builds P-8.
 
 Then run the next phase. **The second prompt is the one you always
-use** — so a mid-flight design change costs you exactly one extra prompt.
+use** — so a mid-flight design change costs you exactly one extra prompt (plus your yes to the
+re-slice, unless you pre-approved it with `run stage 4 — apply any re-slice without asking`;
+it then applies the re-slice and reports it first, for that run only).
 
 **Three things that deliberately don't happen:**
 
@@ -483,6 +485,34 @@ rather than sit in a document nobody rebuilt against.
   changes, not the schema.
 - **Secrets stay out of everything** — config/env only.
 - **Review is independent.** Don't run it in the same session that built the code.
+
+---
+
+## Keeping the Request Bill Down
+
+Some agent platforms — GitLab Duo among them — bill **per model call**, not per token. Every
+tool call the agent makes (read a file, run a test, edit) is followed by another billed call,
+and how much it reads in that call does not change the price. The agent's own habits are set in
+`AGENTS.md §Keeping the Request Count Down`: it batches reads, chains commands, and makes fewer,
+larger edits. The rest is how **you** run it:
+
+1. **Choose the model by its price per call.** Platforms list how many calls one credit buys
+   per model, and the spread is wide. A cheaper model for routine phases (scaffolding, CRUD
+   screens) and the strongest one for design and tricky phases is usually the biggest saving.
+2. **Answer questions before they are asked.** Each time the agent stops and you reply, a new
+   chain of calls starts. Put known answers in the prompt — for example
+   `run stage 4 — apply any re-slice without asking`. The agent then applies a re-slice without
+   stopping and reports it first (Step 0c). It holds for that run only — say it again next time.
+3. **Stay in the same chat for the next phase.** It already has the stage instructions loaded.
+   It still reads the documents fresh at the start of each run, because you may have changed
+   them. Start a new chat when the conversation grows long enough to slow it down or crowd its
+   context — and always for Review.
+4. **Lean towards the larger end of the phase-sizing rules.** Every run pays a fixed cost to
+   read, reconcile and hand off; fewer, fuller phases pay it less often. Stay within "testable
+   in one sitting" — tell Stage 3 so when you run it.
+5. **Review selectively.** Review the phases that carry risk (auth, data mapping, anything a
+   constraint governs) rather than every one, and run `run stage 5 whole-build` at milestones.
+   Each review run pays its own read-and-report overhead.
 
 ---
 
@@ -656,8 +686,8 @@ say:*
 
 > run stage 5 on **P-1**
 
-*→ PASS → launch P-2. CHANGES REQUESTED → the findings are now in `state.json changeLog[]`;
-your next Implement run reconciles and fixes them before/at P-2.*
+*→ CLEAN → launch P-2. FINDINGS → the findings are now in `state.json changeLog[]`; your
+next Implement run reconciles and fixes them before/at P-2. Either way nothing is blocked.*
 
 ### Example B — Changing the design mid-build (the auth change at P-6)
 
@@ -675,9 +705,9 @@ Then, exactly as always:
 > run stage 4
 
 *→ Step 0c reads the revision-history row and proposes: **add P-8 "Migrate auth seam to OIDC"**,
-run it **before P-6**, and adjust P-6/P-7 to build against bearer tokens. You approve; it builds
-P-8, rewrites the auth rows' checks in `FEATURE_STATUS.md` and resets them to `untested`, and
-hands you its changed files and commit message. P-3 is never reopened.*
+run it **before P-6**, and adjust P-6/P-7 to build against bearer tokens. You approve (or
+pre-approved it in the prompt); it builds P-8, rewrites the auth rows' checks in
+`FEATURE_STATUS.md` and resets them to `untested`, and hands you its changed files and commit message. P-3 is never reopened.*
 
 Then run the next phase to get P-6 — committing P-8 first if you want it as its own commit.
 

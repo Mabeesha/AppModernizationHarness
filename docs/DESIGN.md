@@ -6,12 +6,17 @@
 
 ## 1. Design in one paragraph
 
-The harness is **eleven Markdown files**. Six are stage instructions, invoked one per agent session;
-two are templates the developer copies into their project; three are the guides. All coordination
+At run time, the harness is **eleven Markdown files, one small tool, and a set of vendored agent
+skills** (the install scripts and `examples/` only set it up). Six
+files are stage instructions, invoked one unit of work per run; two are templates the developer
+copies into their project; three are the guides. The tool, `tools/state.py`, reads and writes
+`state.json` (DD-18). The skills in `skills/` are upstream Angular and .NET helpers the
+installer copies into `.agents/skills/`; `AGENTS.md` invariant 6 overrides any git step in
+them. All coordination
 between sessions happens through **two artifacts on disk** — human-readable Markdown documents
 and one machine-readable `state.json`. Nothing is held in an agent's memory between runs,
-because there is no "between runs": each stage session starts cold, reads state, does one unit
-of work, writes state, and stops.
+because there is no "between runs": each run reads state and all its inputs fresh — even in a
+chat it shares with the previous run (DD-25) — does one unit of work, writes state, and stops.
 
 ## 2. Components
 
@@ -26,6 +31,7 @@ of work, writes state, and stops.
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | stage | Build one phase or one minor edit; hand off; stop |
 | `5_REVIEW_INSTRUCTIONS.md` | stage | Independent audit; findings back into `state.json` |
 | `tools/state.py` | tool | Reads and writes `state.json` for every stage after 0 (DD-18) |
+| `skills/` | vendored skills | Upstream Angular and .NET agent skills, installed into `.agents/skills/`; `AGENTS.md` invariant 6 overrides any git step in them |
 | `DEVELOPER_GUIDE.md` / `README.md` / `USE_CASES.md` | guide | The reasoning / the five-minute start / the situations you'll hit, by example |
 
 ## 3. Pipeline
@@ -77,6 +83,7 @@ Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 | **DD-9** | **`HOW_TO_RUN.md` (how to run it) + `FEATURE_STATUS.md` (what is built and tested)** | Per-phase test docs went stale, and one regenerated file duplicated the plan's own test guides. Splitting *how to run* from *what to check* leaves each written once: the run doc changes only when running changes, and each feature's check sits beside the column the developer ticks (R10) |
 | **DD-13** | **Testing is tracked per feature, not per phase** | A phase is a batch of work; a later phase can change what an earlier one delivered, and a phase-level mark cannot express that. A feature row can — it gains the new phase and resets to `untested` (R4.3, UL-5) |
 | **DD-24** | **No agent runs git; version control is the developer's.** The agent edits the working tree and hands off a list of changed files and a suggested commit message; the developer branches, commits, pushes, opens PRs and merges | In the developer's environments the agent's git tool hangs, and their projects forbid agent git. Nothing in the pipeline ever needed git *actions*: each phase builds on the files as they stand, so the previous phase's work is present whether or not it was committed. Change detection between runs already had a git-free path — `changeLog[]` and Revision History rows. Replaces DD-14 and DD-17; folds in DD-16. Numbered 24, not 21, so it does not collide with DD-21..23 on the unmerged `stage4-redesign` branch (R11) |
+| **DD-25** | **Shape each run to make as few model calls as possible, not to read as few tokens as possible** | The developer's platform (GitLab Duo) bills per model call: each tool call is followed by a new, billed call, and the size of what is read does not change the price. So one command that prints ten input files beats ten reads, and a chained command beats separate ones. The rules live once, in `AGENTS.md §Keeping the Request Count Down`, with Stage 4 naming its own batch points (inputs, verification, hand-off state writes). Chaining is "where the shell tool allows it", because not every agent's command tool accepts it. A prompt may also approve a plan re-slice in advance, which saves a stop-and-ask round trip (R5.3, Q6) |
 | **DD-14** | *Replaced by DD-24.* Was: branch from the currently checked-out branch, PR back at it, and never merge unasked | Kept so references to it still resolve |
 | **DD-17** | *Replaced by DD-24.* Was: before branching, detect a branch that is already merged or gone from the remote | With no agent branching there is no spent branch to detect |
 | **DD-15** | **The working tree is the truth; `state.json` is a cache** — presence checked by content, never by git state | The developer may commit, merge or edit outside the harness and need not report it; only the files decide whether the previous phase's work is there (R11.3) |
@@ -141,13 +148,20 @@ sequenceDiagram
 
     D->>A: "Next phase."
     A->>S: read phases[], changeLog[] > mark, reviews[] > mark
+    opt a phase or edit was left in progress
+        A->>W: resume it (tasks judged by content)
+    end
     A->>W: check by content for predecessor's work
     A-->>D: "Building P-3 in <target repo>. Contains P-2's work."
     A->>A: 0a classify — phase / contract change / minor edit
     A->>A: 0b reconcile changes + review findings since last run
     A->>A: 0c refresh plan (default: unchanged)
     opt re-slice needed
-        A-->>D: propose; wait for approval
+        alt approved in this run's prompt
+            A->>A: apply; report it first
+        else
+            A-->>D: propose; wait for approval
+        end
     end
     A->>W: edit files task by task — no git
     A->>A: run exit criteria (the only gate)
@@ -196,13 +210,14 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
 | R2 load-bearing questions | `0_INTAKE_TEMPLATE.md` defaults / hard-stops; Stage 0 Step 1 (incl. its cross-checks); `INTAKE_RESOLVED.md` (DD-19); eval check D5 holds the template's shape |
 | R3 document order | Stage files 0–5; `stages.<name>.status` |
 | R4 one gate + testing record | Plan §The Only Gate; `FEATURE_STATUS.md`; `AGENTS.md` §Recording What the Developer Tells You |
-| R5 rolling plan | Plan §Refreshing the Plan; Stage 4 Step 0c; `FEATURE_STATUS.md` |
+| R5 rolling plan | Plan §Refreshing the Plan; Stage 4 Step 0c (incl. approval given in advance); `FEATURE_STATUS.md` |
 | R6 mid-build change | Stage 4 §0a, §When a Change Touches a Contract; retrofit phases |
 | R7 machine state | `state.json` schema (Stage 0 Output 2); `progress` high-water mark |
 | R8 review | Stage 5 §Outcome; `reviews[]`; findings reconciled at Stage 4 Step 0b |
 | R9 governance | `AGENTS.md` invariants + authority ladder |
 | R10 testability | Stage 4 Step 2.3–2.4 (`FEATURE_STATUS.md`, `HOW_TO_RUN.md`); plan test guides |
-| R11 version control | DD-24, DD-15; Stage 4 §Version Control, §Starting From the Right Code; `AGENTS.md` invariant 6 |
+| R11 version control | DD-24, DD-15; Stage 4 §Version Control, §Starting From the Right Code, Inputs item 3 (resume `in progress`, R11.7); `AGENTS.md` invariant 6 |
+| Q6 low request count | DD-25; `AGENTS.md §Keeping the Request Count Down`; Stage 4's batch points (inputs, verify, exit criteria, hand-off state writes) |
 
 ## 10. Known trade-offs
 

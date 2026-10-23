@@ -69,6 +69,7 @@ behind the scenes, and what is true afterwards. Prompts are copy-paste ready.
 |---|---|
 | Starting a brand-new project | Copy `AGENTS.md` and `INTAKE.md` into place, then run Stages 0→3 once each |
 | Build the next planned increment | `run stage 4` |
+| A run stopped halfway (timeout, crash) | `run stage 4` — it finishes the half-built phase first, judged by what is in the files |
 | Commit the phase you just got | Commit it yourself, using the suggested message from the report. The agent runs no git |
 | Tell it where the work went | `P-3 is on branch phase/P-3` or `P-3's PR is <url>` |
 | You tested it and it works | `accept P-3` — or `accept P-3, P-4` — or `search works` |
@@ -207,7 +208,8 @@ tests, and audits four areas — requirements coverage, tests, security, static 
 code**. It writes `REVIEW_R-1_<App>_P-3.md`, appends to `reviews[]`, and turns each Blocker or
 Major into a change-log entry the next build run will pick up.
 
-**You get** PASS, or CHANGES REQUESTED. What happens next depends on severity — see Part 5.
+**You get** CLEAN, or FINDINGS — neither blocks anything. What happens next depends on
+severity — see Part 5.
 
 > Run it in the same session that built the code and you get a self-review, which is worth
 > nothing. That's why the instruction says separate run.
@@ -358,6 +360,9 @@ a document change land in the code — and **proposes a re-slice**:
 You approve. It builds P-8, rewrites the auth rows' checks in `FEATURE_STATUS.md` and resets
 them to `untested`, and hands you its changed files. Commit them if you like, and ask for the
 next phase to get P-6.
+
+Had you sent `run stage 4 — apply any re-slice without asking`, it would have applied the
+re-slice without stopping and reported it first (that run only).
 
 **Three things that deliberately don't happen:**
 
@@ -701,10 +706,10 @@ names the protocol's home in `AGENTS.md` and adds only the two details specific 
 
 ---
 
-# Interlude — the six invariants
+# Interlude — the seven invariants
 
-These live in `AGENTS.md`, which means they hold in **every** session — a formal stage run, or
-you asking a question at midnight:
+These live in `AGENTS.md` (which numbers them as eight — rule 4 is two there), which means they
+hold in **every** session — a formal stage run, or you asking a question at midnight:
 
 1. **The legacy source is read-only.** Never modified, moved, or deleted — even when it shares a
    repository with the target code. The new tree gets built beside it.
@@ -714,9 +719,11 @@ you asking a question at midnight:
    something that supersedes it, never by rewriting. And you never hand-edit `state.json` at all.
 4. **Status moves forward only** — `pending` → `in progress` → `done`, and `done` is terminal.
    **Only you authorize a `passed`/`failed` mark** in `FEATURE_STATUS.md`, and it blocks nothing.
-5. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR bodies.
+5. **The agent never runs git** — no branch, commit, push, PR or merge, not even `git log`.
+   Version control is yours; ask it to commit and it gives you the commands instead.
+6. **No secrets anywhere** — not in code, documents, `state.json`, commit messages, or PR bodies.
    Connection strings and IdP config come from environment or profiles.
-6. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, you
+7. **Never mutate a reused database's schema.** Where a data-reuse constraint is in force, you
    fix the mapping, never the database.
 
 If you ever catch an agent breaking one of these, the likeliest cause isn't the stage file —
@@ -732,7 +739,8 @@ These aren't failures. Each one is a specific trap the loop exists to prevent.
 |---|---|---|
 | The target code is **missing** the predecessor's work — usually a checkout without it | "P-3's code isn't here" | Switch to a branch that has it, or tell it to build here anyway |
 | Your request touches a **contract** | "This changes LLD §1 — rerun Stage 2" | Rerun the design, then the next phase (Scenarios 6, 7) |
-| A plan re-slice it proposed **hasn't been approved** | It builds the phase as it stands, or stops | Approve the proposal, or tell it to build as planned |
+| A plan re-slice it proposed **hasn't been approved** | It builds the phase as it stands, or stops | Approve the proposal, or tell it to build as planned — or pre-approve it in the prompt next time |
+| A phase is still **in progress** and you named other work | "P-6 is half built — which first?" | Say which |
 | Sources **conflict** | "The plan says X, the LLD says Y" | Decide. It reports conflicts, it doesn't silently pick a side |
 | A **constraint** can't be honored | "Honoring C1 would break the endpoint contract" | Constraints win — this needs your decision or a design change |
 | An input is **missing or ambiguous** | "Two candidate `state.json` files — which?" | Point it at the right one |
