@@ -526,7 +526,8 @@ larger edits. The rest is how **you** run it:
 You can move a project that is part-way through its build onto a newer harness version. Do it
 **between two runs**, never while a stage is running. Below, `<harness>` means the
 `ModernizationHarness` folder of the newer harness checkout, e.g.
-`D:\tools\modernization-harness\ModernizationHarness`.
+`D:\tools\modernization-harness\ModernizationHarness`. To get the newer version there, run
+`git fetch`, then `git checkout <newer branch or tag>` in that checkout.
 
 **Before you start, check what changed.** Compare the two versions' `ModernizationHarness/`
 folders (`git diff <old> <new> -- ModernizationHarness`). The steps below are enough when
@@ -542,7 +543,7 @@ folder**:
 
 | Case | `AGENTS.md` points to… | What to do |
 |---|---|---|
-| **A** | the harness checkout itself | Check out the newer version there. Skip step 3 |
+| **A** | the harness checkout itself | Note the current commit (`git rev-parse HEAD` in the checkout), then check out the newer version there — this upgrades every project that uses that checkout. Skip step 3 |
 | **B** | `ModernizationHarness/` inside your project | Do every step |
 | **C** | some other folder | Do every step, using that folder in place of `ModernizationHarness` |
 
@@ -564,6 +565,11 @@ Copy-Item -Recurse -Force <harness>\* .\ModernizationHarness\
 This overwrites changed files and deletes nothing. If the new version **removed** a file, delete
 it by hand.
 
+These steps do not touch the agent skills in `.agents\skills\` — only the installer copies
+those. If the new version changed `ModernizationHarness\skills\`, back up `.agents\skills\`
+first (`Copy-Item -Recurse .agents\skills .agents\skills.bak` — again, the backup name must not
+already exist), then copy the changed skill folders into it.
+
 ### 4. Update `AGENTS.md`
 
 ```powershell
@@ -572,7 +578,8 @@ Copy-Item -Force <harness>\AGENTS_TEMPLATE.md .\AGENTS.md
 
 Then compare it with `AGENTS.md.bak` and:
 
-- copy back any lines you added yourself (house rules, glossary);
+- copy back any lines you added yourself (house rules, glossary) — **add** them to the new
+  file; don't copy the old file over it, or you lose the sections the new version added;
 - put your stage-folder path back in the first section — the template says
   `ModernizationHarness/`, which is right only for case B.
 
@@ -585,15 +592,20 @@ from:
 python <stage folder>\tools\state.py check
 ```
 
-If it is not found, put `--file <path>` before `check`.
+If it says none or several were found, put `--file <path to state.json>` before `check`.
 
 ### 6. Carry on
 
+Run the stage you were going to run next — for most projects mid-build:
+
 ```
-run stage 4 — apply any re-slice without asking
+run stage 4
 ```
 
-If the last run stopped half-way, Stage 4 finishes that phase or edit first.
+If the last run stopped half-way, Stage 4 finishes that phase or edit first. If the remaining
+plan needs re-slicing (splitting, merging or reordering the phases still to come), Stage 4 asks
+you first; to let it go ahead without asking for that one run, add
+`— apply any re-slice without asking` (see §Keeping the Request Bill Down).
 
 **Do not re-run the installer to upgrade.** It does not update the stage files, and it would
 reset `out/INTAKE.md` to the blank template and overwrite `AGENTS.md` (both are backed up to
@@ -609,24 +621,40 @@ Copy-Item -Force AGENTS.md.bak AGENTS.md                         # everyone
 Remove-Item -Recurse -Force ModernizationHarness; if ($?) { Rename-Item ModernizationHarness.bak ModernizationHarness }  # B and C
 ```
 
-In case A, check out the older version in the harness checkout again.
+In case A, check out the commit you noted in step 1 in the harness checkout again.
 
-### Upgrading from a version before "the agent runs no git" (DD-24)
+### Upgrading from a version before the no-git, request-count and plain-report changes
 
-The steps above are all you need: the state tool and `state.json` are unchanged, and stages 0–3
-changed only in wording, so nothing you have produced is redone. Before your next run:
+This covers a project started on a harness from before three changes: the agent runs no git
+(DD-24), each run makes fewer model calls (DD-25), and every report is written in plain English
+(DD-26). The steps above are all you need: the state tool and `state.json` are unchanged, and
+stages 0–3 changed only in wording, so nothing you have produced is redone. Stage 5 (Review)
+changed too: a whole-build review now checks for dropped feature rows against the requirement
+IDs instead of git history, and its report names each finding and constraint in words. Review
+reports you already have stay as they are. Before your next run:
 
 - **Check out the branch with your latest phase's code.** The old Stage 4 left you on its last
   phase branch; the new one builds on whatever files are on disk.
-- **Earlier phases' open PRs and branches are yours now.** The report no longer lists them —
-  merge or close them when you like.
+- **Earlier phases' open PRs (pull requests — requests to merge a branch) and branches are
+  yours now.** The report no longer lists them — merge or close them when you like.
 - **Keep uncommitted work** from an interrupted run; Stage 4 resumes from the files.
 - **`branch` / `prUrls` values already in `state.json` stay as they are.**
 - **Your `PROJECT_CONTEXT.md` may still say Stage 4 branches and opens PRs.** Leave it; the new
-  Stage 4 overrides that wording (§Version Control).
+  Stage 4 overrides that wording (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Version Control`).
 - **Expect one extra note in the first report:** a design or requirements Revision History row
-  with no matching change-log entry is logged as a hand edit and folded in, because document
-  changes are no longer detected through git. It happens once.
+  (the change table at the top of that document) with no matching change-log entry (in
+  `changeLog` in `state.json`) is logged as a hand edit — a change made outside a stage run —
+  and folded in, because document changes are no longer detected through git. It happens once.
+- **Your new `AGENTS.md` has two new sections.** *Writing for the Developer* makes every report
+  open with a plain summary and "What I need from you", explain each term, and never name
+  anything by ID alone. *Keeping the Request Count Down* — the agent's side of §Keeping the
+  Request Bill Down above — makes the agent batch its reads and commands. If you merged your
+  own lines into `AGENTS.md`, check that neither section was lost. Want terser reports? Edit
+  *Writing for the Developer* there.
+- **Reports end with a commit hand-off**, not a PR link: the changed files and a suggested
+  commit message. Committing is yours.
+- **You can pre-approve a plan re-slice** (a change to the phases still to come) for one run —
+  see step 6.
 
 ---
 
