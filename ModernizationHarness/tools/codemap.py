@@ -18,8 +18,10 @@ Names are found by pattern, not by a compiler: good enough to say where to look,
 evidence of behavior - cite the code itself. Files of unknown kinds are listed by path and
 line count only. Text may be UTF-8, UTF-16 with a byte-order mark, or a legacy 8-bit code
 page. Binary files are skipped, and so are folders named in SKIP_DIRS (any letter case) and
-each --exclude: a folder name, or a path below SOURCE_ROOT such as Web/Scripts/lib. The map
-records its excludes, and a rerun with no --exclude reuses them; any --exclude replaces them. Files
+each --exclude: a folder name (skipped wherever it occurs), or a folder path - below
+SOURCE_ROOT, from the working directory, or absolute. An --exclude that names no folder is
+refused. The map records its excludes, and a rerun with no --exclude reuses them (dropping,
+with a note, any that no longer match); any --exclude replaces the whole saved list. Files
 over MAX_BYTES are listed without names, and lines over MAX_LINE characters are not searched.
 
 Never overwrites a file it did not write (one with neither the marker nor the section-1
@@ -192,15 +194,21 @@ def split_lines(text):
     return lines
 
 
-def scan(root, skip_names, skip_paths):
-    """Return (relative path, line count, names or None) for every text file, sorted."""
+def scan(root, skip_names, skip_paths, hits):
+    """Return (relative path, line count, names or None) for every text file, sorted.
+
+    Adds to hits each skip name that matched a folder."""
     entries = []
     for dirpath, dirnames, filenames in os.walk(root):
         rel_dir = os.path.relpath(dirpath, root).replace(os.sep, "/")
         rel_dir = "" if rel_dir == "." else rel_dir + "/"
-        dirnames[:] = sorted(d for d in dirnames
-                             if d.lower() not in skip_names
-                             and (rel_dir + d).lower() not in skip_paths)
+        kept_dirs = []
+        for d in dirnames:
+            if d.lower() in skip_names:
+                hits.add(d.lower())
+            elif (rel_dir + d).lower() not in skip_paths:
+                kept_dirs.append(d)
+        dirnames[:] = sorted(kept_dirs)
         for fn in sorted(filenames):
             full = os.path.join(dirpath, fn)
             try:
@@ -215,6 +223,41 @@ def scan(root, skip_names, skip_paths):
             entries.append((rel_dir + fn, count, names))
     entries.sort(key=lambda e: e[0].lower())
     return entries
+
+
+def resolve_exclude(x, root):
+    """An --exclude as a bare folder name or a folder path below root; None if it names none.
+
+    A path may be given below root, from the working directory, or absolute."""
+    norm = x.strip().replace("\\", "/").rstrip("/")
+    while norm.startswith("./"):
+        norm = norm[2:]
+    if not norm or norm == ".":
+        return None
+    if "/" not in norm and not os.path.isabs(x.strip()):
+        return norm                     # matches a folder of that name anywhere
+    for cand in (os.path.join(root, norm), os.path.abspath(x.strip())):
+        if os.path.isdir(cand) and inside(cand, root) \
+                and os.path.normcase(cand) != os.path.normcase(root):
+            return os.path.relpath(cand, root).replace(os.sep, "/")
+    return None
+
+
+def choose_excludes(given, saved, root, shown_root):
+    """(excludes, dropped): the --exclude values resolved, else the saved ones.
+
+    A given value that names no folder is refused; a saved one is dropped."""
+    excludes, dropped = [], []
+    for x in given or saved:
+        r = resolve_exclude(x, root)
+        if r is None and given:
+            fail(f"--exclude {x} names no folder under {shown_root}; give a folder name, or a "
+                 f"path below {shown_root}, from the working-tree root, or absolute")
+        if r is None:
+            dropped.append(x)
+        elif r.lower() not in (e.lower() for e in excludes):
+            excludes.append(r)
+    return excludes, dropped
 
 
 def kind_of(rel):
@@ -310,7 +353,8 @@ def main(argv=None):
              f"{os.path.join(args.out, 'LEGACY_CODE_MAP_<AppName>.md')}")
 
     kept, saved = kept_head(out, args.out)
-    excludes = [e for e in (x.replace("\\", "/").strip("/") for x in args.exclude) if e] or saved
+    given = [x for x in args.exclude if x.strip()]
+    excludes, dropped = choose_excludes(given, saved, root, args.root)
     skip_names = {d.lower() for d in SKIP_DIRS}
     skip_paths = set()
     for ex in excludes:
@@ -323,7 +367,13 @@ def main(argv=None):
         skip_paths.add(os.path.relpath(out_dir, root).replace(os.sep, "/").lower())
 
     prefix = args.root.replace("\\", "/").rstrip("/") or "."
-    entries = scan(root, skip_names, skip_paths)
+    hits = set()
+    entries = scan(root, skip_names, skip_paths, hits)
+    unmatched = [e for e in excludes if "/" not in e and e.lower() not in hits]
+    if unmatched and given:
+        fail(f"--exclude {unmatched[0]} matched no folder under {args.root}; check the spelling")
+    dropped += unmatched
+    excludes = [e for e in excludes if e not in unmatched]
     body, total_names = render(prefix, entries, excludes)
     head = kept if kept is not None else HEADER.format(
         title=args.title or os.path.basename(root))
@@ -334,6 +384,8 @@ def main(argv=None):
 
     lines = (head + body).count("\n")
     note = "kept section 1" if kept is not None else "section 1 is a placeholder for Stage 1"
+    if dropped:
+        note += f"; dropped saved excludes that no longer match a folder: {', '.join(dropped)}"
     say(f"wrote {args.out}: {len(entries)} files, {total_names} names, {lines} map lines; {note}")
 
 

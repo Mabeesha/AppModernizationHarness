@@ -202,6 +202,32 @@ class CodemapToolTest(unittest.TestCase):
         self.assertIn("procs.sql", replaced)
         self.assertNotIn("app.js", replaced)
 
+    def test_exclude_path_may_be_spelled_from_the_working_tree_or_absolute(self):
+        # agents take paths from state.json: relative to the working-tree root, or absolute
+        for spelling in ("legacy/src/Legacy", "./legacy/src/Legacy",
+                         str(self.dir / "legacy" / "src" / "Legacy"), "./src/Legacy"):
+            text = self.build("--exclude", spelling)
+            self.assertNotIn("Billing.vb", text, spelling)
+            self.assertIn("Excluded: `src/Legacy`.", text, spelling)
+
+    def test_exclude_naming_no_folder_is_refused(self):
+        self.build()
+        before = self.map.read_bytes()
+        for wrong in ("legacy/src/Nope", "Nope", str(self.dir / "elsewhere")):
+            err = self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md",
+                                "--exclude", wrong, ok=False).stderr
+            self.assertIn("no folder", err)
+        self.assertEqual(self.map.read_bytes(), before)
+
+    def test_saved_exclude_that_no_longer_matches_is_dropped_with_a_note(self):
+        self.build("--exclude", "db")
+        for f in (self.dir / "legacy" / "db").iterdir():
+            f.unlink()
+        (self.dir / "legacy" / "db").rmdir()
+        res = self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md")
+        self.assertIn("dropped saved excludes that no longer match a folder: db", res.stdout)
+        self.assertNotIn("codemap:exclude", self.map.read_text(encoding="utf-8"))
+
     def test_skipped_folder_names_ignore_letter_case(self):
         p = self.dir / "legacy" / "src" / "Bin" / "App.xml"
         p.parent.mkdir()
