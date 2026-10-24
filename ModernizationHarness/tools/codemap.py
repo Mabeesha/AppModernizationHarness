@@ -41,7 +41,7 @@ MARKER = "<!-- codemap:generated - everything below this line is rewritten by to
 SECTION_1 = "## 1. Where Things Live"
 SKIP_DIRS = {".git", ".svn", ".hg", ".vs", ".vscode", ".idea", ".gradle", "node_modules",
              "bin", "obj", "packages", "target", "dist", "__pycache__", ".venv", "venv",
-             "testresults"}
+             "testresults", "modernizationharness", ".agents"}
 MAX_BYTES = 2_000_000
 MAX_NAMES = 40          # per file; the rest are counted, not listed
 MAX_LINE = 300          # longer lines (minified or generated code) are not searched for names
@@ -115,8 +115,6 @@ def _keep(kind, m, line):
     stripped = line.rstrip()
     if stripped.endswith(";") and "=>" not in stripped:
         return False                    # a call, field or abstract member, not a body
-    if stripped.endswith(","):
-        return False                    # an argument list continued on the next line
     if kind == "method":
         return m.group(1) not in _NOT_TYPES and m.group(2) not in _NOT_METHODS
     return m.group(1) not in _NOT_METHODS and not line.lstrip().startswith("new ")
@@ -167,15 +165,27 @@ def read_file(path, size):
                 tail = chunk[-1:]
             return count + (0 if tail in (b"\n", b"\0", b"") else 1), None
         data = head + fh.read()
-    if enc == "utf-16":
-        text = data.decode("utf-16", errors="replace")
-    else:
-        try:
-            text = data.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            text = data.decode("latin-1")   # an 8-bit code page; identifiers are ASCII either way
-    lines = text.splitlines()
+    lines = split_lines(decode(data))
     return len(lines), lines
+
+
+def decode(data):
+    """Text from bytes: UTF-16 with a byte-order mark, else UTF-8, else Windows-1252."""
+    if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return data.decode("utf-16", errors="replace")
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return data.decode("cp1252", errors="replace")   # identifiers are ASCII either way
+
+
+def split_lines(text):
+    """Split on line breaks only - not on the form feeds and other separators splitlines()
+    honours, which would shift every line number after them."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
 
 
 def scan(root, skip_names, skip_paths):
@@ -263,8 +273,8 @@ def kept_head(out, shown):
     """Section 1 (everything above the marker) of an existing map, or None for a new one."""
     if not os.path.exists(out):
         return None
-    with open(out, encoding="utf-8-sig") as fh:
-        text = fh.read()
+    with open(out, "rb") as fh:
+        text = decode(fh.read()).replace("\r\n", "\n")
     if MARKER in text:
         return text.split(MARKER, 1)[0]
     if re.search(r"^" + re.escape(SECTION_1), text, re.M):

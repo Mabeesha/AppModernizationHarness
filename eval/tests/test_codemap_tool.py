@@ -129,6 +129,51 @@ class CodemapToolTest(unittest.TestCase):
         sql = self.line_for(self.build(), "db/unicode.sql")
         self.assertIn("(2) - dbo.usp_GetEmp :1", sql)
 
+    def test_wrapped_parameter_lists_are_found(self):
+        path = self.dir / "legacy" / "src" / "Ctl.cs"
+        path.write_text("public class Ctl\n{\n"
+                        "    public Ctl(IRepo repo,\n        ILog log)\n    {\n    }\n"
+                        "    public ActionResult Search(string name, int page,\n"
+                        "        int size)\n    {\n    }\n}\n", encoding="utf-8")
+        cs = self.line_for(self.build(), "src/Ctl.cs")
+        self.assertIn("Ctl :3", cs)
+        self.assertIn("Search :7", cs)
+
+    def test_statement_lines_are_not_names(self):
+        path = self.dir / "legacy" / "src" / "Stmts.cs"
+        path.write_text("public class Stmts\n{\n    public void Go()\n    {\n"
+                        "        else if (ready)\n"
+                        "        await Send(x)\n"
+                        "        throw new InvalidOperationException(\n"
+                        "            select new Row(\n"
+                        "        new Runnable() {\n"
+                        "        return Build(a,\n"
+                        "    }\n}\n", encoding="utf-8")
+        cs = self.line_for(self.build(), "src/Stmts.cs")
+        self.assertTrue(cs.endswith(" - Stmts :1, Go :3"), cs)
+
+    def test_windows_1252_file_keeps_true_line_numbers(self):
+        # a 0x85 ellipsis and a form feed must not count as line breaks
+        path = self.dir / "legacy" / "src" / "Form1.cs"
+        path.write_bytes(b"public class Form1\r\n{\r\n    string s = \"Loading\x85\"; // \x0c\r\n"
+                         b"    public void Save()\r\n    {\r\n    }\r\n}\r\n")
+        cs = self.line_for(self.build(), "src/Form1.cs")
+        self.assertIn("(7) - Form1 :1, Save :4", cs)
+
+    def test_utf16_big_endian_file_is_read(self):
+        path = self.dir / "legacy" / "db" / "be.sql"
+        path.write_bytes(b"\xfe\xff" + "SELECT 1\nCREATE VIEW dbo.vBig AS SELECT 1\n".encode("utf-16-be"))
+        self.assertIn("(2) - dbo.vBig :2", self.line_for(self.build(), "db/be.sql"))
+
+    def test_harness_folders_are_skipped(self):
+        for rel in ("ModernizationHarness/tools/state.py", ".agents/skills/x/run.py"):
+            p = self.dir / "legacy" / rel
+            p.parent.mkdir(parents=True)
+            p.write_text("def harness():\n    pass\n", encoding="utf-8")
+        text = self.build()
+        self.assertNotIn("ModernizationHarness", text.split("## 3. Files", 1)[1])
+        self.assertNotIn("harness :1", text)
+
     def test_large_file_is_counted_without_names(self):
         path = self.dir / "legacy" / "src" / "Huge.cs"
         path.write_bytes(b"public class Huge {}\n" + b"// filler line of text\n" * 100_000)
@@ -213,6 +258,17 @@ class CodemapToolTest(unittest.TestCase):
         text = self.map.read_text(encoding="utf-8")
         self.assertTrue(text.startswith(hand))
         self.assertIn("## 3. Files", text)
+
+    def test_hand_written_map_in_a_windows_encoding_is_kept(self):
+        # Windows PowerShell 5.1 writes ANSI (Set-Content) or UTF-16 (Out-File)
+        self.map.parent.mkdir()
+        hand = "# Legacy Code Map: Shop\r\n\r\n## 1. Where Things Live\r\n\r\n| Orders — totals |\r\n"
+        for encoded in (hand.encode("cp1252"), hand.encode("utf-16")):
+            self.map.write_bytes(encoded)
+            self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md")
+            text = self.map.read_text(encoding="utf-8")
+            self.assertIn("| Orders — totals |\n", text)
+            self.assertIn("## 3. Files", text)
 
     # --- where the map may go -----------------------------------------------------------------
 

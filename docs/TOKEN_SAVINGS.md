@@ -295,7 +295,8 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   Every later stage and ordinary chat looks legacy code up there before searching.
 - **Saves:** calls, not tokens. Before, Stage 1's survey lived only in its session, so each
   later lookup and each Stage 1 rerun searched again (one billed call per search or listing).
-  The legacy source is read-only, so the map never goes stale; building it costs no model call.
+  The agent never changes the legacy source, so the map goes stale only when the developer
+  supplies a newer copy — rerunning the script refreshes it. Building it costs no model call.
 - **Risk:** low. The index is found by pattern and can miss a name — the agent then searches as
   before, and nothing is ever cited from the map. A very large legacy app gives a long §3;
   agents search it rather than read it whole.
