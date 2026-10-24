@@ -216,8 +216,9 @@ and anything that modifies the legacy source (read-only in every stage).
   (`path:line`). Where the map lacks something, the agent searches as before.
 - **R13.4** Every later stage, and ordinary chat, that needs a legacy detail **looks it up in
   the map first** and opens only the files it points to. A missing map changes nothing else:
-  the agent searches as before. Without Python, or if the script refuses, Stage 1 writes its
-  section by hand and leaves the generated part out until the script next runs.
+  the agent searches as before. Without Python, or after a refusal that cannot be fixed,
+  Stage 1 writes its section by hand and leaves the generated part out until the script next
+  runs. A Stage 1 rerun that changes only the map writes nothing to `state.json`.
 
 ---
 

@@ -530,7 +530,9 @@ larger edits. The rest is how **you** run it:
    legacy code without searching. Don't delete it. If the legacy code you were given changes (a
    newer drop of the old app), refresh it — free, no model involved. Its hand-written first
    section and the folders Stage 1 excluded are both kept (run it without `--exclude`, or the
-   list you give replaces the saved one):
+   list you give replaces the saved one). If your new code now sits inside the legacy folder
+   and is not yet on the map's *Excluded:* line, add `--exclude` for it and for every folder
+   already on that line:
    `python <stage folder>/tools/codemap.py <legacy app> --out ./out/LEGACY_CODE_MAP_<App>.md`
 
 ---
