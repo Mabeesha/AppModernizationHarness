@@ -28,6 +28,18 @@ FILES = {
         "            return Calc(orderId);\n        }\n"
         "        private static decimal Calc(int id) { return 1; }\n"
         "    }\n}\n"),
+    "src/Orders/Modern.cs": (
+        "public class Modern\n{\n"
+        "    public Modern(int seed)\n    {\n"
+        "        var t = new Thread(() =>\n"
+        "            Run(seed,\n"
+        "                1));\n    }\n"
+        "    public Dictionary<string, int> Map(int a)\n    {\n        return Lookup(a);\n    }\n"
+        "    public static IEnumerable<Tuple<int, string>> Pairs() { yield break; }\n"
+        "    public int Calc() => 42;\n"
+        "    void ImplicitPrivate()\n    {\n    }\n"
+        "    public abstract void Declared();\n"
+        "}\n"),
     "src/Legacy/Billing.vb": (
         "Public Class Billing\n"
         "    Private Sub btnSave_Click(sender As Object, e As EventArgs)\n"
@@ -60,9 +72,9 @@ class CodemapToolTest(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def run_tool(self, *args, ok=True):
+    def run_tool(self, *args, ok=True, cwd=None):
         """Run codemap.py from the temp dir; assert it succeeded (or failed, when ok=False)."""
-        res = subprocess.run([sys.executable, str(TOOL), *args], cwd=self.dir,
+        res = subprocess.run([sys.executable, str(TOOL), *args], cwd=cwd or self.dir,
                              capture_output=True, encoding="ascii")
         if ok:
             self.assertEqual(res.returncode, 0, f"{args} failed: {res.stderr}")
@@ -89,6 +101,14 @@ class CodemapToolTest(unittest.TestCase):
         self.assertNotIn("_orders", cs, "a field initializer is not a method")
         self.assertNotIn("if :", cs)
 
+    def test_common_csharp_method_shapes_are_found(self):
+        cs = self.line_for(self.build(), "src/Orders/Modern.cs")
+        for name in ("Modern :1", "Modern :3", "Map :9", "Pairs :13", "Calc :14",
+                     "ImplicitPrivate :15"):
+            self.assertIn(name, cs)
+        for wrong in ("Thread", "Run", "Lookup", "Declared"):
+            self.assertNotIn(wrong, cs, "a call or a bodiless declaration is not a method")
+
     def test_each_supported_language_is_read(self):
         text = self.build()
         vb = self.line_for(text, "src/Legacy/Billing.vb")
@@ -102,6 +122,18 @@ class CodemapToolTest(unittest.TestCase):
         for name in ("Cart :1", "addItem :2", "removeItem :3"):
             self.assertIn(name, js)
 
+    def test_utf16_sql_script_is_read(self):
+        # SQL Server Management Studio saves generated scripts as UTF-16 with a byte-order mark
+        path = self.dir / "legacy" / "db" / "unicode.sql"
+        path.write_bytes("CREATE PROCEDURE dbo.usp_GetEmp AS\r\nSELECT 1\r\n".encode("utf-16"))
+        sql = self.line_for(self.build(), "db/unicode.sql")
+        self.assertIn("(2) - dbo.usp_GetEmp :1", sql)
+
+    def test_large_file_is_counted_without_names(self):
+        path = self.dir / "legacy" / "src" / "Huge.cs"
+        path.write_bytes(b"public class Huge {}\n" + b"// filler line of text\n" * 100_000)
+        self.assertIn("- `legacy/src/Huge.cs` (100001)\n", self.build())
+
     def test_unknown_kinds_are_listed_without_names(self):
         self.assertIn("- `legacy/Web.config` (2)\n", self.build())
 
@@ -111,14 +143,32 @@ class CodemapToolTest(unittest.TestCase):
         self.assertNotIn("node_modules", text)
         self.assertNotIn("hidden", text)
 
+    def test_skipped_folder_names_ignore_letter_case(self):
+        p = self.dir / "legacy" / "src" / "Bin" / "App.xml"
+        p.parent.mkdir()
+        p.write_text("<x/>\n", encoding="utf-8")
+        self.assertNotIn("App.xml", self.build())
+
     def test_exclude_skips_a_named_folder(self):
         text = self.build("--exclude", "db")
         self.assertNotIn("procs.sql", text)
         self.assertIn("OrderService.cs", text)
 
+    def test_exclude_takes_a_path_below_the_root(self):
+        text = self.build("--exclude", "src\\Legacy")
+        self.assertNotIn("Billing.vb", text)
+        self.assertIn("OrderService.cs", text)
+
+    def test_root_given_as_dot_or_with_trailing_slash(self):
+        self.run_tool(".", "--out", "../out/m.md", cwd=self.dir / "legacy")
+        self.assertIn("- `web/app.js` (3)", (self.dir / "out" / "m.md").read_text(encoding="utf-8"))
+        self.run_tool("legacy/", "--out", "out/n.md")
+        self.assertIn("- `legacy/web/app.js` (3)",
+                      (self.dir / "out" / "n.md").read_text(encoding="utf-8"))
+
     def test_folder_table_counts_files(self):
         text = self.build()
-        self.assertIn("| `legacy/src/Orders` | 1 | 13 | .cs 1 |", text)
+        self.assertIn("| `legacy/src/Orders` | 2 | 32 | .cs 2 |", text)
 
     def test_map_has_the_three_sections_in_order(self):
         text = self.build()
@@ -128,7 +178,7 @@ class CodemapToolTest(unittest.TestCase):
 
     def test_output_reports_counts(self):
         res = self.run_tool("legacy", "--out", "out/m.md")
-        self.assertIn("5 files", res.stdout)
+        self.assertIn("6 files", res.stdout)
         self.assertIn("placeholder for Stage 1", res.stdout)
 
     # --- rerun keeps Stage 1's notes ----------------------------------------------------------
@@ -147,12 +197,44 @@ class CodemapToolTest(unittest.TestCase):
         self.assertIn("Added :1", again)
         self.assertEqual(again.count(MARKER), 1)
 
-    # --- refusals -----------------------------------------------------------------------------
+    def test_rerun_keeps_section_one_of_a_crlf_file_with_bom(self):
+        text = self.build().replace("*(Stage 1 fills this in", "| Orders | x |\n\n*(was", 1)
+        self.map.write_bytes(b"\xef\xbb\xbf" + text.replace("\n", "\r\n").encode("utf-8"))
+        self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md")
+        self.assertIn("| Orders | x |", self.map.read_text(encoding="utf-8"))
 
-    def test_map_inside_the_legacy_source_is_refused(self):
+    def test_hand_written_map_without_marker_is_kept_and_extended(self):
+        # Stage 1 without Python writes section 1 by hand, with no marker line
+        self.map.parent.mkdir()
+        hand = "# Legacy Code Map: Shop\n\n## 1. Where Things Live\n\n| Orders | x |\n"
+        self.map.write_text(hand, encoding="utf-8")
+        res = self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md")
+        self.assertIn("kept section 1", res.stdout)
+        text = self.map.read_text(encoding="utf-8")
+        self.assertTrue(text.startswith(hand))
+        self.assertIn("## 3. Files", text)
+
+    # --- where the map may go -----------------------------------------------------------------
+
+    def test_map_directly_in_the_legacy_root_is_refused(self):
         err = self.run_tool("legacy", "--out", "legacy/MAP.md", ok=False).stderr
         self.assertIn("read-only", err)
         self.assertFalse((self.dir / "legacy" / "MAP.md").exists())
+
+    def test_documents_folder_inside_the_legacy_source_is_left_out(self):
+        # a harness installed in the legacy repo: legacy source ".", documents "./out"
+        docs = self.dir / "legacy" / "out"
+        docs.mkdir()
+        (docs / "PROJECT_CONTEXT.md").write_text("# context\n", encoding="utf-8")
+        self.run_tool(".", "--out", "out/LEGACY_CODE_MAP_Shop.md", cwd=self.dir / "legacy")
+        text = (docs / "LEGACY_CODE_MAP_Shop.md").read_text(encoding="utf-8")
+        self.assertNotIn("PROJECT_CONTEXT", text)
+        self.assertNotIn("`out", text)
+        self.assertIn("src/Orders/OrderService.cs", text)
+
+    def test_out_that_is_a_folder_is_refused(self):
+        (self.dir / "out").mkdir()
+        self.assertIn("is a folder", self.run_tool("legacy", "--out", "out", ok=False).stderr)
 
     def test_foreign_file_is_not_overwritten(self):
         self.map.parent.mkdir()

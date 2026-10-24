@@ -121,13 +121,16 @@ rather than guessing.
 Build a written map before specifying, and **save it** as `LEGACY_CODE_MAP_<AppName>.md` in
 the documents location. Every later stage looks legacy code up in it before searching.
 
-1. **Generate the index first** — one command, no reading on your part:
+1. **Generate the index first** — one command from the working-tree root (the map's paths are
+   relative to where it runs), no reading on your part:
    `python <stage folder>/tools/codemap.py <legacy source> --out <documents>/LEGACY_CODE_MAP_<AppName>.md --title <AppName>`
-   (`python3` where `python` is absent; add `--exclude <folder>` for each generated or vendored
-   folder it should skip). It writes §2 *Folders* (files, lines and file kinds per folder) and
-   §3 *Files* (one line per text file: its line count and the names declared in it, each with
-   its line number). It never writes inside the legacy source; on an existing map it keeps §1
-   and rewrites §2–§3.
+   (`python3` where `python` is absent; add `--exclude <folder or path>` for each generated or
+   vendored folder it should skip). It writes §2 *Folders* (files, lines and file kinds per
+   folder) and §3 *Files* (one line per text file: its line count and the names declared in it,
+   each with its line number). It never overwrites a legacy file; where the documents location
+   sits inside the legacy source, it leaves that folder out of the map. On an existing map it
+   keeps §1 and rewrites §2–§3. **If it refuses** (its message says why) and the fix is not a
+   mistyped path, carry on as in item 4.
 2. **Survey from the index.** Read §2 whole; read §3 whole if it is short, otherwise search it
    for names instead of searching the source tree. Use it to choose which files to open, and
    open them several at a time (`AGENTS.md §Keeping the Request Count Down`). It is found by
@@ -138,7 +141,9 @@ the documents location. Every later stage looks legacy code up in it before sear
    (one per feature or screen), naming folders or files (`path`, or `path:line` for a single
    method) and saying in one line what lives there. Navigation only: no requirement prose and
    nothing the three documents say. Never hand-edit §2–§3.
-4. **Without Python,** write the file by hand with §1 only, and say so in your report.
+4. **Without Python, or if the tool refuses,** write the file by hand: a `# Legacy Code Map:
+   <AppName>` title and the `## 1. Where Things Live` heading with your table, nothing more. Say
+   so in your report. A later run of the tool keeps that file whole and adds §2–§3 below it.
 
 Adapt the checklist to the **current stack named in `PROJECT_CONTEXT.md`** (the items below are
 examples, not a fixed list):
