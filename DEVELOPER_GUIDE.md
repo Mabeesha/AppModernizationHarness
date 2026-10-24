@@ -72,6 +72,7 @@ somewhere else and you change that one line; nothing else moves.
       │                   state.json           (machine state — initialized here)
       ▼
  [1] Requirements ──────► BUSINESS_/FUNCTIONAL_/TECHNICAL_REQUIREMENTS_<App>.md
+      │                   LEGACY_CODE_MAP_<App>.md      (where the legacy code lives)
       │
       ▼
  [2] Design ────────────► HIGH_LEVEL_DESIGN_<App>.md   (architecture & decisions)
@@ -213,6 +214,13 @@ and every downstream stage. Confirm or override them, then check the stacks and 
 Produces the three requirements docs (business / functional / technical) from the legacy app,
 with depth steered by your constraints (exact data model if DB-reuse; full authz model if an
 auth constraint; NFRs expanded from the context).
+It also saves **`LEGACY_CODE_MAP_<App>.md`** — a map of where things live in the legacy code.
+A small script (`tools/codemap.py`) writes most of it for free: every folder, then every file
+with the classes, methods and stored procedures declared in it and their line numbers. The
+agent adds one section on top: which files hold each feature, the business rules, data access,
+security checks and so on. Every later stage — and ordinary chat — looks legacy code up there
+instead of searching for it, which saves model calls on platforms that bill per call. The map
+only says where to look; requirements still cite the code itself.
 **Your job after:** skim all three; answer every `OPEN QUESTION:`/`ASSUMPTION:` — unresolved
 questions compound downstream.
 
@@ -518,6 +526,11 @@ larger edits. The rest is how **you** run it:
 5. **Review selectively.** Review the phases that carry risk (auth, data mapping, anything a
    constraint governs) rather than every one, and run `run stage 5 whole-build` at milestones.
    Each review run pays its own read-and-report overhead.
+6. **Keep the legacy code map.** Stage 1 saves `LEGACY_CODE_MAP_<App>.md` so later runs find
+   legacy code without searching. Don't delete it. If the legacy code you were given changes (a
+   newer drop of the old app), refresh it — free, no model involved — and its hand-written
+   first section is kept:
+   `python <stage folder>/tools/codemap.py <legacy app> --out ./out/LEGACY_CODE_MAP_<App>.md`
 
 ---
 
@@ -655,6 +668,22 @@ reports you already have stay as they are. Before your next run:
   commit message. Committing is yours.
 - **You can pre-approve a plan re-slice** (a change to the phases still to come) for one run —
   see step 6.
+
+### Upgrading to a version with the legacy code map
+
+This covers a project that ran Stage 1 before the legacy code map existed (DD-27). Nothing you
+have is redone, and the map is optional: without it, every stage searches the legacy code as
+before. To get it, generate the map yourself — a script, so it costs no model calls:
+
+```powershell
+python <stage folder>\tools\codemap.py <legacy app> --out .\out\LEGACY_CODE_MAP_<App>.md --title <App>
+```
+
+Use the legacy path and documents folder from your `PROJECT_CONTEXT.md` if they differ. That
+gives every later stage the file index (sections 2 and 3). Section 1 — which files hold each
+feature — stays a placeholder until Stage 1 fills it. To have it filled, run
+`rerun stage 1 — write section 1 of the legacy code map only; change nothing else`. That costs
+one run; skip it if the requirements are already done and you rarely go back to the legacy code.
 
 ---
 
@@ -892,6 +921,7 @@ After the final phase is delivered:
 | `INTAKE.md` (your copy) | **you** | **yes — this is where answers live** | **never** (input only) |
 | `PROJECT_CONTEXT.md` | Stage 0 | to fix constraints/obligations (rerun) | Stage 0 only — no other stage writes here |
 | 3 requirements docs | Stage 1 | to answer open questions | Stage 1 rerun only (Stage 4 may make a purely *clarifying* fix and log it) |
+| `LEGACY_CODE_MAP_<App>.md` | Stage 1 (sections 2–3 by `tools/codemap.py`) | no — rerun the tool if the legacy code changes | Stage 1 only; every other stage reads it |
 | HLD / LLD | Stage 2 | **yes — design changes** | Stage 2 rerun only (same clarifying carve-out). Every rerun adds a §0 Revision History row |
 | `PLAN_<App>.md` — remaining phases | Stage 3 | say what you want; the agent re-slices | **Stage 4 Step 0c re-slices remaining phases with your approval**; statuses and test-guide fixes |
 | `FEATURE_STATUS.md` | Stage 3 | **no hand-editing** — say "accept P-2" / "search works" | Stage 4 updates rows in place; rows **never deleted**, file **never regenerated** |

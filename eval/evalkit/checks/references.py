@@ -59,6 +59,7 @@ RUNTIME_ARTIFACT_PATTERNS = [
     re.compile(r"^(BUSINESS|FUNCTIONAL|TECHNICAL)_REQUIREMENTS_.*\.md$"),
     re.compile(r"^(HIGH|LOW)_LEVEL_DESIGN_.*\.md$"),
     re.compile(r"^REVIEW_.*\.md$"),
+    re.compile(r"^LEGACY_CODE_MAP_.*\.md$"),
 ]
 
 

@@ -1,7 +1,8 @@
 # Token Savings — Options
 
-*Status: a proposal. Nothing in §3 is applied. Each option says whether it needs a design change
-(and so a yes) or is only a way of running the harness. Last updated 2026-10-23.*
+*Status: a proposal. Nothing in §3 is applied except Option 17 (the legacy code map, DD-27).
+Each option says whether it needs a design change (and so a yes) or is only a way of running the
+harness. Last updated 2026-10-24.*
 
 ---
 
@@ -24,6 +25,7 @@ context limit. So the goal is **fewer calls**, and some options below now cost m
 | 7 Split Stage 4 into prepare and build | **Backfires** — two runs instead of one |
 | 8 Read only plan-named sections | **Backfires** — more, smaller reads |
 | 13 Mechanical checks as scripts | Still helps — one call replaces several |
+| 17 Legacy code map | **Helps — applied** (DD-27): a script builds it for no model calls, and later lookups skip the search calls |
 | 9, 12, 14, 15, 16 | Neutral, or help only if they remove calls |
 
 What was applied for per-call billing (DD-25, Q6, on branch `no-agent-git`): `AGENTS.md
@@ -284,6 +286,21 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   REQUIREMENTS.md changes.
 - **Touches:** DD-18, `state.py` and its tests, `AGENTS_TEMPLATE.md`, installers, the guides.
   Worth it only if bad state-tool commands cause real trouble.
+
+#### Option 17 — A legacy code map *(applied 2026-10-24, DD-27, R13)*
+
+- **What:** Stage 1 saves its survey as `LEGACY_CODE_MAP_<AppName>.md`. A stdlib script,
+  `tools/codemap.py`, generates the index — every folder, then every file with the names it
+  declares and their line numbers — and Stage 1 adds one section saying where each area lives.
+  Every later stage and ordinary chat looks legacy code up there before searching.
+- **Saves:** calls, not tokens. Before, Stage 1's survey lived only in its session, so each
+  later lookup and each Stage 1 rerun searched again (one billed call per search or listing).
+  The legacy source is read-only, so the map never goes stale; building it costs no model call.
+- **Risk:** low. The index is found by pattern and can miss a name — the agent then searches as
+  before, and nothing is ever cited from the map. A very large legacy app gives a long §3;
+  agents search it rather than read it whole.
+- **Touches (done):** DD-27, R13, `tools/codemap.py` and `eval/tests/test_codemap_tool.py`,
+  Stages 1–5, `AGENTS_TEMPLATE.md §Keeping the Request Count Down`, the guides.
 
 ### Rejected
 

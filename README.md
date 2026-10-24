@@ -164,7 +164,7 @@ write to ./out/
 ```
 run stage 1
 ```
-→ Three requirements docs. **Answer every `OPEN QUESTION:`.**
+→ Three requirements docs, plus `LEGACY_CODE_MAP_<App>.md` — where each part of the old code lives, so later stages don't search for it. **Answer every `OPEN QUESTION:`.**
 
 ```
 run stage 2
