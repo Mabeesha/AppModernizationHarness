@@ -241,6 +241,14 @@ class CodemapToolTest(unittest.TestCase):
         self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md", "--exclude", "bin")
         self.assertNotIn("procs.sql", self.map.read_text(encoding="utf-8"))
 
+    def test_stale_saved_exclude_is_dropped_not_blamed_when_only_defaults_are_given(self):
+        self.build("--exclude", "Legacy")
+        for f in (self.dir / "legacy" / "src" / "Legacy").iterdir():
+            f.unlink()
+        (self.dir / "legacy" / "src" / "Legacy").rmdir()                 # a newer legacy drop
+        res = self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md", "--exclude", "bin")
+        self.assertIn("dropped saved excludes: Legacy", res.stdout)
+
     def test_replacing_the_saved_list_names_what_was_dropped(self):
         self.build("--exclude", "db")
         res = self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md", "--exclude", "web")

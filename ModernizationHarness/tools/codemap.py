@@ -252,7 +252,7 @@ def resolve_exclude(x, root):
 
 
 def choose_excludes(given, saved, root, shown_root):
-    """(excludes, dropped): the --exclude values resolved, else the saved ones.
+    """(excludes, dropped, from_given): the --exclude values resolved, else the saved ones.
 
     A given value that names no folder is refused; a saved one is dropped. Values naming a
     folder skipped by default are ignored, and if every given value is one, the saved list
@@ -274,9 +274,9 @@ def choose_excludes(given, saved, root, shown_root):
 
     excludes, dropped = resolve_all(given, True)
     if not excludes:
-        return resolve_all(saved, False)
+        return resolve_all(saved, False) + (False,)
     current = {e.lower() for e in excludes}
-    return excludes, dropped + [s for s in saved if s.lower() not in current]
+    return excludes, dropped + [s for s in saved if s.lower() not in current], True
 
 
 def kind_of(rel):
@@ -373,7 +373,7 @@ def main(argv=None):
 
     kept, saved = kept_head(out, args.out)
     given = [x for x in args.exclude if x.strip()]
-    excludes, dropped = choose_excludes(given, saved, root, args.root)
+    excludes, dropped, from_given = choose_excludes(given, saved, root, args.root)
     skip_names = set(SKIP_LOWER)
     skip_paths = set()
     for ex in excludes:
@@ -392,7 +392,7 @@ def main(argv=None):
     hits = set()
     entries = scan(root, skip_names, skip_paths, hits)
     unmatched = [e for e in excludes if not e.startswith("./") and e.lower() not in hits]
-    if unmatched and given:
+    if unmatched and from_given:
         fail(f"--exclude {unmatched[0]} matched no folder under {args.root}; check the spelling")
     dropped += unmatched
     excludes = [e for e in excludes if e not in unmatched]
