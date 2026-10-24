@@ -534,7 +534,7 @@ larger edits. The rest is how **you** run it:
    section and the folders Stage 1 excluded are both kept (run it without `--exclude`, or the
    list you give replaces the saved one). If your new code now sits inside the legacy folder
    and is not yet on the map's *Excluded:* line, add `--exclude` for it and for every folder
-   already on that line:
+   already on that line that still exists (the script refuses a folder that is gone):
    `python <stage folder>/tools/codemap.py <legacy app> --out ./out/LEGACY_CODE_MAP_<App>.md`
 
 ---
@@ -687,7 +687,9 @@ python <stage folder>\tools\codemap.py <legacy app> --out .\out\LEGACY_CODE_MAP_
 Use the legacy path and documents folder from your `PROJECT_CONTEXT.md` if they differ. If
 your new code sits inside the legacy folder, add `--exclude <that folder>` so it is not listed
 as legacy code (the map remembers it for later refreshes). Build output such as `bin` and
-`obj`, and the harness folder, are skipped already. That gives every later stage the file index
+`obj`, and folders named `ModernizationHarness` or `ModernizationHarness.bak`, are skipped
+already; if your stage folder has another name and sits inside the legacy folder, add
+`--exclude` for it too. That gives every later stage the file index
 (sections 2 and 3). Section 1 — which files hold each
 feature — stays a placeholder until Stage 1 fills it. To have it filled, run
 `rerun stage 1 — write section 1 of the legacy code map only; change nothing else`. It changes

@@ -169,7 +169,8 @@ class CodemapToolTest(unittest.TestCase):
 
     def test_harness_folders_are_skipped(self):
         for rel in ("ModernizationHarness/tools/state.py", ".agents/skills/x/run.py",
-                    ".harness-backups/20261024/tools/state.py"):
+                    ".harness-backups/20261024/tools/state.py",
+                    "ModernizationHarness.bak/tools/state.py"):
             p = self.dir / "legacy" / rel
             p.parent.mkdir(parents=True)
             p.write_text("def harness():\n    pass\n", encoding="utf-8")

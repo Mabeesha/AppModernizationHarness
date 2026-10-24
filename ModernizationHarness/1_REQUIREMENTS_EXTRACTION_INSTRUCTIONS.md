@@ -129,7 +129,8 @@ the documents location. Every later stage looks legacy code up in it before sear
    either sits inside the legacy source and already exists — they are not legacy code; a
    target folder not created yet cannot be excluded, so tell the developer in your report that
    once it exists they refresh the map themselves — the same command, no model calls — passing
-   `--exclude` for it and for every folder on the map's *Excluded:* line. A bare name such as
+   `--exclude` for it and for every folder on the map's *Excluded:* line that still exists
+   (the tool refuses one that no longer does). A bare name such as
    `Scripts` skips every folder of that name; a path such as `<legacy source>/Scripts` skips
    that one. Build-output, package and tool folders such as `bin`, `obj`, `packages` and `.git`
    are skipped already). It writes §2 *Folders* (files, lines and file kinds per
@@ -272,8 +273,9 @@ changes in place (don't regenerate from scratch and lose curated content), incre
 `tools/codemap.py` again only when the map is missing, the developer says the legacy source
 changed, or the developer asks for a folder to be excluded — it keeps §1 and, run with no `--exclude`, reuses the last run's list. An
 `--exclude` replaces that whole list (unless it names only folders skipped by default), so
-then pass every folder to skip, old and new — those on the map's *Excluded:* line plus any
-target folder now inside the legacy source; its output names any saved one it dropped. **A
+then pass every folder to skip, old and new — those on the map's *Excluded:* line that still
+exist (it refuses a typed one that does not) plus any target folder now inside the legacy
+source; its output names any saved one it dropped. **A
 rerun that changes only the code map** adds no Revision History row and no `changeLog` entry,
 does not increment `rerunCount`, writes nothing to `state.json`, and needs no Design rerun:
 the map is navigation, not a requirement.
