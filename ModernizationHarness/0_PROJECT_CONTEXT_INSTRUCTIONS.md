@@ -675,7 +675,8 @@ Field notes (the later stages depend on these; keep them exact):
 - **`stages.<name>.status`** — `pending` → `in progress` → `complete`. `rerunCount`
   increments each time a stage is rerun with additional instructions. For `plan`, it counts
   **substantive refreshes only** — a Step 0c check that left the phase list unchanged is not a
-  rerun and writes nothing.
+  rerun and writes nothing. For `requirements`, a rerun that changes only the legacy code map
+  is not counted and writes nothing (DD-27).
 - **`phases[]`** — created by the Plan stage, and **re-synced on every plan refresh**. Each: `{ "id": "P-1", "name": "...", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "sizeReport": null, "notes": "" }`.
   - **Status moves forward only:** `pending` → `in progress` → `done`. There is no `accepted`
     status and nothing rewinds — **what is built is built.** A phase the developer reports as

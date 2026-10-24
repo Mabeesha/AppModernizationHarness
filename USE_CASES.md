@@ -440,7 +440,8 @@ bigger than "absorb this into the current run" are yours.
 
 Every stage takes a rerun. The shape is always the same: **say which stage, say "Rerun", say
 what you want different.** Documents are amended in place; that stage's `rerunCount` goes up; a
-change-log entry tells downstream runs the ground moved.
+change-log entry tells downstream runs the ground moved. (A Stage 1 rerun that changes only the
+legacy code map is the exception: it writes nothing to `state.json`.)
 
 ## Scenario 11 · Stage 0 answered something for you and got it wrong
 

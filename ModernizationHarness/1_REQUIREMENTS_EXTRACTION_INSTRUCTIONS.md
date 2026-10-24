@@ -127,8 +127,9 @@ the documents location. Every later stage looks legacy code up in it before sear
    (`python3` where `python` is absent; add `--exclude <folder or path>` for each generated or
    vendored folder it should skip, and for the target repository and the stage folder where
    either sits inside the legacy source and already exists — they are not legacy code; a
-   target folder not created yet cannot be excluded, so say in your report that the map must
-   be refreshed with it excluded once it exists (see §Rerunning this Stage). A bare name such as
+   target folder not created yet cannot be excluded, so tell the developer in your report that
+   once it exists they refresh the map themselves — the same command, no model calls — passing
+   `--exclude` for it and for every folder on the map's *Excluded:* line. A bare name such as
    `Scripts` skips every folder of that name; a path such as `<legacy source>/Scripts` skips
    that one. Build-output, package and tool folders such as `bin`, `obj`, `packages` and `.git`
    are skipped already). It writes §2 *Folders* (files, lines and file kinds per
@@ -268,8 +269,8 @@ changes in place (don't regenerate from scratch and lose curated content), incre
 `stages.requirements.rerunCount` in `state.json`, and note what changed in your report.
 
 **The code map is kept.** Fix its §1 in place where the rerun shows it wrong or incomplete. Run
-`tools/codemap.py` again only when the map is missing or the developer says the legacy source
-changed — it keeps §1 and, run with no `--exclude`, reuses the last run's list. An
+`tools/codemap.py` again only when the map is missing, the developer says the legacy source
+changed, or the developer asks for a folder to be excluded — it keeps §1 and, run with no `--exclude`, reuses the last run's list. An
 `--exclude` replaces that whole list (unless it names only folders skipped by default), so
 then pass every folder to skip, old and new — those on the map's *Excluded:* line plus any
 target folder now inside the legacy source; its output names any saved one it dropped. **A

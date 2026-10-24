@@ -463,7 +463,9 @@ Everything after the dash *is* the Additional Instructions block; you don't have
 
 The agent amends the existing artifacts **in place** (rather than regenerating from scratch —
 filenames never change; git holds the history), bumps that stage's `rerunCount`, and logs a
-`changeLog` entry so the downstream work gets reconciled or replanned.
+`changeLog` entry so the downstream work gets reconciled or replanned. (Two exceptions write
+nothing: a plan check that changes no phase, and a Stage 1 rerun that changes only the legacy
+code map.)
 
 **Reruns of Stages 1 and 2 also add a `## 0. Revision History` row** naming what changed and
 **which delivered phases it invalidates**. That row is what Step 0c reads to decide whether a
@@ -688,8 +690,9 @@ as legacy code (the map remembers it for later refreshes). Build output such as 
 `obj`, and the harness folder, are skipped already. That gives every later stage the file index
 (sections 2 and 3). Section 1 — which files hold each
 feature — stays a placeholder until Stage 1 fills it. To have it filled, run
-`rerun stage 1 — write section 1 of the legacy code map only; change nothing else`. That costs
-one run; skip it if the requirements are already done and you rarely go back to the legacy code.
+`rerun stage 1 — write section 1 of the legacy code map only; change nothing else`. It changes
+only the map, so it writes nothing to `state.json` and needs no Design rerun. That costs one
+run; skip it if the requirements are already done and you rarely go back to the legacy code.
 
 ---
 
