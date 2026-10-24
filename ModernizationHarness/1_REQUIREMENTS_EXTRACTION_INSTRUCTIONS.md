@@ -278,7 +278,8 @@ rerun that changes only the code map** adds no Revision History row and no `chan
 does not increment `rerunCount`, writes nothing to `state.json`, and needs no Design rerun:
 the map is navigation, not a requirement.
 
-**Add a `## 0. Revision History` row** to every document you changed, naming which **delivered
+**Add a `## 0. Revision History` row** to every requirements document you changed (never to
+the code map), naming which **delivered
 phases** it invalidates (read `state.json phases[]`), and add a `changeLog` entry. Do not edit
 the plan or the design yourself: a requirements change normally needs the **Design** stage rerun
 next, and then the Implement stage's Step 0c plans any retrofit. Say that in your report.

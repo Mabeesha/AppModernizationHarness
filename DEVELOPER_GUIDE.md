@@ -930,7 +930,7 @@ After the final phase is delivered:
 | `INTAKE.md` (your copy) | **you** | **yes — this is where answers live** | **never** (input only) |
 | `PROJECT_CONTEXT.md` | Stage 0 | to fix constraints/obligations (rerun) | Stage 0 only — no other stage writes here |
 | 3 requirements docs | Stage 1 | to answer open questions | Stage 1 rerun only (Stage 4 may make a purely *clarifying* fix and log it) |
-| `LEGACY_CODE_MAP_<App>.md` | Stage 1 (sections 2–3 by `tools/codemap.py`) | no — rerun the tool if the legacy code changes | Stage 1 only; every other stage reads it |
+| `LEGACY_CODE_MAP_<App>.md` | Stage 1 (sections 2–3 by `tools/codemap.py`) | no — rerun the tool if the legacy code changes, or once your new code's folder exists inside the legacy folder (tip 6 in §Keeping the Request Bill Down) | Stage 1 only; every other stage reads it |
 | HLD / LLD | Stage 2 | **yes — design changes** | Stage 2 rerun only (same clarifying carve-out). Every rerun adds a §0 Revision History row |
 | `PLAN_<App>.md` — remaining phases | Stage 3 | say what you want; the agent re-slices | **Stage 4 Step 0c re-slices remaining phases with your approval**; statuses and test-guide fixes |
 | `FEATURE_STATUS.md` | Stage 3 | **no hand-editing** — say "accept P-2" / "search works" | Stage 4 updates rows in place; rows **never deleted**, file **never regenerated** |
