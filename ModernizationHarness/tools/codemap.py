@@ -20,7 +20,7 @@ line count only. Text may be UTF-8, UTF-16 with a byte-order mark, or a legacy 8
 page. Binary files are skipped, and so are folders named in SKIP_DIRS (any letter case) and
 each --exclude: a folder name (skipped wherever it occurs), or a folder path - below
 SOURCE_ROOT, from the working directory, or absolute. An --exclude that names no folder is
-refused. The map records its excludes, and a rerun with no --exclude reuses them (dropping,
+refused; one naming a SKIP_DIRS folder is accepted and ignored. The map records its excludes, and a rerun with no --exclude reuses them (dropping,
 with a note, any that no longer match); any --exclude replaces the whole saved list. Files
 over MAX_BYTES are listed without names, and lines over MAX_LINE characters are not searched.
 
@@ -46,6 +46,7 @@ EXCLUDES = re.compile(r"^<!-- codemap:exclude (.+) -->$", re.M)
 SKIP_DIRS = {".git", ".svn", ".hg", ".vs", ".vscode", ".idea", ".gradle", "node_modules",
              "bin", "obj", "packages", "target", "dist", "__pycache__", ".venv", "venv",
              "testresults", "modernizationharness", ".agents"}
+SKIP_LOWER = {d.lower() for d in SKIP_DIRS}
 MAX_BYTES = 2_000_000
 MAX_NAMES = 40          # per file; the rest are counted, not listed
 MAX_LINE = 300          # longer lines (minified or generated code) are not searched for names
@@ -237,6 +238,7 @@ def resolve_exclude(x, root):
     if "/" not in norm and not os.path.isabs(x.strip()):
         return norm                     # matches a folder of that name anywhere
     for cand in (os.path.join(root, norm), os.path.abspath(x.strip())):
+        cand = os.path.normpath(cand)   # resolve "..", which inside() does not
         if os.path.isdir(cand) and inside(cand, root) \
                 and os.path.normcase(cand) != os.path.normcase(root):
             return os.path.relpath(cand, root).replace(os.sep, "/")
@@ -250,6 +252,8 @@ def choose_excludes(given, saved, root, shown_root):
     excludes, dropped = [], []
     for x in given or saved:
         r = resolve_exclude(x, root)
+        if r is not None and "/" not in r and r.lower() in SKIP_LOWER:
+            continue                    # skipped by default already; nothing to record
         if r is None and given:
             fail(f"--exclude {x} names no folder under {shown_root}; give a folder name, or a "
                  f"path below {shown_root}, from the working-tree root, or absolute")
@@ -355,7 +359,7 @@ def main(argv=None):
     kept, saved = kept_head(out, args.out)
     given = [x for x in args.exclude if x.strip()]
     excludes, dropped = choose_excludes(given, saved, root, args.root)
-    skip_names = {d.lower() for d in SKIP_DIRS}
+    skip_names = set(SKIP_LOWER)
     skip_paths = set()
     for ex in excludes:
         (skip_paths if "/" in ex else skip_names).add(ex.lower())

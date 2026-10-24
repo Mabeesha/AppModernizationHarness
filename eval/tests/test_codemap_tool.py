@@ -219,6 +219,18 @@ class CodemapToolTest(unittest.TestCase):
             self.assertIn("no folder", err)
         self.assertEqual(self.map.read_bytes(), before)
 
+    def test_excluding_a_default_skip_folder_is_a_quiet_no_op(self):
+        # bin and obj may not exist yet on a fresh clone; they are skipped by default anyway
+        text = self.build("--exclude", "bin", "--exclude", "OBJ")
+        self.assertNotIn("codemap:exclude", text)
+        self.assertIn("OrderService.cs", text)
+
+    def test_exclude_climbing_out_of_the_root_is_refused(self):
+        (self.dir / "other" / "x").mkdir(parents=True)
+        err = self.run_tool("legacy", "--out", "out/m.md", "--exclude", "../other/x",
+                            ok=False).stderr
+        self.assertIn("no folder", err)
+
     def test_saved_exclude_that_no_longer_matches_is_dropped_with_a_note(self):
         self.build("--exclude", "db")
         for f in (self.dir / "legacy" / "db").iterdir():
