@@ -529,7 +529,8 @@ larger edits. The rest is how **you** run it:
 6. **Keep the legacy code map.** Stage 1 saves `LEGACY_CODE_MAP_<App>.md` so later runs find
    legacy code without searching. Don't delete it. If the legacy code you were given changes (a
    newer drop of the old app), refresh it — free, no model involved. Its hand-written first
-   section and the folders Stage 1 excluded are both kept:
+   section and the folders Stage 1 excluded are both kept (run it without `--exclude`, or the
+   list you give replaces the saved one):
    `python <stage folder>/tools/codemap.py <legacy app> --out ./out/LEGACY_CODE_MAP_<App>.md`
 
 ---
@@ -679,8 +680,11 @@ before. To get it, generate the map yourself — a script, so it costs no model 
 python <stage folder>\tools\codemap.py <legacy app> --out .\out\LEGACY_CODE_MAP_<App>.md --title <App>
 ```
 
-Use the legacy path and documents folder from your `PROJECT_CONTEXT.md` if they differ. That
-gives every later stage the file index (sections 2 and 3). Section 1 — which files hold each
+Use the legacy path and documents folder from your `PROJECT_CONTEXT.md` if they differ. If
+your new code sits inside the legacy folder, add `--exclude <that folder>` so it is not listed
+as legacy code (the map remembers it for later refreshes). Build output such as `bin` and
+`obj`, and the harness folder, are skipped already. That gives every later stage the file index
+(sections 2 and 3). Section 1 — which files hold each
 feature — stays a placeholder until Stage 1 fills it. To have it filled, run
 `rerun stage 1 — write section 1 of the legacy code map only; change nothing else`. That costs
 one run; skip it if the requirements are already done and you rarely go back to the legacy code.

@@ -22,9 +22,10 @@ each --exclude: a folder name (skipped wherever it occurs), or a folder path - b
 SOURCE_ROOT, from the working directory, or absolute - which skips that one folder and is
 recorded as ./<path below SOURCE_ROOT>. An --exclude that names no folder is refused; one
 naming a SKIP_DIRS folder is accepted and ignored. The map records its excludes, and a rerun
-with no --exclude reuses them; any other --exclude replaces the whole saved list. Saved
-excludes dropped either way are named in the output. Files
-over MAX_BYTES are listed without names, and lines over MAX_LINE characters are not searched.
+with no --exclude (or with only SKIP_DIRS names) reuses them, dropping any that no longer
+match; any other --exclude replaces the whole saved list. Saved excludes dropped either way
+are named in the output. Files over MAX_BYTES are listed without names, and lines over
+MAX_LINE characters are not searched.
 
 Never overwrites a file it did not write (one with neither the marker nor the section-1
 heading). An --out inside SOURCE_ROOT is allowed only in a subfolder - the documents
