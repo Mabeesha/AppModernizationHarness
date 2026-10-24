@@ -528,8 +528,8 @@ larger edits. The rest is how **you** run it:
    Each review run pays its own read-and-report overhead.
 6. **Keep the legacy code map.** Stage 1 saves `LEGACY_CODE_MAP_<App>.md` so later runs find
    legacy code without searching. Don't delete it. If the legacy code you were given changes (a
-   newer drop of the old app), refresh it — free, no model involved — and its hand-written
-   first section is kept:
+   newer drop of the old app), refresh it — free, no model involved. Its hand-written first
+   section and the folders Stage 1 excluded are both kept:
    `python <stage folder>/tools/codemap.py <legacy app> --out ./out/LEGACY_CODE_MAP_<App>.md`
 
 ---

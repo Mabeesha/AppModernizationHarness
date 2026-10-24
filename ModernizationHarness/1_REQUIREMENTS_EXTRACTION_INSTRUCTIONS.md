@@ -262,7 +262,7 @@ changes in place (don't regenerate from scratch and lose curated content), incre
 
 **The code map is kept.** Fix its §1 in place where the rerun shows it wrong or incomplete. Run
 `tools/codemap.py` again only when the map is missing or the developer says the legacy source
-changed — it keeps §1.
+changed — it keeps §1, and reuses the last run's `--exclude` list unless you pass a new one.
 
 **Add a `## 0. Revision History` row** to every document you changed, naming which **delivered
 phases** it invalidates (read `state.json phases[]`), and add a `changeLog` entry. Do not edit

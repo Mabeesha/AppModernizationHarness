@@ -66,7 +66,8 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    `context.repo.layout` is `split` (you audit the built code in the target repo(s)).
    To find something in the legacy source, look it up in **`LEGACY_CODE_MAP_<AppName>.md`**
    (documents location; Stage 1 writes it) first, and open only the files it points to
-   (`AGENTS.md §Keeping the Request Count Down`).
+   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, search as before —
+   it is optional, so never stop to ask for it.
 
 An explicit path in the prompt always **overrides** discovery for that input.
 

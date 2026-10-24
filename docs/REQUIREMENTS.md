@@ -209,7 +209,7 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R13.2** The index is produced by **a script, not by the model** (`tools/codemap.py`), so
   building or refreshing it costs no model call. Refreshing it rewrites only the generated part
   and keeps Stage 1's section — including a section 1 written by hand where Python was
-  missing. The script never overwrites a legacy file, and where the documents location sits
+  missing — and the folders excluded from the index. The script never overwrites a legacy file, and where the documents location sits
   inside the legacy source it leaves that folder out of the map.
 - **R13.3** The map is a **pointer, never evidence**: requirements still cite the code itself
   (`path:line`). Where the map lacks something, the agent searches as before.

@@ -113,7 +113,8 @@ stage and in ordinary chat:
   in `LEGACY_CODE_MAP_<AppName>.md` in the documents location: §1 says where each area lives, §3
   lists every file with the names declared in it and their line numbers. Open only the files it
   points to; search the tree only for what it lacks. It is a pointer — cite the code, never the
-  map. Stage 1 writes it (`tools/codemap.py`); everyone else only reads it.
+  map. Stage 1 writes it (`tools/codemap.py`); everyone else only reads it. No map yet? Search
+  as before — it is optional, so never stop to ask for it.
 - **Don't re-read what cannot have changed.** Within one run, a file only you have touched need
   not be read again. **Every stage run reads its inputs fresh** — between runs the developer,
   a formatter or a build may have changed any of them, and you cannot see that from memory.

@@ -148,6 +148,8 @@ class CodemapToolTest(unittest.TestCase):
                         "            select new Row(\n"
                         "        new Runnable() {\n"
                         "        return Build(a,\n"
+                        "            where IsActive(o)\n"
+                        "            orderby Key(o)\n"
                         "    }\n}\n", encoding="utf-8")
         cs = self.line_for(self.build(), "src/Stmts.cs")
         self.assertTrue(cs.endswith(" - Stmts :1, Go :3"), cs)
@@ -187,6 +189,18 @@ class CodemapToolTest(unittest.TestCase):
         self.assertNotIn("Shop.dll", text)
         self.assertNotIn("node_modules", text)
         self.assertNotIn("hidden", text)
+
+    def test_rerun_without_exclude_reuses_the_saved_excludes(self):
+        text = self.build("--exclude", "db", "--exclude", "src/Legacy")
+        self.assertIn("Excluded: `db`, `src/Legacy`.", text)
+        self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md")      # a later refresh
+        again = self.map.read_text(encoding="utf-8")
+        self.assertNotIn("procs.sql", again)
+        self.assertNotIn("Billing.vb", again)
+        self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md", "--exclude", "web")
+        replaced = self.map.read_text(encoding="utf-8")
+        self.assertIn("procs.sql", replaced)
+        self.assertNotIn("app.js", replaced)
 
     def test_skipped_folder_names_ignore_letter_case(self):
         p = self.dir / "legacy" / "src" / "Bin" / "App.xml"
