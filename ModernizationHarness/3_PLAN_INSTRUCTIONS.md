@@ -91,6 +91,10 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
 3. **The legacy source and target code repository**, where this stage needs them — from
    `context.locations.legacySource` and `context.locations.targetRepo` (plus
    `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
+   To find something in the legacy source, look it up in **`LEGACY_CODE_MAP_<AppName>.md`**
+   (documents location; Stage 1 writes it) first, and open only the files it points to
+   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, search as before —
+   it is optional, so never stop to ask for it.
 
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.

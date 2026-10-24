@@ -52,6 +52,7 @@ stage runs — which is exactly where drift comes from.
 | **`done`** | Built, and the agent's mechanical checks passed. It is the **final** status — nothing rewinds, and nothing waits on you. |
 | **`FEATURE_STATUS.md`** | The ledger: one row per feature — how to check it, which phase built it, whether *you* have tested it. Only you authorize a `passed`/`failed` mark, and it blocks nothing. |
 | **`state.json`** | The agent's memory: statuses, the change log, review records, and the branches and PRs you tell it about. **You never edit it by hand.** |
+| **`LEGACY_CODE_MAP_<App>.md`** | Where each part of the old code lives. Stage 1 saves it; a script lists every file and what it declares, and the agent adds which files hold each feature. Every later stage looks legacy code up there instead of searching — fewer model calls. |
 | **Retrofit phase** | A *new* phase that brings already-delivered code up to a changed design. `done` phases are never reopened. |
 | **`AGENTS.md`** | Your copy of `AGENTS_TEMPLATE.md`, in the project root. Loads in *every* session — it governs ordinary chat, not just stage runs. |
 
@@ -439,7 +440,8 @@ bigger than "absorb this into the current run" are yours.
 
 Every stage takes a rerun. The shape is always the same: **say which stage, say "Rerun", say
 what you want different.** Documents are amended in place; that stage's `rerunCount` goes up; a
-change-log entry tells downstream runs the ground moved.
+change-log entry tells downstream runs the ground moved. (A Stage 1 rerun that changes only the
+legacy code map is the exception: it writes nothing to `state.json`.)
 
 ## Scenario 11 · Stage 0 answered something for you and got it wrong
 

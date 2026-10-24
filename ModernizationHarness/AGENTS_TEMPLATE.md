@@ -109,6 +109,14 @@ stage and in ordinary chat:
   one — bash: `tail -n +1 FILE1 FILE2`; PowerShell: `Get-ChildItem FILE1, FILE2 | % { "==> $_";
   Get-Content -LiteralPath $_.FullName }` — or, where your tools allow several calls in one
   step, issue them together.
+- **Find legacy code through the code map.** Before searching or listing the legacy source, look
+  in `LEGACY_CODE_MAP_<AppName>.md` in the documents location: §1 says where each area lives, §3
+  lists every file with the names declared in it and their line numbers. Open only the files it
+  points to; search the tree only for what it lacks. It is a pointer — cite the code, never the
+  map. Stage 1 writes it (`tools/codemap.py`); other stages and chat only read it. The
+  developer may refresh it by rerunning the script; a request to exclude a folder from it is
+  that, or a Stage 1 rerun. No map yet? Search as before — it is optional, so never stop to
+  ask for it.
 - **Don't re-read what cannot have changed.** Within one run, a file only you have touched need
   not be read again. **Every stage run reads its inputs fresh** — between runs the developer,
   a formatter or a build may have changed any of them, and you cannot see that from memory.

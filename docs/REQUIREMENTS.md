@@ -12,7 +12,7 @@ application with a coding agent, **one small testable increment at a time**, wit
 control of scope, quality, or history.
 
 It ships as Markdown files the developer copies into their project and cites in prompts, plus
-one small stdlib-Python state tool, vendored agent skills, and install scripts that copy it all
+two small stdlib-Python tools (the state tool and the legacy code map tool), vendored agent skills, and install scripts that copy it all
 into place. No runtime or service to maintain.
 
 ## 2. Users & actors
@@ -75,7 +75,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | Stage | Produces |
 |---|---|
 | 0 Context | `PROJECT_CONTEXT.md`, `INTAKE_RESOLVED.md`, `state.json` |
-| 1 Requirements | Business / Functional / Technical requirements |
+| 1 Requirements | Business / Functional / Technical requirements, and `LEGACY_CODE_MAP_<App>.md` |
 | 2 Design | HLD + LLD (the LLD is the authoritative contract) |
 | 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]` |
 | 4 Implement | Code, updated `FEATURE_STATUS.md` rows, and a hand-off the developer commits from |
@@ -200,6 +200,26 @@ and anything that modifies the legacy source (read-only in every stage).
   documents a stage writes keep their precise style; this governs messages, and the summary and
   advice sections of a review report. Lists the developer copies (files, commands) stay exact.
 
+### R13 — Legacy code is found through a map, not searched for again
+- **R13.1** Stage 1 saves its survey as **`LEGACY_CODE_MAP_<App>.md`** in the documents
+  location: a generated index of the legacy source (folders, then one line per file with its
+  declared names and their line numbers), plus a section Stage 1 writes saying **where each
+  area lives** — entry points, features and screens, business rules, data access, security
+  checks, integrations, jobs, configuration.
+- **R13.2** The index is produced by **a script, not by the model** (`tools/codemap.py`), so
+  building or refreshing it costs no model call. Refreshing it rewrites only the generated part
+  and keeps Stage 1's section — including a section 1 written by hand where Python was
+  missing — and the folders excluded from the index. The script never overwrites a legacy
+  file, and where the documents location sits inside the legacy source it leaves that folder
+  out of the map.
+- **R13.3** The map is a **pointer, never evidence**: requirements still cite the code itself
+  (`path:line`). Where the map lacks something, the agent searches as before.
+- **R13.4** Every later stage, and ordinary chat, that needs a legacy detail **looks it up in
+  the map first** and opens only the files it points to. A missing map changes nothing else:
+  the agent searches as before. Without Python, or after a refusal that cannot be fixed,
+  Stage 1 writes its section by hand and leaves the generated part out until the script next
+  runs. A Stage 1 rerun that changes only the map writes nothing to `state.json`.
+
 ---
 
 ## 5. Quality requirements
@@ -211,7 +231,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra (plus the re-slice approval, unless it is given in advance — R5.3) |
 | Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and, once the developer commits it, a git commit |
-| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, and avoids calls whose only purpose is to re-check its own writes |
+| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, and finds legacy code through the code map (R13) |
 | Q7 | **No explain-again round trips** — a report the developer cannot follow costs a whole extra request to clarify; R12 makes the first answer self-explanatory |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)

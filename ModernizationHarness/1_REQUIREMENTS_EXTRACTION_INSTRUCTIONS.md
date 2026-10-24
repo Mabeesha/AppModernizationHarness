@@ -25,7 +25,9 @@ Produce three documents:
    constraints the rebuild must honor*: data model, data access, security mechanics,
    integrations, background processing, **non-functional requirements**, and configuration.
 
-All three come from the **same single survey** (Step 1). The split is by **audience and
+All three come from the **same single survey** (Step 1), which you also save as a fourth,
+navigation-only file — **`LEGACY_CODE_MAP_<AppName>.md`**, where each part of the legacy code
+lives — so later stages find legacy code through it instead of searching again. The split is by **audience and
 altitude** (why → what → how), not three passes. Capture each fact once, place it where it
 belongs, cross-reference by ID — never duplicate prose.
 
@@ -116,8 +118,45 @@ rather than guessing.
 
 ## Step 1 — Survey the Codebase
 
-Build a written map before specifying. Adapt the checklist to the **current stack named in
-`PROJECT_CONTEXT.md`** (the items below are examples, not a fixed list):
+Build a written map before specifying, and **save it** as `LEGACY_CODE_MAP_<AppName>.md` in
+the documents location. Every later stage looks legacy code up in it before searching.
+
+1. **Generate the index first** — one command from the working-tree root (the map's paths are
+   relative to where it runs), no reading on your part:
+   `python <stage folder>/tools/codemap.py <legacy source> --out <documents>/LEGACY_CODE_MAP_<AppName>.md --title <AppName>`
+   (`python3` where `python` is absent; add `--exclude <folder or path>` for each generated or
+   vendored folder it should skip, and for the target repository and the stage folder where
+   either sits inside the legacy source and already exists — they are not legacy code; a
+   target folder not created yet cannot be excluded, so tell the developer in your report that
+   once it exists they refresh the map themselves — the same command, no model calls — passing
+   `--exclude` for it and for every folder on the map's *Excluded:* line that still exists
+   (the tool refuses one that no longer does). A bare name such as
+   `Scripts` skips every folder of that name; a path such as `<legacy source>/Scripts` skips
+   that one. Build-output, package and tool folders such as `bin`, `obj`, `packages` and `.git`
+   are skipped already). It writes §2 *Folders* (files, lines and file kinds per
+   folder) and §3 *Files* (one line per text file: its line count and the names declared in it,
+   each with its line number). It never overwrites a legacy file; where the documents location
+   sits inside the legacy source, it leaves that folder out of the map. On an existing map it
+   keeps §1 and rewrites §2–§3. **If it refuses,** its message says why: a wrong `--exclude`
+   or `--out` value — fix the value and run it again; an existing file at `--out` that is not
+   a code map — never overwrite it: report it and ask. Use item 4 only when Python is missing
+   or the refusal cannot be fixed.
+2. **Survey from the index.** Read §2 whole; read §3 whole if it is short, otherwise search it
+   for names instead of searching the source tree. Use it to choose which files to open, and
+   open them several at a time (`AGENTS.md §Keeping the Request Count Down`). It is found by
+   pattern, so it can miss a name: search the tree only for what it lacks. **Never cite the map**
+   — cite the code.
+3. **Write §1 *Where Things Live*** once the survey is done, above the generated-marker line: a
+   table **Area | Where | What lives there**, one row per checklist item below that the app has
+   (one per feature or screen), naming folders or files (`path`, or `path:line` for a single
+   method) and saying in one line what lives there. Navigation only: no requirement prose and
+   nothing the three documents say. Never hand-edit §2–§3.
+4. **Without Python, or after a refusal that cannot be fixed** (item 1), write the file by hand: a `# Legacy Code Map:
+   <AppName>` title and the `## 1. Where Things Live` heading with your table, nothing more. Say
+   so in your report. A later run of the tool keeps that file whole and adds §2–§3 below it.
+
+Adapt the checklist to the **current stack named in `PROJECT_CONTEXT.md`** (the items below are
+examples, not a fixed list):
 
 - **Solution / project layout** — build/manifest files, module boundaries, app type(s)
   (desktop UI, web MVC/API, service/daemon, batch, console…).
@@ -230,7 +269,19 @@ If the human is unhappy with the output, they rerun with **Additional Instructio
 changes in place (don't regenerate from scratch and lose curated content), increment
 `stages.requirements.rerunCount` in `state.json`, and note what changed in your report.
 
-**Add a `## 0. Revision History` row** to every document you changed, naming which **delivered
+**The code map is kept.** Fix its §1 in place where the rerun shows it wrong or incomplete. Run
+`tools/codemap.py` again only when the map is missing, the developer says the legacy source
+changed, or the developer asks for a folder to be excluded — it keeps §1 and, run with no `--exclude`, reuses the last run's list. An
+`--exclude` replaces that whole list (unless it names only folders skipped by default), so
+then pass every folder to skip, old and new — those on the map's *Excluded:* line that still
+exist (it refuses a typed one that does not) plus any target folder now inside the legacy
+source; its output names any saved one it dropped. **A
+rerun that changes only the code map** adds no Revision History row and no `changeLog` entry,
+does not increment `rerunCount`, writes nothing to `state.json`, and needs no Design rerun:
+the map is navigation, not a requirement.
+
+**Add a `## 0. Revision History` row** to every requirements document you changed (never to
+the code map), naming which **delivered
 phases** it invalidates (read `state.json phases[]`), and add a `changeLog` entry. Do not edit
 the plan or the design yourself: a requirements change normally needs the **Design** stage rerun
 next, and then the Implement stage's Step 0c plans any retrofit. Say that in your report.
@@ -243,6 +294,9 @@ next, and then the Implement stage's Step 0c plans any retrofit. Say that in you
 - [ ] All three documents produced, split by altitude, cross-referenced by ID, no duplicated
       prose.
 - [ ] Every requirement cites evidence (`path:line`); nothing invented.
+- [ ] `LEGACY_CODE_MAP_<AppName>.md` saved in the documents location: §2–§3 generated by
+      `tools/codemap.py` (or left out — no Python, or a refusal that cannot be fixed — and
+      reported), §1 filled in. A non-map file at `--out` is never overwritten: stop and ask.
 - [ ] Every constraint's *Requirements* obligation (per `PROJECT_CONTEXT §4`) satisfied and
       cited in §8; constraints without one noted as not applicable to this stage.
 - [ ] Non-functional requirements captured with evidence and open questions surfaced.

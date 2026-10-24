@@ -6,11 +6,11 @@
 
 ## 1. Design in one paragraph
 
-At run time, the harness is **eleven Markdown files, one small tool, and a set of vendored agent
+At run time, the harness is **eleven Markdown files, two small tools, and a set of vendored agent
 skills** (the install scripts and `examples/` only set it up). Six
 files are stage instructions, invoked one unit of work per run; two are templates the developer
-copies into their project; three are the guides. The tool, `tools/state.py`, reads and writes
-`state.json` (DD-18). The skills in `skills/` are upstream Angular and .NET helpers the
+copies into their project; three are the guides. One tool, `tools/state.py`, reads and writes
+`state.json` (DD-18); the other, `tools/codemap.py`, writes the legacy code map (DD-27). The skills in `skills/` are upstream Angular and .NET helpers the
 installer copies into `.agents/skills/`; `AGENTS.md` invariant 6 overrides any git step in
 them. All coordination
 between sessions happens through **two artifacts on disk** — human-readable Markdown documents
@@ -25,12 +25,13 @@ chat it shares with the previous run (DD-25) — does one unit of work, writes s
 | `AGENTS_TEMPLATE.md` | template → `AGENTS.md` | Invariants, authority ladder, the protocol for recording what the developer tells you, and how every message to the developer is written. Loads in **every** session |
 | `0_INTAKE_TEMPLATE.md` | template → `INTAKE.md` | The 25 numbered questions, split into single-answer parts (`12a`, `12b`, …; tick boxes where the answer is a choice), their defaults, and which parts are load-bearing — 6 topics, plus Q8 when the schema is new. API description and hand-testing tools, connection identities (database included), role mapping, test sign-in, config/secrets delivery, and supplied API descriptions/collections each have their own part (R2.6) |
 | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | stage | Resolve intake → `PROJECT_CONTEXT.md` + `INTAKE_RESOLVED.md` (its own record, DD-19) + initialize `state.json` |
-| `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | stage | Legacy code → business / functional / technical requirements |
+| `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | stage | Legacy code → business / functional / technical requirements + the legacy code map (DD-27) |
 | `2_DESIGN_INSTRUCTIONS.md` | stage | Requirements → HLD + LLD |
 | `3_PLAN_INSTRUCTIONS.md` | stage | Design → phased plan + `phases[]` |
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | stage | Build one phase or one minor edit; hand off; stop |
 | `5_REVIEW_INSTRUCTIONS.md` | stage | Independent audit; findings back into `state.json` |
 | `tools/state.py` | tool | Reads and writes `state.json` for every stage after 0 (DD-18) |
+| `tools/codemap.py` | tool | Writes `LEGACY_CODE_MAP_<AppName>.md` from the legacy source, keeping Stage 1's notes on a rerun (DD-27) |
 | `skills/` | vendored skills | Upstream Angular and .NET agent skills, installed into `.agents/skills/`; `AGENTS.md` invariant 6 overrides any git step in them |
 | `DEVELOPER_GUIDE.md` / `README.md` / `USE_CASES.md` | guide | The reasoning / the five-minute start / the situations you'll hit, by example |
 
@@ -46,6 +47,8 @@ flowchart TD
     PC --> S1[1 · Requirements]
     L --> S1
     S1 --> REQ[BUSINESS / FUNCTIONAL /<br/>TECHNICAL requirements]
+    S1 --> CM[LEGACY_CODE_MAP.md<br/>where legacy code lives]
+    CM -.->|find legacy code<br/>without searching| S2
     REQ --> S2[2 · Design]
     S2 --> D[HLD + LLD]
     D --> S3[3 · Plan]
@@ -85,6 +88,7 @@ Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop.
 | **DD-24** | **No agent runs git; version control is the developer's.** The agent edits the working tree and hands off a list of changed files and a suggested commit message; the developer branches, commits, pushes, opens PRs and merges | In the developer's environments the agent's git tool hangs, and their projects forbid agent git. Nothing in the pipeline ever needed git *actions*: each phase builds on the files as they stand, so the previous phase's work is present whether or not it was committed. Change detection between runs already had a git-free path — `changeLog[]` and Revision History rows. Replaces DD-14 and DD-17; folds in DD-16. Numbered 24, not 21, so it does not collide with DD-21..23 on the unmerged `stage4-redesign` branch (R11) |
 | **DD-25** | **Shape each run to make as few model calls as possible, not to read as few tokens as possible** | The developer's platform (GitLab Duo) bills per model call: each tool call is followed by a new, billed call, and the size of what is read does not change the price. So one command that prints ten input files beats ten reads, and a chained command beats separate ones. The rules live once, in `AGENTS.md §Keeping the Request Count Down`, with Stage 4 naming its own batch points (inputs, verification, hand-off state writes). Chaining is "where the shell tool allows it", because not every agent's command tool accepts it. A prompt may also approve a plan re-slice in advance, which saves a stop-and-ask round trip (R5.3, Q6) |
 | **DD-26** | **Every message to the developer is written to be understood without a follow-up: plain English, summary and "what I need from you" first, every term and ID explained** | The developer often could not follow a stage's closing report — terms undefined, things named only by ID, legacy details assumed remembered — and had to ask again, which on a per-call platform costs a full extra request (DD-25). The rule lives once, in `AGENTS.md §Writing for the Developer`, because messages are written in every session, not only in stage runs; each stage's Definition of Done points to it. Documents keep their precise style — later stages are judged against them — except the summary and advice sections of a review report, which the developer reads as a message. Reminders are written from what was already read, never by opening a file, so the rule adds no tool calls (R12, Q7) |
+| **DD-27** | **A legacy code map, built once: `tools/codemap.py` generates a file-and-name index of the legacy source, and Stage 1 adds one section saying where each area lives. Every later stage, and ordinary chat, finds legacy code through it before searching** | On a per-call platform (DD-25) every search and directory listing is a billed call, and Stage 1's survey was held only in that session's memory — so each later stage that needed a legacy detail, and each Stage 1 rerun, hunted for it again. The agent never changes the legacy source (Invariant 1), so the map goes stale only when the developer supplies a new drop, and then rerunning the script refreshes it; a script builds the index for no model calls at all. The index is found by pattern, not by a compiler, so it is a pointer, never evidence: requirements still cite the code. The generated part is marked and rewritten on every run; everything above the marker — Stage 1's notes — is kept, and so is a hand-written map with no marker. The map records the folders excluded from it (the target code, where it sits inside the legacy source), and a refresh reuses them, so once the target code's folder is excluded a new legacy drop cannot pull it into the index; a target folder that does not exist yet at Stage 1 is excluded on a later refresh. The tool never overwrites a file it did not write; where the documents location sits inside the legacy source it leaves that folder out of the map, and it refuses a map placed directly in the legacy root. Without Python, or after a refusal that cannot be fixed, Stage 1 writes its section by hand and the generated part is left out until the tool next runs; a non-map file at the map's path is never overwritten. A rerun that changes only the map writes nothing to `state.json` (R13, Q6) |
 | **DD-14** | *Replaced by DD-24.* Was: branch from the currently checked-out branch, PR back at it, and never merge unasked | Kept so references to it still resolve |
 | **DD-17** | *Replaced by DD-24.* Was: before branching, detect a branch that is already merged or gone from the remote | With no agent branching there is no spent branch to detect |
 | **DD-15** | **The working tree is the truth; `state.json` is a cache** — presence checked by content, never by git state | The developer may commit, merge or edit outside the harness and need not report it; only the files decide whether the previous phase's work is there (R11.3) |
@@ -219,7 +223,8 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
 | R10 testability | Stage 4 Step 2.3–2.4 (`FEATURE_STATUS.md`, `HOW_TO_RUN.md`); plan test guides |
 | R11 version control | DD-24, DD-15; Stage 4 §Version Control, §Starting From the Right Code, Inputs item 3 (resume `in progress`, R11.7); `AGENTS.md` invariant 6 |
 | R12 plain-language reports | DD-26; `AGENTS.md §Writing for the Developer`; a Definition of Done line in every stage file |
-| Q6 low request count | DD-25; `AGENTS.md §Keeping the Request Count Down`; Stage 4's batch points (inputs, verify, exit criteria, hand-off state writes) |
+| R13 legacy code map | DD-27; `tools/codemap.py`; Stage 1 Step 1; the legacy-reading inputs of Stages 2–5; `AGENTS.md §Keeping the Request Count Down` |
+| Q6 low request count | DD-25, DD-27; `AGENTS.md §Keeping the Request Count Down`; Stage 4's batch points (inputs, verify, exit criteria, hand-off state writes) |
 
 ## 10. Known trade-offs
 
@@ -240,6 +245,10 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
   criteria, `AGENTS.md` in every session, and an independent Stage 5.
 - **Non-sequential phase IDs** confuse at first read. Deliberate (DD-5); the plan's summary
   table carries the running order.
+- **The code map can miss names.** `tools/codemap.py` finds declarations by pattern, so an
+  unusual one may be absent from the index, and a file of an unknown kind is listed with no
+  names at all. The map only says where to look; an agent that cannot find something in it
+  searches as before, and nothing is ever cited from the map (DD-27).
 - **Volume.** ~2,900 lines of instruction across the six stage files and two templates;
   the three guides exist to keep the entry cost low (Q1).
 - **Git-dependent history.** Superseded design and plan versions exist only as commits the
