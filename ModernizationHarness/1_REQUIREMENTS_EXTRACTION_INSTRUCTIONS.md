@@ -126,8 +126,10 @@ the documents location. Every later stage looks legacy code up in it before sear
    `python <stage folder>/tools/codemap.py <legacy source> --out <documents>/LEGACY_CODE_MAP_<AppName>.md --title <AppName>`
    (`python3` where `python` is absent; add `--exclude <folder or path>` for each generated or
    vendored folder it should skip, and for the target repository and the stage folder where
-   either sits inside the legacy source — they are not legacy code. Build-output, package and
-   tool folders such as `bin`, `obj`, `packages` and `.git` are skipped already). It writes §2 *Folders* (files, lines and file kinds per
+   either sits inside the legacy source — they are not legacy code. A bare name such as
+   `Scripts` skips every folder of that name; a path such as `<legacy source>/Scripts` skips
+   that one. Build-output, package and tool folders such as `bin`, `obj`, `packages` and `.git`
+   are skipped already). It writes §2 *Folders* (files, lines and file kinds per
    folder) and §3 *Files* (one line per text file: its line count and the names declared in it,
    each with its line number). It never overwrites a legacy file; where the documents location
    sits inside the legacy source, it leaves that folder out of the map. On an existing map it

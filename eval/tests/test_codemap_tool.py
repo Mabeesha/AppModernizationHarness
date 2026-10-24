@@ -192,7 +192,7 @@ class CodemapToolTest(unittest.TestCase):
 
     def test_rerun_without_exclude_reuses_the_saved_excludes(self):
         text = self.build("--exclude", "db", "--exclude", "src/Legacy")
-        self.assertIn("Excluded: `db`, `src/Legacy`.", text)
+        self.assertIn("Excluded: `db`, `./src/Legacy`.", text)
         self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md")      # a later refresh
         again = self.map.read_text(encoding="utf-8")
         self.assertNotIn("procs.sql", again)
@@ -208,7 +208,7 @@ class CodemapToolTest(unittest.TestCase):
                          str(self.dir / "legacy" / "src" / "Legacy"), "./src/Legacy"):
             text = self.build("--exclude", spelling)
             self.assertNotIn("Billing.vb", text, spelling)
-            self.assertIn("Excluded: `src/Legacy`.", text, spelling)
+            self.assertIn("Excluded: `./src/Legacy`.", text, spelling)
 
     def test_exclude_naming_no_folder_is_refused(self):
         self.build()
@@ -218,6 +218,34 @@ class CodemapToolTest(unittest.TestCase):
                                 "--exclude", wrong, ok=False).stderr
             self.assertIn("no folder", err)
         self.assertEqual(self.map.read_bytes(), before)
+
+    def test_top_level_path_exclude_spares_nested_folders_of_that_name(self):
+        for rel in ("Scripts/deploy.ps1", "Site/Scripts/site.js"):
+            p = self.dir / "legacy" / rel
+            p.parent.mkdir(parents=True)
+            p.write_text("x\n", encoding="utf-8")
+        for spelling in ("legacy/Scripts", "./Scripts"):
+            text = self.build("--exclude", spelling)
+            self.assertNotIn("deploy.ps1", text, spelling)
+            self.assertIn("legacy/Site/Scripts/site.js", text, spelling)
+        self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md")   # refresh reuses it
+        again = self.map.read_text(encoding="utf-8")
+        self.assertNotIn("deploy.ps1", again)
+        self.assertIn("legacy/Site/Scripts/site.js", again)
+        text = self.build("--exclude", "Scripts")                          # a bare name: all
+        self.assertNotIn("deploy.ps1", text)
+        self.assertNotIn("site.js", text)
+
+    def test_only_default_skip_excludes_keep_the_saved_list(self):
+        self.build("--exclude", "db")
+        self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md", "--exclude", "bin")
+        self.assertNotIn("procs.sql", self.map.read_text(encoding="utf-8"))
+
+    def test_replacing_the_saved_list_names_what_was_dropped(self):
+        self.build("--exclude", "db")
+        res = self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md", "--exclude", "web")
+        self.assertIn("dropped saved excludes: db", res.stdout)
+        self.assertIn("procs.sql", self.map.read_text(encoding="utf-8"))
 
     def test_excluding_a_default_skip_folder_is_a_quiet_no_op(self):
         # bin and obj may not exist yet on a fresh clone; they are skipped by default anyway
@@ -237,7 +265,7 @@ class CodemapToolTest(unittest.TestCase):
             f.unlink()
         (self.dir / "legacy" / "db").rmdir()
         res = self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md")
-        self.assertIn("dropped saved excludes that no longer match a folder: db", res.stdout)
+        self.assertIn("dropped saved excludes: db", res.stdout)
         self.assertNotIn("codemap:exclude", self.map.read_text(encoding="utf-8"))
 
     def test_skipped_folder_names_ignore_letter_case(self):
