@@ -30,7 +30,7 @@ listing reads as the running order:
 | `AGENTS_TEMPLATE.md` | *always* | **Copy to your project root as `AGENTS.md`.** Not a stage — it loads in every session |
 | `0_INTAKE_TEMPLATE.md` | — | **Start here.** Copy to `INTAKE.md` in your project and fill it in |
 | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | 0 | Resolves your intake → `PROJECT_CONTEXT.md` + `INTAKE_RESOLVED.md` + `state.json` |
-| `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | 1 | Legacy app → three requirements docs |
+| `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | 1 | Legacy app → three requirements docs + `LEGACY_CODE_MAP_<App>.md` (where the legacy code lives) |
 | `2_DESIGN_INSTRUCTIONS.md` | 2 | Requirements → HLD + LLD |
 | `3_PLAN_INSTRUCTIONS.md` | 3 | Design → phased plan (**remaining work only**) + `state.json phases[]` |
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | 4 | **Run once per phase**, in a loop, until done |

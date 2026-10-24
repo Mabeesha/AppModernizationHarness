@@ -238,8 +238,11 @@ class CodemapToolTest(unittest.TestCase):
 
     def test_only_default_skip_excludes_keep_the_saved_list(self):
         self.build("--exclude", "db")
-        self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md", "--exclude", "bin")
-        self.assertNotIn("procs.sql", self.map.read_text(encoding="utf-8"))
+        for spelling in ("bin", "./bin", "legacy/bin", "./obj"):          # name or path; obj absent
+            self.run_tool("legacy", "--out", "out/LEGACY_CODE_MAP_Shop.md", "--exclude", spelling)
+            text = self.map.read_text(encoding="utf-8")
+            self.assertNotIn("procs.sql", text, spelling)
+            self.assertIn("<!-- codemap:exclude db -->", text, spelling)
 
     def test_stale_saved_exclude_is_dropped_not_blamed_when_only_defaults_are_given(self):
         self.build("--exclude", "Legacy")

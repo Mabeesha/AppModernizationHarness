@@ -133,8 +133,10 @@ the documents location. Every later stage looks legacy code up in it before sear
    folder) and §3 *Files* (one line per text file: its line count and the names declared in it,
    each with its line number). It never overwrites a legacy file; where the documents location
    sits inside the legacy source, it leaves that folder out of the map. On an existing map it
-   keeps §1 and rewrites §2–§3. **If it refuses** (its message says why) and the fix is not a
-   mistyped path, carry on as in item 4.
+   keeps §1 and rewrites §2–§3. **If it refuses,** its message says why: a wrong `--exclude`
+   or `--out` value — fix the value and run it again; an existing file at `--out` that is not
+   a code map — never overwrite it: report it and ask. Use item 4 only when Python is missing
+   or the refusal cannot be fixed.
 2. **Survey from the index.** Read §2 whole; read §3 whole if it is short, otherwise search it
    for names instead of searching the source tree. Use it to choose which files to open, and
    open them several at a time (`AGENTS.md §Keeping the Request Count Down`). It is found by
@@ -267,7 +269,9 @@ changes in place (don't regenerate from scratch and lose curated content), incre
 `tools/codemap.py` again only when the map is missing or the developer says the legacy source
 changed — it keeps §1 and, run with no `--exclude`, reuses the last run's list. An
 `--exclude` replaces that whole list (unless it names only folders skipped by default), so
-then pass every folder to skip, old and new; its output names any saved one it dropped.
+then pass every folder to skip, old and new; its output names any saved one it dropped. **A
+rerun that changes only the code map** adds no Revision History row and no `changeLog` entry
+and needs no Design rerun: the map is navigation, not a requirement.
 
 **Add a `## 0. Revision History` row** to every document you changed, naming which **delivered
 phases** it invalidates (read `state.json phases[]`), and add a `changeLog` entry. Do not edit

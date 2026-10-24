@@ -21,7 +21,7 @@ page. Binary files are skipped, and so are folders named in SKIP_DIRS (any lette
 each --exclude: a folder name (skipped wherever it occurs), or a folder path - below
 SOURCE_ROOT, from the working directory, or absolute - which skips that one folder and is
 recorded as ./<path below SOURCE_ROOT>. An --exclude that names no folder is refused; one
-naming a SKIP_DIRS folder is accepted and ignored. The map records its excludes, and a rerun
+naming a SKIP_DIRS folder, or a path through one, is accepted and ignored. The map records its excludes, and a rerun
 with no --exclude (or with only SKIP_DIRS names) reuses them, dropping any that no longer
 match; any other --exclude replaces the whole saved list. Saved excludes dropped either way
 are named in the output. Files over MAX_BYTES are listed without names, and lines over
@@ -261,8 +261,10 @@ def choose_excludes(given, saved, root, shown_root):
     def resolve_all(values, strict):
         out, gone = [], []
         for x in values:
+            if x.strip().replace("\\", "/").rstrip("/").split("/")[-1].lower() in SKIP_LOWER:
+                continue                # a default-skipped folder, existing or not
             r = resolve_exclude(x, root)
-            if r is not None and not r.startswith("./") and r.lower() in SKIP_LOWER:
+            if r is not None and any(seg.lower() in SKIP_LOWER for seg in r.split("/")):
                 continue                # skipped by default already; nothing to record
             if r is None and strict:
                 fail(f"--exclude {x} names no folder under {shown_root}; give a folder name, "
