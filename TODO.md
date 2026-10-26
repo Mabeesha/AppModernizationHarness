@@ -6,11 +6,10 @@
 - [ ] research the other harness
 
 1. Harness Improvements
-
-- [x] Instructions for code coverage
 - [ ] Stage-wise cirtic loop
-- [x] Legacy to Modernized mapping document - Features.md?
-- [x] Token optimization
+- [ ] Request count optimizations
+    - [ ] Simple instructions
+    -  
 
 2. Eval
 
@@ -19,16 +18,12 @@
 - [ ] Tier 2
     - [ ] Sample apps
 - Add checks to CI/CD pipelines
+- Request Number Metrics?
 
 3. Clean up
-
-- [x] Remove AgentInstructionSet, AgentInstructionSet2, AgentInstructionSet3 - and all the references
-- [x] Rename AgentInstructionSet4 to ModernizationHarness
-- [x] Rename Repo - AppModernizationHarness
+- [ ] Docs restructure
 
 4. Others
-
-- [x] Installation scripts
 
 5. Tools
 - [x] State tool
