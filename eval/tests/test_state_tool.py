@@ -117,6 +117,15 @@ class StateToolTest(unittest.TestCase):
                                        "result=clean", "blockerCount=0", "findingsCount=0").stdout.strip(), "R-1")
         self.assertIn("allocated by the script", self.refused("add", "phases", "id=P-7"))
 
+    def test_edit_can_be_registered_done(self):
+        # Stage 4 registers a minor edit once its checks pass, already done (DD-28).
+        self.assertEqual(self.run_tool("add", "edits", "summary=x", "afterPhase=P-1",
+                                       "status=done").stdout.strip(), "E-1")
+        edit = self.state()["edits"][0]
+        self.assertEqual((edit["status"], edit["branch"], edit["prUrls"]), ("done", None, []))
+        self.assertEqual(self.run_tool("check").stdout.strip(), "ok")
+        self.assertIn("forward only", self.refused("set", "edits.E-1", "status=pending"))
+
     def test_new_phase_gets_schema_defaults(self):
         self.run_tool("add", "phases", "name=A")
         self.assertEqual(self.state()["phases"][0], {

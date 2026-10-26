@@ -87,7 +87,8 @@ and anything that modifies the legacy source (read-only in every stage).
 ### R4 — One gate, and a testing record
 - **R4.1** The agent may set a phase `done` only when its **mechanical, falsifiable** exit
   criteria all pass. Subjective criteria ("looks correct") are forbidden. **This is the only
-  gate in the pipeline.**
+  gate in the pipeline.** A criterion passes only on a check that actually ran and exercised
+  the work — a command that failed to start, or a syntax-only check, is not a pass.
 - **R4.2** Phase and edit status moves **forward only** — `pending` → `in progress` → `done`.
   Nothing rewinds; `done` is terminal. What is built is built.
 - **R4.3** Whether a human has tested the work is recorded **per feature** in
@@ -118,14 +119,15 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R6.3** `done` phases are **never reopened** for a design change. The fix is a new
   **retrofit phase**, sequenced before anything that would build on the old contract.
 - **R6.4** Minor edits (`E-n`) get their own id, status, and review identity, and
-  behave exactly like phases throughout.
+  behave exactly like phases throughout — except that an edit is registered once its checks
+  pass, already `done`, never `pending` or `in progress` (DD-28).
 
 ### R7 — Machine state
 - **R7.1** `state.json` is the single source of truth for progress, lineage, and change history;
   Markdown holds content only.
 - **R7.2** `changeLog[]` and `reviews[]` are **append-only**; corrections supersede. `edits[]`
   entries are never deleted or renumbered, but their lifecycle fields update in place, as
-  `phases[]` entries' do (R6.4).
+  `phases[]` entries' do (R6.4); an edit enters already `done` (DD-28).
 - **R7.3** A **high-water mark** (`lastProcessedChangeLogId`, `lastProcessedReviewNumber`, both
   integers) tells each run which entries it has already folded in.
 - **R7.4** The developer never hand-edits `state.json` — they say what happened, the agent
@@ -177,7 +179,7 @@ and anything that modifies the legacy source (read-only in every stage).
   reviewers are notes for the developer, and **no rule reads them**.
 - **R11.6** Changes to the documents between runs are detected from `changeLog[]` entries and
   the documents' Revision History rows, not from git history.
-- **R11.7** A phase or edit left `in progress` by a run that stopped early is resumed before
+- **R11.7** A phase left `in progress` by a run that stopped early is resumed before
   any `pending` phase; which of its tasks are done is judged by content. If the prompt names
   other work, the agent asks which comes first.
 

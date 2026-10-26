@@ -1,8 +1,9 @@
 # Token Savings — Options
 
-*Status: a proposal. Nothing in §3 is applied except Option 17 (the legacy code map, DD-27).
+*Status: a proposal. Nothing in §3 is applied except Option 17 (the legacy code map, DD-27);
+Options 18–19 are recorded for after a measured Sonnet run.
 Each option says whether it needs a design change (and so a yes) or is only a way of running the
-harness. Last updated 2026-10-24.*
+harness. Last updated 2026-10-25.*
 
 ---
 
@@ -17,7 +18,7 @@ context limit. So the goal is **fewer calls**, and some options below now cost m
 
 | Option | Under per-call billing |
 |---|---|
-| 1 Smaller model where routine | **Still helps — likely the largest saving** (calls per credit vary widely by model) |
+| 1 Smaller model where routine | **Still helps — likely the largest saving** (price per call varies by model: Sonnet $0.50 against Opus $0.74 per request here) |
 | 2 Fresh session per run | **Backfires** — a new session re-reads everything; stay in one chat where context allows |
 | 3 Keep Stage 4 phases small | **Backfires** — more runs, each with fixed read/reconcile/hand-off calls |
 | 4, 5, 10, 11 Split Stage 1 / Stage 2 work into more runs | **Backfire** — more runs |
@@ -34,6 +35,15 @@ verify); Stage 4 batch points (inputs in one command, build/test/lint and exit c
 chained, hand-off state writes chained); a re-slice may be approved in advance in the prompt;
 and `DEVELOPER_GUIDE.md §Keeping the Request Bill Down` for how the developer runs it. Removing
 all agent git (DD-24) also removed roughly 8–15 calls per phase.
+
+Added 2026-10-25, with Stage 4 reworded for a mid-size model (Option 1's Sonnet): state and
+documents read in two commands at the start of a run; the predecessor-code check in one
+command; Step 0's change-log writes (and, when the plan is unchanged, the `in progress` write)
+in one chain; a task's files written in one step;
+the test-guide walk and the remaining `HOW_TO_RUN.md` commands chained; the documents read at
+the start not reopened. Rough estimate, not measured: 6–15 fewer calls in a 27–72-call phase.
+The same change put Stage 4's steps in run order, turned its three decisions into tables, and
+counts a check only if it actually ran (R4.1).
 
 ---
 
@@ -90,17 +100,26 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   | 0 Project context | Sonnet | Mostly organizes the developer's answers; read its output carefully |
   | 1 Requirements | **Opus** | A missed rule is missed everywhere after; runs once or twice |
   | 2 Design | **Opus** | The hardest reasoning; a weak design is expensive later |
-  | 3 Plan | Sonnet | Organizes already-decided work |
+  | 3 Plan | **Opus** when Stage 4 runs on Sonnet; else Sonnet | Runs rarely, and every Sonnet build run follows what it writes — an exact plan saves fix-up calls in every phase |
   | 4 Implement — phase | **Sonnet by default** | Runs every phase and builds to an exact spec |
   | 4 Implement — minor edit | Sonnet or Haiku 4.5 | Small, low-risk changes |
   | 5 Review | **Opus** | Finding subtle bugs and security gaps |
 
   Switch Stage 4 back to Opus for login and permissions, data migration, retrofit phases, and
   any phase where Sonnet stops twice as blocked or keeps failing its exit criteria.
+- **Reasoning effort:** Anthropic's notes for Sonnet 5.5 say that at low effort it sometimes
+  reports a change done without a check that exercised it, or stops to check in before
+  finishing. Stage 4 counts a check only if it ran (R4.1), but every early stop costs a call.
+  Find out what effort the platform runs Sonnet at, and whether it can be chosen.
+- **Judge cost per finished phase, not per call:** a cheaper call that needs more fix-up loops
+  or stops is not cheaper.
 - **In GitLab Duo:** a top-level group Owner sets a default model per feature (**Settings →
   GitLab Duo → Model selection → Manage models**). Users can choose only where the Owner left
   "GitLab default". IDE model selection sometimes does not apply. GitLab does not publish credit
-  cost per model — confirm Sonnet costs fewer credits before relying on the saving.
+  cost per model; the developer's own figures (2026-10-26) are **$0.50 per request for Sonnet
+  and $0.74 for Opus** — about a third less per call. So Sonnet is cheaper only while a run
+  takes fewer than about 1.5 times the calls Opus would (0.74 / 0.50 = 1.48): a phase that
+  costs Opus 40 calls must finish within 59 on Sonnet. Measure this before relying on it.
 - **Saves:** the most of any option for the least effort, mostly through Stage 4.
 - **Risk:** lower quality on hard phases; the escalation rule is the safeguard.
 - **Change:** none. Writing this table into `DEVELOPER_GUIDE.md` is new guidance — ask first.
@@ -303,6 +322,61 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 - **Touches (done):** DD-27, R13, `tools/codemap.py` and `eval/tests/test_codemap_tool.py`,
   Stages 1–5, `AGENTS_TEMPLATE.md §Keeping the Request Count Down`, the guides.
 
+#### Option 18 — Sonnet-ready phases: Stage 3 writes more exact phase entries *(not applied — waits for a measured Sonnet run)*
+
+- **What:** Stage 4 now runs on Sonnet by default (Option 1), and Sonnet does best when it
+  does not have to infer. So Stage 3's phase template gains five fields:
+  1. **Delivers** — the files and code names the phase creates (from LLD §3a). The next phase's
+     predecessor check (Stage 4 §Starting From the Right Code) becomes one command with no
+     guessing.
+  2. **Exit criteria as one ready-to-run command per repo**, plus any non-command criteria
+     listed apart. Stage 4 copies the command instead of composing it.
+  3. **Exact pointers in each task** — the LLD sections (e.g. LLD §1 for an endpoint, §2 for a
+     mapping) and requirement ids it implements.
+  4. **Developer test-guide API steps as copy-paste commands** with expected results, so
+     Stage 4 runs them in one chained command (Step 2, item 2) and the developer can paste
+     them too.
+  5. **A "needs the stronger model" mark** on risky phases — login and permissions, data
+     mapping, retrofits, literal reference copying — so the developer sees Option 1's
+     escalation rule at the moment they start the run.
+- **Not Option 8:** Stage 4 still reads every document in full (free under per-call billing).
+  The fields are signposts, not cuts.
+- **Saves:** fewer build-and-fix loops (the largest share of a phase's 27–72 calls) and fewer
+  composed-command mistakes. Not measured.
+- **Mid-project:** a plan written before this option lacks the fields. To get them, run one
+  Stage 3 refresh on Opus (`run stage 3 — add the Option 18 fields to the remaining phases`),
+  about 6–10 calls. Worth it only when many phases remain. Stage 4 must also keep working on a
+  plan without them.
+- **Risk:** low for quality; the cost is a longer Stage 3 run and more for Stage 3 to get right.
+  Run Stage 3 on Opus (Option 1).
+- **Touches:** a design change — `3_PLAN_INSTRUCTIONS.md` phase and task templates and its
+  Definition of Done; Stage 4 Step 0 (§Starting From the Right Code), Step 1 and Step 2 (use the
+  fields when present); a DD in `docs/DESIGN.md`; R5 in `docs/REQUIREMENTS.md`; the guides'
+  plan descriptions; possibly a Tier 1 eval check for the template's shape.
+
+#### Option 19 — A start-of-run command in the state tool *(not applied — waits for a measured Sonnet run)*
+
+- **What:** two additions to `tools/state.py`, both new output only:
+  1. **One command that starts a Stage 4 run** — it prints `summary`, `new`, `context`,
+     `phases` and `edits` and the exact paths of the input documents from
+     `context.locations.documents`, so Stage 4's first two commands
+     (`4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md §Locating your inputs`) need no path-finding or
+     long PowerShell chain. A variant also prints the documents themselves, making the start
+     one call.
+  2. **`new` also prints the marks to write at hand-off** — the highest `changeLog` id and
+     `R-<n>` it printed — so moving the high-water marks (Step 2, item 5) is copying, not
+     judging.
+- **Saves:** about one call per run (≈ $0.50 on Sonnet), and one judgment a mid-size model can
+  get wrong (advancing the marks past an entry it never folded in).
+- **Mid-project:** a drop-in. It adds commands and changes no existing output, refusal or
+  `state.json` field, so a project picks it up by getting the new tool file.
+- **Risk:** the platform may cut off very long tool output — test the print-the-documents
+  variant on a real project first; the paths-only variant has no such risk. Close to Option 12;
+  build them together if both are wanted.
+- **Touches:** a design change — `state.py` and `eval/tests/test_state_tool.py`; DD-18 in
+  `docs/DESIGN.md`; R7 in `docs/REQUIREMENTS.md`; Stage 4 §Locating your inputs and Step 2
+  item 5; `AGENTS_TEMPLATE.md §Reading and Writing state.json`; the guides.
+
 ### Rejected
 
 | Idea | Why not |
@@ -341,3 +415,7 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 6. **Only if needed:** Option 9 (minor edits are frequent), Options 10–11 (Options 4–5 by hand
    prove too manual), Option 14 (after a measured run), Option 15 (for easier starting), Option
    16 (state-tool commands cause real trouble).
+7. **After one measured Sonnet phase** (calls, stops and first-time exit-criteria passes against
+   an Opus phase): Option 19 if the start of a run or the high-water marks cost calls or go
+   wrong; Option 18 if Sonnet loops on fix-ups or guesses file locations, and enough phases
+   remain to repay a Stage 3 refresh.

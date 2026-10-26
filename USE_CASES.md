@@ -272,7 +272,8 @@ The search results column header should read "Employee ID", not "Emp. ID".
 **Behind the scenes:** the agent classifies it in Step 0a. Does it touch a requirement, a
 design contract, or plan scope? A label doesn't. So it's a **minor edit**:
 
-- gets its own id — `E-1` — in `state.json edits[]`, recorded against the phase it follows;
+- gets its own id — `E-1` — in `state.json edits[]`, recorded against the phase it follows,
+  once its checks pass (it goes in already `done`);
 - gets its own commit hand-off — changed files and a suggested commit message;
 - updates the `FEATURE_STATUS.md` rows it changed — including **resetting them to `untested`**,
   because an edit changes delivered behavior exactly as a phase does;

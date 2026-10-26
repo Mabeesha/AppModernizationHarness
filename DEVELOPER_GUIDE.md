@@ -511,8 +511,8 @@ and how much it reads in that call does not change the price. The agent's own ha
 `AGENTS.md §Keeping the Request Count Down`: it batches reads, chains commands, and makes fewer,
 larger edits. The rest is how **you** run it:
 
-1. **Choose the model by its price per call.** Platforms list how many calls one credit buys
-   per model, and the spread is wide. A cheaper model for routine phases (scaffolding, CRUD
+1. **Choose the model by its price per call.** Prices per call differ by model (on GitLab Duo
+   here, Sonnet $0.50 and Opus $0.74 per request — `docs/TOKEN_SAVINGS.md` Option 1). A cheaper model for routine phases (scaffolding, CRUD
    screens) and the strongest one for design and tricky phases is usually the biggest saving.
 2. **Answer questions before they are asked.** Each time the agent stops and you reply, a new
    chain of calls starts. Put known answers in the prompt — for example
@@ -620,7 +620,8 @@ Run the stage you were going to run next — for most projects mid-build:
 run stage 4
 ```
 
-If the last run stopped half-way, Stage 4 finishes that phase or edit first. If the remaining
+If the last run stopped half-way, Stage 4 finishes that phase first (a stopped minor edit is
+simply asked for again). If the remaining
 plan needs re-slicing (splitting, merging or reordering the phases still to come), Stage 4 asks
 you first; to let it go ahead without asking for that one run, add
 `— apply any re-slice without asking` (see §Keeping the Request Bill Down).
@@ -938,7 +939,7 @@ After the final phase is delivered:
 | `FEATURE_STATUS.md` | Stage 3 | **no hand-editing** — say "accept P-2" / "search works" | Stage 4 updates rows in place; rows **never deleted**, file **never regenerated** |
 | `HOW_TO_RUN.md` (one file) | Stage 4 | no | only when building/running/configuring the app changes |
 | `state.json` phases[] | Stage 3 (init) | **no hand-editing** | status (forward only); branch and PRs only when you name them |
-| `state.json` edits[] | Stage 4 | **no hand-editing** | appends each **minor** edit; same lifecycle as a phase |
+| `state.json` edits[] | Stage 4 | **no hand-editing** | appends each **minor** edit once its checks pass, already `done`; otherwise the same lifecycle as a phase |
 | `state.json` changeLog[] | Stage 0 (init) | tell it what you changed | your notes, reconciliations, review findings (append-only) |
 | `state.json` reviews[] | Review stage | no | Review appends |
 | `state.json` progress | Stage 0 (init) | no | Stage 4 advances the high-water mark |

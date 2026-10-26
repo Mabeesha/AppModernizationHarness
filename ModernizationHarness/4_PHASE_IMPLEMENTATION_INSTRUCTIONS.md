@@ -16,7 +16,8 @@ developer does not have to classify it for you:
   whether it contradicts the design, it is not a minor edit — it is a doc change followed by a
   phase.
 
-Each run: **classify → reconcile → refresh the plan → implement → verify → hand off → stop.**
+Each run: **pick the work → classify → check the code you build on → reconcile → refresh the
+plan → implement → verify → hand off → stop** — the order of Steps 0, 1 and 2 below.
 Then the developer commits when they choose (you run no git — §Version Control), tests when
 they choose, the Review stage may audit, and the next run begins. Do **not** roll into the next phase on your own — the loop exists so
 each increment is small, reviewable and separately testable.
@@ -49,28 +50,8 @@ each increment is small, reviewable and separately testable.
 2b. **`FEATURE_STATUS.md`** — the coverage ledger: what is built, how to check it, and what the
    developer has tested. **You update rows at every hand-off**; you never write its `Tested`
    column except on the developer's explicit word.
-3. **The phase or edit to perform** — from the prompt. If a phase isn't named, execute the
-   earliest `pending` entry in `phases[]`. Note that phase IDs are **not renumbered** when the
-   plan is refreshed, so "earliest" means earliest in the plan's stated **execution order**,
-   not lowest ID. **A phase or edit already `in progress`** is a run that stopped before
-   hand-off: resume it before any `pending` phase — check by content which of its tasks are
-   done, say so, and finish the rest. If the prompt names different work, say what is half
-   built and ask which comes first.
-
-   **The predecessor's testing state is irrelevant here.** A phase that is `done` is built, and
-   that is all the next phase needs. Never ask the developer to accept, approve or sign off
-   anything before starting — there is no such mark. If they want to know what is outstanding,
-   the two counts in your hand-off report (Step 2, item 7) already tell them.
-
-   **Review findings do not block either.** Any unprocessed findings in `reviews[]` (above
-   `progress.lastProcessedReviewNumber`) are **reconciliation input** for this run — fold them
-   in at Step 0b like any other change. Severities tell you what to fix first, not whether you
-   may proceed. Where a finding is too large to absorb, say so and let Step 0c plan it; don't
-   stall the run.
-
-   **Then check the target code actually contains the predecessor's work** before writing
-   anything, and say what you found (see §Starting From the Right Code). A phase built on code
-   missing the previous phase silently breaks "each phase builds on the last".
+3. **The phase or edit to perform** — from the prompt, or else the next planned phase. Step 0
+   §Pick the work says which, including work a previous run left `in progress`.
 4. **Reference — the design documents** (HLD + LLD). The LLD is the authoritative contract.
 5. **Reference — the three requirements files** — intent, business rules, exact values.
 6. **Reference — `PROJECT_CONTEXT.md`** — target stack, constraints by ID (with their
@@ -112,10 +93,22 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.
 
-**Read the document inputs in one command** once their paths are known — the plan,
-`FEATURE_STATUS.md`, the HLD and LLD, the three requirements files and `PROJECT_CONTEXT.md` —
-per `AGENTS.md §Keeping the Request Count Down`. Read them fresh every run, even in a chat that
-read them before — the developer may have changed them since.
+**Start every run with two commands** (`AGENTS.md §Keeping the Request Count Down`):
+
+1. **State, in one chained command** — `summary`, `new`, `get context`, `get phases`,
+   `get edits`. That is what Step 0 needs from `state.json`: the locations, the repo and
+   deployment decisions, the unprocessed entries, and every phase's and edit's status, notes and
+   `sizeReport` (a re-slice also needs `get stages.plan`).
+2. **Documents, in one command**, once their paths are known — the plan, `FEATURE_STATUS.md`,
+   `HOW_TO_RUN.md` where it exists, the HLD and LLD, the three requirements files and
+   `PROJECT_CONTEXT.md`.
+
+Where this chat already resolved the paths in an earlier run, make the two one command; if the
+`context.locations` it prints differs from the paths you used, read the documents again from the
+new ones. Read everything fresh every run, even in a chat that read it before — the developer
+may have changed any of it since. Then work from what you read and what this run wrote: do not
+open these documents again this run, except where your edit tool needs a file opened before
+editing it.
 
 ---
 
@@ -132,6 +125,9 @@ schema** where a data-reuse constraint is in force.
 ---
 
 ## Building From a Reference Implementation
+
+*Only where this phase builds an area with a reference row in `PROJECT_CONTEXT §2`; otherwise
+skip this section.*
 
 Where this phase builds an area with a reference row in `PROJECT_CONTEXT §2`, **LLD §3c is the
 contract** — build what it says the target takes from the sample, and leave what it says the
@@ -159,22 +155,102 @@ sample and deciding for yourself.
 
 ## Step 0 — Classify, Reconcile & Refresh the Plan *(mandatory, every run)*
 
-Before writing any code:
+Before writing any code, once state and inputs are read (§Locating your inputs), in this order:
+**pick the work → 0a classify → check the code you build on (§Starting From the Right Code) →
+0b reconcile → 0c refresh the plan.** Each part feeds the next: code changed outside the harness
+is itself something 0b reconciles, and 0c re-slices only on what 0b found.
+
+### Pick the work
+- **A phase is already `in progress`** → a run stopped before hand-off. Resume it before any
+  `pending` phase: check by content which of its tasks are done, say so, and finish the rest.
+  If the prompt names different work, say what is half built and ask which comes first. (A
+  stopped minor-edit run leaves no `edits[]` entry — DD-28; its unprocessed change-log entry
+  and its stop report say what is half made.)
+- **Otherwise, the prompt names a phase or an edit** → that work; 0a confirms what kind it is.
+- **Otherwise** → the earliest `pending` phase in the plan's stated **execution order** — not the
+  lowest ID: phase IDs are never renumbered when the plan is refreshed.
+
+Nothing else decides it, and nothing waits on the developer:
+
+- **The predecessor's testing state is irrelevant.** A phase that is `done` is built, and that is
+  all the next phase needs. Never ask the developer to accept, approve or sign off anything
+  before starting — there is no such mark. If they want to know what is outstanding, the two
+  counts in your hand-off report (Step 2, item 7) already tell them.
+- **Review findings do not block either.** Unprocessed findings in `reviews[]` (above
+  `progress.lastProcessedReviewNumber`) are **reconciliation input** for 0b, like any other
+  change. Severities tell you what to fix first, not whether you may proceed; a finding too
+  large to absorb goes to 0c rather than stalling the run.
 
 ### 0a. Classify the work
 Decide which kind of run this is **yourself**, and state your call in the report. Don't make the
-developer declare it:
+developer declare it. Ask in order; the first *yes* decides:
 
-1. **Does the request match a phase in the plan?** → it's that **phase**.
-2. **Otherwise, does it touch a requirement, a design contract, or plan scope?** → it is **not
-   something you implement this run**. Say which document owns it, recommend the stage that
-   edits it (normally Stage 2 for design, Stage 1 for requirements), and stop. Once that doc is
-   updated, the next run's Step 0c plans it as a phase. See §When a Change Touches a Contract.
-3. **Otherwise** — no contract touched, small and self-evident → a **minor edit**. Implement it
-   directly and register it in `edits[]` (see §Minor Edits).
+| Ask | If yes |
+|---|---|
+| 1. Does the request match a phase in the plan? | It is that **phase**. |
+| 2. Otherwise, would it change a requirement, a design contract, or plan scope? | It is **not something you implement this run.** Say which document owns it, recommend the stage that edits it (normally Stage 2 for design, Stage 1 for requirements), and stop — §When a Change Touches a Contract. Once that doc is updated, the next run's Step 0c plans it as a phase. |
+| 3. Otherwise — no requirement, contract or plan scope changes, and the change is small and self-evident | A **minor edit**: implement it directly and register it in `edits[]` (§Minor Edits). |
 
 The test for (2) is not size, it's *authority*: a one-line change to an endpoint's response
-shape is a contract change; a hundred-line refactor behind a stable interface is not.
+shape is a contract change; a hundred-line refactor behind a stable interface is not. For
+example:
+
+| Request | Decided by | Because |
+|---|---|---|
+| "Return `fullName` instead of `name` from the employee endpoint" | 2 — contract | LLD §1 fixes the response shape, however small the edit |
+| "Read the status from the `STAT_CD` column instead" | 2 — contract | LLD §2 fixes the mapping |
+| "Reject names longer than 50 characters" (no requirement says so) | 2 — contract | a new validation rule is requirements and LLD §4 scope |
+| "Fix the typo in the search button's label" | 3 — minor edit | nothing a requirement or the LLD fixes changes |
+| "Export throws on an empty result; the LLD says it returns an empty file" | 3 — minor edit | an obvious bug fix toward the existing contract |
+
+If you find yourself weighing whether it contradicts the design, it is not a minor edit.
+
+### When a Change Touches a Contract
+*At 0a's question 2, and whenever later work in this run would change a requirement, a design
+contract or plan scope (§When You're Blocked).* If the work would change a requirement, a design
+contract, or plan scope, **you do not implement it this run and you do not edit the owning
+document yourself.** Instead:
+
+1. Say precisely what would have to change, and in **which document**.
+2. Name the delivered phases the change invalidates, if any.
+3. Recommend the owning stage — normally *"rerun `2_DESIGN_INSTRUCTIONS.md` with this change"*.
+4. Tell them what happens next: *"then run the next phase; Step 0c will plan the retrofit."*
+5. Append a `changeLog` entry recording the request, and **stop**.
+
+This is a two-prompt flow by design, and the pause is the point: it is where the developer
+catches a design being amended into something they didn't intend, before any code is planned
+around it.
+
+**The one carve-out** is a genuinely *clarifying* doc edit — fixing a typo'd column name, or
+filling a blank the design plainly intended — which you may make directly, log, and proceed on.
+If you have to reason about whether it changes behavior, it doesn't qualify.
+
+### Starting From the Right Code
+
+Phases are built in sequence, so a phase must start from code that already contains the
+previous phase's work — a phase built on code missing it silently breaks "each phase builds on
+the last". You build on the files as they stand in the target repository's working tree
+(`context.locations.targetRepo`, plus `targetRepoFrontend` under `split`) — whether the
+developer has committed, merged or switched branches is not yours to inspect.
+**The working tree is the truth; `state.json` is a cache.** Before writing anything:
+
+1. **Confirm the predecessor's work is present by content** — check that the files and symbols
+   the previous phase delivered actually exist there; **per repo** under `split`. The plan's
+   entry for that phase — its §5 subsection, or its §2 line once a refresh has moved it — and the
+   `FEATURE_STATUS.md` rows `built in` it say what to look for; check them all **in one
+   command**.
+2. **Say what you found, in one line, before you start:**
+   > "Building P-3 in `./app`. It contains P-2's work (`EmployeeController`, the employee
+   > routes)."
+3. If the predecessor's work is **missing**, stop and ask — don't guess and never silently
+   rebuild it. The usual cause is a checkout without it. Offer the ways forward: they switch to
+   code that has it, or you build here anyway because they know why it's absent.
+
+**Work changed outside the harness is normal.** The developer may hand-fix a file, merge, or
+resolve a conflict, and they are **not** required to report it. When you find code you did not
+expect — present where no phase or edit delivered it, or different from what one delivered —
+append a `changeLog` entry (`author: developer`, `origin: out-of-band`), written with Step 0's
+other entries (0b, item 5), and reconcile it at Step 0b before building.
 
 ### 0b. Reconcile (fold in changes since the last run)
 1. **Read the new entries in `state.json`**, using the high-water mark in `progress` — this is
@@ -197,22 +273,36 @@ shape is a contract change; a hundred-line refactor behind a stable interface is
    other change. A hand edit with neither a row nor an entry is invisible to you.
 3. **Read developer notes in the prompt** — treat them as change-log-grade input and **append
    them to `changeLog[]`** (author `developer`) so the paper trail is complete.
-4. **Classify each change:**
-   - **Affects already-built code** → apply the rework **first**, as preliminary
-     `[reconciliation]` tasks in this run. **Except where it invalidates a design contract that
-     a delivered phase built to** — that is not reconciliation, it is new work: leave it for
-     Step 0c, which plans it as a retrofit phase the developer approves before you build it.
-     The test is *authority, not size* — the same test as 0a: a fix behind a stable contract is
-     reconciliation; a change to the contract itself is a retrofit.
-     Either way, **every `FEATURE_STATUS.md` row whose behavior you changed resets to
-     `untested`** and gains this phase (or edit) in its `Phase(s)` column.
-   - **Affects the current phase** → update the phase's tasks/test guide/exit criteria in the
-     plan, then build to the updated version.
-   - **Affects future phases only** → update those phases in the plan; build none of it now.
-   - **Contradicts a design contract without a matching design-doc update** → don't guess;
-     raise it (§When You're Blocked).
+4. **Classify each change.** Ask every question of every change — one change can need more than
+   one row (a review finding can fix built code *and* reshape the current phase):
+
+   | Does the change… | Then |
+   |---|---|
+   | contradict a design contract, with no design-doc update behind it? | Don't guess — raise it (§When You're Blocked), and apply no other row to this change. |
+   | change a design contract that a delivered phase built to? (A design or requirements **Revision History** row naming delivered phases is the usual sign.) | **A retrofit, not reconciliation** — new work. Build none of it now: Step 0c plans it as a retrofit phase the developer approves before you build it. |
+   | change already-built code, behind contracts that stay as they are? | **Reconciliation:** apply the rework **first**, as preliminary `[reconciliation]` tasks in this run. |
+   | change the current phase's planned work? | Update the phase's tasks, test guide and exit criteria in the plan, then build to the updated version. |
+   | change future phases only? | Update those phases in the plan; build none of it now. |
+
+   The test between the second and third rows is *authority, not size* — the same test as 0a: a
+   fix behind a stable contract is reconciliation; a change to the contract itself is a
+   retrofit. Whichever row applies, **every `FEATURE_STATUS.md` row whose behavior you change
+   resets to `untested`** and gains this phase (or edit) in its `Phase(s)` column (on a
+   minor-edit run, written at Step 2, item 3, once the edit is registered).
 5. **Append a `changeLog` entry** (author `implement-agent`, origin `reconcile`) summarizing
-   what you reconciled and which phases it touched.
+   what you reconciled and which phases it touched. **Write Step 0's `changeLog` adds in one
+   chained command** — this entry, item 3's developer notes, and any hand-edit (item 2) or
+   out-of-band entry (§Starting From the Right Code) — once 0c has decided, which takes no tool
+   call in the common case. When 0c reports "plan unchanged", put Step 1's `in progress` write
+   in the same chain. When Step 0 stops for any reason — a re-slice proposal, a contract change,
+   a blocker — run the adds that apply so far before you stop, so they are recorded even if the
+   stop goes unanswered; on a contract stop, that section's own entry records the request
+   (§When a Change Touches a Contract). An entry that names an id an earlier `add` prints waits
+   for it (`AGENTS.md §Keeping the Request Count Down`): **on a minor-edit run** there is no
+   `in progress` write — the edit is registered at hand-off, already `done` (§Minor Edits) — and
+   an entry that should cite it in `editsAffected` is written then, after the `add edits` that
+   prints its `E-<n>`; the rest run in this chain. If the run stops before the edit is
+   registered, write that entry before you stop, without `editsAffected`.
 6. If there are **no changes**, note "no changes since last run" and proceed.
 
 ### 0c. Refresh the forward plan
@@ -220,17 +310,25 @@ The plan covers **remaining work only** and is expected to change. Before buildi
 whether the remaining phases are still the right slicing, per
 `3_PLAN_INSTRUCTIONS.md §Refreshing the Plan`.
 
-**Default to no change.** Re-slice only when 0b surfaced a reason:
+**Default to no change.** Re-slice only when 0b surfaced one of these reasons:
 
-- a design or requirements doc gained a **Revision History** row since the last run;
-- a review left findings too large to fold into this phase;
-- the previous phase revealed the slicing was wrong — read its `sizeReport` in `state.json`.
-  A *too large* already resolved by an approved split is not, on its own, a reason: re-slice
-  only if the remaining phases look as large as the one that overflowed;
-- the developer asked for a different shape.
+| Reason | Where you see it |
+|---|---|
+| A design or requirements doc gained a **Revision History** row since the last run | the `changeLog` entries `new` printed (every stage rerun appends one), or a hand edit 0b logged |
+| A review left findings too large to fold into this phase | the `reviews[]` entries `new` printed |
+| The previous phase revealed the slicing was wrong | its `sizeReport`, printed by `get phases`: *too large* or *too small*. A *too large* already resolved by an approved split is not, on its own, a reason — re-slice only if the remaining phases look as large as the one that overflowed |
+| The developer asked for a different shape | the prompt |
 
 If none applies, report **"plan unchanged — building P-N"** and go to Step 1. This is the
 common case and should cost you one line.
+
+**Re-sliced or not**, move every phase that was `done` before this run started and still sits in
+plan §5 to §2 Completed, one line each — the bookkeeping every refresh makes
+(`3_PLAN_INSTRUCTIONS.md §Bookkeeping`), with no revision-history row, `changeLog` entry or
+`rerunCount` bump. Make the move by hand-off, in the same edit as any other plan change this run
+makes. The phase this run finishes stays in §5 until the next run, whose code check reads it
+there (§Starting From the Right Code) — unless no `pending` phase remains in §5: then move it at
+this hand-off, since no later run will.
 
 If one does apply, **propose the re-slice and wait for the developer's approval before
 building to it.** Present: what changed, which phases you would add/remove/reorder, and which
@@ -253,39 +351,37 @@ Once approved, apply the refresh per `3_PLAN_INSTRUCTIONS.md` (plan doc §1/§2/
 the phase the developer named — or, under advance approval, the next phase in the refreshed
 plan.
 
-### When a Change Touches a Contract
-If the work would change a requirement, a design contract, or plan scope, **you do not
-implement it this run and you do not edit the owning document yourself.** Instead:
-
-1. Say precisely what would have to change, and in **which document**.
-2. Name the delivered phases the change invalidates, if any.
-3. Recommend the owning stage — normally *"rerun `2_DESIGN_INSTRUCTIONS.md` with this change"*.
-4. Tell them what happens next: *"then run the next phase; Step 0c will plan the retrofit."*
-5. Append a `changeLog` entry recording the request, and **stop**.
-
-This is a two-prompt flow by design, and the pause is the point: it is where the developer
-catches a design being amended into something they didn't intend, before any code is planned
-around it.
-
-**The one carve-out** is a genuinely *clarifying* doc edit — fixing a typo'd column name, or
-filling a blank the design plainly intended — which you may make directly, log, and proceed on.
-If you have to reason about whether it changes behavior, it doesn't qualify.
-
 Only when plan, design, requirements, context, and codebase are consistent do you build.
 
 ---
 
 ## Step 1 — Execute (for a phase)
 
-Set the phase `in progress` in `state.json`. Work directly in the target repository's working
-tree — **no branch, no commit** (§Version Control). For each task `P-N.T-M` in dependency order:
+Set the phase `in progress` in `state.json` — in Step 0's chain when 0c reported "plan
+unchanged" (0b, item 5). Work directly in the target repository's working tree — **no branch, no commit**
+(§Version Control). For each task `P-N.T-M` in dependency order:
 
-1. **Read** the task and the design/requirements it references; confirm prerequisites are done.
+1. **Read** the task and the design/requirements it references — in what you read at the start
+   of the run or wrote since; don't open them again — and confirm prerequisites are done.
 2. **Implement** the smallest correct change satisfying the task's scope, honoring the LLD's
    contracts and the constraints. Match the conventions of the code built in earlier phases.
+   Write the task's files in as few steps as your tools allow (`AGENTS.md §Keeping the Request
+   Count Down`).
 3. **Test** — add/adjust automated tests for the behavior; cover edge cases from the requirements.
 4. **Verify** — run the build, tests and linter **in one chained command**; exercise the task's
-   "done when" conditions (call the endpoint, render the screen).
+   "done when" conditions (call the endpoint, render the screen). **A check counts only if it
+   ran and exercised the change.** A syntax-only check does not count, nor does a command that
+   failed to start — a missing tool, an unrestored package — nor a test run that a compile error
+   stopped before any test ran (fix it and rerun). Where only the project's declared
+   dependencies are missing, restore them with the project's own tool (`npm ci`,
+   `dotnet restore`, `pip install -r requirements.txt`, …); never add a package only to make a
+   check run — a new dependency comes only from a task that calls for it. A "done when"
+   condition only a person could check with a tool your session lacks (a screen, with no
+   browser tool) is met through an automated test that exercises it; with none, name it in the
+   report as not run, as in Step 2, item 2 — never an exit criterion, which passes only on a
+   check that ran (Step 2, item 1). Otherwise, if a check the task needs cannot run here — the
+   restore fails, a build tool or service is unavailable — the task is not done: say which check
+   did not run and why (§When You're Blocked). Never skip or shorten a check to save a call.
 5. **Confirm constraints** — every *Implement* obligation touching this task still holds.
 6. **Note the files** this task created, changed or deleted — you list them at hand-off.
 7. **Move on** to the next unblocked task.
@@ -300,7 +396,10 @@ test guide where the change surface warrants.
    mark `done` if they do. Run every criterion that is a command **in one chained command**;
    if the chain stops, name the criterion that failed and those that did not run.
 2. **Walk the developer test guide yourself** end to end; if a step is now wrong, fix it in the
-   plan (don't leave it stale).
+   plan (don't leave it stale). Start what the guide starts, then run its command-line steps —
+   API calls and their expected results — **in one chained command**. A step you cannot carry
+   out here (a screen, with no browser tool) is named in the report as not walked — never
+   reported as walked.
 3. **Update `FEATURE_STATUS.md`** — the coverage ledger, one file for the whole project, in the
    documents location. You **update rows in place**; you never regenerate it. For this run:
 
@@ -330,7 +429,8 @@ test guide where the change surface warrants.
    ```
 
    - **Run the commands yourself** this run and fix whatever is stale. A run doc that doesn't
-     work is worse than none.
+     work is worse than none. Commands the exit-criteria chain or the test-guide walk already
+     ran this run count; run only the rest, in one chained command.
    - **Do not rewrite it at every hand-off.** Touch it only when the way to build, run or
      configure the app actually changed — new prerequisite, new port, new env var, new seed
      step. Most phases change nothing here.
@@ -361,8 +461,10 @@ test guide where the change surface warrants.
      never folded in would be marked processed and silently lost.
    - Ensure any task/guide edits are saved to the plan.
    - **Make these `state.json` writes in one chained command** — status, `sizeReport` and the
-     high-water marks (`AGENTS.md §Keeping the Request Count Down`). Any `add` this run makes
-     (`changeLog`, `edits`) has already run on its own, so the marks can include its printed id.
+     high-water marks (`AGENTS.md §Keeping the Request Count Down`). Any `add` this run made earlier
+     (`changeLog`, `edits`, a split's `phases`) has already printed its id, so the marks and
+     `sizeReport` can use it — on a minor-edit run, these writes follow the entries that cite
+     the edit (§Minor Edits).
      A refusal stops the chain: fix that write and rerun the rest.
 6. **Prepare the commit hand-off** (see §Version Control): the files this run changed, per repo
    under `split`, and a suggested commit message. Run no git command.
@@ -393,6 +495,8 @@ test guide where the change surface warrants.
 
 ### Minor Edits
 
+*Only on a minor-edit run (Step 0a, question 3).*
+
 A **minor edit** is a change that touches no requirement, design contract, or plan scope — a
 config value, a label, a log line, an obvious bug fix. Anything larger is a doc change followed
 by a phase (§When a Change Touches a Contract); do not stretch this category to avoid that.
@@ -407,15 +511,22 @@ if the edit introduced a checkable feature. If the change is invisible to the de
 the ledger alone. Touch `HOW_TO_RUN.md` only if the edit changed how the app is built, run or
 configured.
 
-**Register every minor edit in `state.json edits[]`.** An edit ships code — it deserves an id,
-a status, and a reviewable identity, not just a change-log line. Append
+**Register every minor edit in `state.json edits[]` — once, at hand-off, as soon as its checks
+pass — including the `HOW_TO_RUN.md` commands Step 2, item 4 would run — and before the ledger
+rows that name it (Step 2, item 3)** (DD-28). An edit ships code — it deserves an id, a status, and a reviewable identity, not
+just a change-log line. Append
 `{ "id": "E-<n>", "utc": ..., "summary": ..., "afterPhase": "<the phase it follows>",
 "status": "done", "branch": null, "prUrls": [], "notes": "" }`
-with `add edits "summary=..." afterPhase=P-<n>` — the tool allocates the `E-<n>` id, prints it,
-and fills the other defaults; never pass an `id`. Reference that printed id in the
-`editsAffected` field of any related `changeLog[]` entry.
+with `add edits "summary=..." afterPhase=P-<n> status=done`, on its own — the tool allocates the
+`E-<n>` id, prints it, and fills the other defaults; never pass an `id`. Then write every
+`changeLog[]` entry that cites that printed id in its `editsAffected` field (0b, item 5) in one
+chained command, and the hand-off's high-water marks (Step 2, item 5), which count the ids those
+entries print, in the next. Never register an edit
+earlier: one that turns out to touch a contract stops (§When a Change Touches a Contract) and
+must leave nothing to close. A run that stops before the edit's checks pass registers no edit;
+its stop report says what is half made.
 
-**Edits behave like phases throughout.** Status moves forward only; the commit hand-off follows
+**Otherwise, edits behave like phases throughout.** Status moves forward only; the commit hand-off follows
 the same rule; the developer records testing against the **feature rows** the edit touched, not
 against `E-1` itself; and it can be handed to the Review stage as a target in its own right. A failure
 the developer reports against an edit is forward work, exactly as for a phase — see
@@ -469,28 +580,8 @@ don't re-open them:
 If the developer wants the layout or release model changed, that is a Stage 0 rerun, not a
 decision you make mid-build.
 
-### Starting From the Right Code
-
-Phases are built in sequence, so a phase must start from code that already contains the
-previous phase's work. You build on the files as they stand in the target repository's working
-tree (`context.locations.targetRepo`, plus `targetRepoFrontend` under `split`) — whether the
-developer has committed, merged or switched branches is not yours to inspect.
-**The working tree is the truth; `state.json` is a cache.** Before writing anything:
-
-1. **Confirm the predecessor's work is present by content** — check that the files and symbols
-   the previous phase delivered actually exist there; **per repo** under `split`.
-2. **Say what you found, in one line, before you start:**
-   > "Building P-3 in `./app`. It contains P-2's work (`EmployeeController`, the employee
-   > routes)."
-3. If the predecessor's work is **missing**, stop and ask — don't guess and never silently
-   rebuild it. The usual cause is a checkout without it. Offer the ways forward: they switch to
-   code that has it, or you build here anyway because they know why it's absent.
-
-**Work changed outside the harness is normal.** The developer may hand-fix a file, merge, or
-resolve a conflict, and they are **not** required to report it. When you find code you did not
-expect — present where no phase or edit delivered it, or different from what one delivered —
-append a `changeLog` entry (`author: developer`, `origin: out-of-band`) and reconcile it at
-Step 0b before building.
+*Starting from the right code — the content check before any build — is part of Step 0
+(§Starting From the Right Code).*
 
 ### Recording Developer Decisions
 
@@ -537,7 +628,8 @@ of whatever is there, like any other work.
 4. **Keep the baseline green.** The app builds and runs at every hand-off; previous phases'
    behavior survives except explicit replacements.
 5. **Verify every task before moving on.** A task isn't done until build compiles, relevant
-   tests pass, and its "done when" conditions are met.
+   tests pass, and its "done when" conditions are met — by checks that actually ran (Step 1,
+   item 4; a screen with no browser tool and no automated test is named as not run instead).
 6. **Write tests. Update docs. Update state.** Every run leaves all three current.
 7. **Idiomatic, clean code** for the target stack; honor the code-style constraint mechanically.
    **For UI work, build from the design language in LLD §3b** — use the shared components and
@@ -637,7 +729,9 @@ no plan test guide of its own and does not displace the current phase.
       confirmed).
 - [ ] **Step 0c done:** "plan unchanged" reported, or a re-slice **proposed, approved, and
       applied** per `3_PLAN_INSTRUCTIONS.md` — or applied under this run's prompt's advance approval
-      and reported first — never applied silently.
+      and reported first — never applied silently. Either way, phases `done` before this run
+      moved from plan §5 to §2 Completed — and, when no `pending` phase remains in §5, the
+      phase this run finished.
 - [ ] Nothing touching a requirement, design contract, or plan scope was built or doc-edited —
       such requests were routed to their owning stage and stopped on — apart from an approved
       Step 0c refresh or mid-phase split.
@@ -647,7 +741,8 @@ no plan test guide of its own and does not displace the current phase.
 - [ ] `sizeReport` recorded and stated in the report, its verdict consistent with `pushedLater`.
       An approved split re-pointed its `FEATURE_STATUS.md` rows to the new phase; no row reads
       `scheduled in` this phase once it is `done`.
-- [ ] App in the promised runnable state; the developer test guide walked and accurate.
+- [ ] App in the promised runnable state; the developer test guide walked (steps that cannot be
+      carried out here named as not walked) and accurate.
 - [ ] **`FEATURE_STATUS.md` updated in place:** delivered rows read `built in P-N` with a
       concrete `How to check`; rows whose **behavior** changed gained this phase and were
       **reset to `untested`**;
@@ -668,7 +763,8 @@ no plan test guide of its own and does not displace the current phase.
       changed files (per repo under `split`) and a suggested commit message (initial task /
       reasoning / outcome).
 - [ ] `branch` and `prUrls` left as they were unless the developer said where the work went; a
-      minor edit registered in `edits[]` with its own `E-<n>` id.
+      minor edit registered in `edits[]` once its checks passed, already `done`, with its own
+      `E-<n>` id.
 - [ ] `progress.lastProcessedChangeLogId` and `lastProcessedReviewNumber` advanced to exactly
       what this run folded in — never blindly to the highest present.
 - [ ] Review findings folded in are named in the report; any too large went to Step 0c rather

@@ -706,7 +706,8 @@ Field notes (the later stages depend on these; keep them exact):
   Anything that touches a contract is a doc change followed by a **phase**, not an edit. Each: `{ "id": "E-1", "utc": "...", "summary": "...", "afterPhase": "P-2", "status": "pending|in progress|done", "branch": "<or null>", "prUrls": [], "notes": "" }`.
   An edit is a **reviewable unit in its own right** — it ships code, so it can be a Review
   target exactly like a phase. Its lifecycle fields behave exactly as a phase's do, including
-  forward-only status and `FEATURE_STATUS.md` owning whether a human tested it.
+  forward-only status and `FEATURE_STATUS.md` owning whether a human tested it — except that the
+  Implement stage registers it once its checks pass, already `done`.
 - **`changeLog[]`** — the loop's memory. Each: `{ "id": <int>, "utc": "...", "author": "developer|implement-agent|review-agent", "origin": "developer-prompt|reconcile|review-<Rid>|out-of-band", "summary": "...", "docsTouched": ["requirements|design|plan|context"], "phasesAffected": ["P-3"], "editsAffected": ["E-1"] }`.
 - **`reviews[]`** — created by the Review stage. Each: `{ "id": "R-1", "target": "P-3 | E-1 | whole-build", "utc": "...", "result": "clean|findings", "blockerCount": <int>, "findingsCount": <int> }`.
   **A review never blocks anything.** Its findings become `changeLog[]` entries that the next

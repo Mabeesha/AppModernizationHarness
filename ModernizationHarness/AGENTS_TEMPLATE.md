@@ -126,7 +126,8 @@ stage and in ordinary chat:
   not run. **Never chain a write that needs an id printed by an earlier `add`** — run that `add`
   on its own first. If your shell tool refuses chained commands, run them one at a time.
 - **Write in as few edits as possible.** Write a new file whole; group changes to one file into
-  one edit where the tool allows.
+  one edit where the tool allows; and where your tools allow several calls in one step, write
+  several files in that one step.
 - **Don't spend a call checking your own write.** A failed write or edit reports itself; re-read
   only when a later step needs the content.
 
@@ -187,7 +188,8 @@ it — and a phase ID is **never reused or renumbered**.
 3. **`state.json`'s `changeLog[]` and `reviews[]` are append-only.** Correct the record by
    appending, never by rewriting or deleting.
 4. **Phase and edit status moves forward only: `pending` → `in progress` → `done`.** You set all
-   three as work proceeds; `done` is terminal — **what is built is built.** A reported failure is
+   three on a phase as work proceeds; a minor edit is registered once its checks pass, already
+   `done`. `done` is terminal — **what is built is built.** A reported failure is
    recorded in `FEATURE_STATUS.md` and fixed as forward work, never by reopening what shipped it.
 5. **Only the developer authorizes `passed` or `failed` in `FEATURE_STATUS.md`** — they mean a
    human ran the app. Write one only on their explicit word; never infer one or write one to clear
