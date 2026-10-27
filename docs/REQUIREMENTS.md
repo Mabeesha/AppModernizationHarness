@@ -12,7 +12,7 @@ application with a coding agent, **one small testable increment at a time**, wit
 control of scope, quality, or history.
 
 It ships as Markdown files the developer copies into their project and cites in prompts, plus
-two small stdlib-Python tools (the state tool and the legacy code map tool), vendored agent skills, and install scripts that copy it all
+three small stdlib-Python tools (the state tool, the legacy code map tool, and the documents tool that keeps the feature ledger and the plan's bookkeeping), vendored agent skills, and install scripts that copy it all
 into place. No runtime or service to maintain.
 
 ## 2. Users & actors
@@ -77,8 +77,8 @@ and anything that modifies the legacy source (read-only in every stage).
 | 0 Context | `PROJECT_CONTEXT.md`, `INTAKE_RESOLVED.md`, `state.json` |
 | 1 Requirements | Business / Functional / Technical requirements, and `LEGACY_CODE_MAP_<App>.md` |
 | 2 Design | HLD + LLD (the LLD is the authoritative contract) |
-| 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]` |
-| 4 Implement | Code, updated `FEATURE_STATUS.md` rows, and a hand-off the developer commits from |
+| 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]` + the feature ledger (`features.json`, shown as `FEATURE_STATUS.md`) |
+| 4 Implement | Code, updated feature-ledger rows, and a hand-off the developer commits from |
 | 5 Review | `REVIEW_<Rid>_<App>_<target>.md` + findings in `state.json` |
 
 - **R3.1** Every stage supports a **rerun with Additional Instructions**. Documents are amended
@@ -91,12 +91,14 @@ and anything that modifies the legacy source (read-only in every stage).
   the work — a command that failed to start, or a syntax-only check, is not a pass.
 - **R4.2** Phase and edit status moves **forward only** — `pending` → `in progress` → `done`.
   Nothing rewinds; `done` is terminal. What is built is built.
-- **R4.3** Whether a human has tested the work is recorded **per feature** in
-  `FEATURE_STATUS.md`, never as a phase status, because a later phase can change what an
-  earlier one delivered.
+- **R4.3** Whether a human has tested the work is recorded **per feature** in the feature
+  ledger (`features.json`, shown as `FEATURE_STATUS.md`), never as a phase status, because a
+  later phase can change what an earlier one delivered.
 - **R4.4** Only the developer authorizes a `passed` or `failed` mark, and it **blocks nothing**.
   Several may be recorded at once when they name them. An agent may write `untested` — and must,
-  for any row whose behavior it changed.
+  for any row whose behavior it changed. The documents tool refuses `passed` or `failed` unless
+  the command states the developer said so (`--developer-said`); it cannot verify that, so the
+  flag is a speed bump, not proof.
 
 ### R5 — Rolling plan
 - **R5.1** The plan covers **remaining work only**; `done` phases drop to a Completed line,
@@ -108,8 +110,18 @@ and anything that modifies the legacy source (read-only in every stage).
   changed.
 - **R5.4** Phase IDs are **permanent** — never renumbered or reused. Execution order lives in
   the plan document, not in the IDs.
-- **R5.5** **`FEATURE_STATUS.md`** holds one row per requirement, and rows are **never
-  deleted** — the plan is a forecast, the ledger is the commitment.
+- **R5.5** **The feature ledger** holds one row per requirement, and rows are **never
+  deleted** — the plan is a forecast, the ledger is the commitment. Its record is
+  **`features.json`**, written only through the documents tool (`tools/docs.py`), which has no
+  delete, keeps ids unique and permanent, accepts only the defined `build` / `tested` values,
+  and cross-checks rows against `state.json`'s phases. **`FEATURE_STATUS.md`** is a view the
+  tool regenerates on every write; a hand edit to it is detected and never overwritten
+  silently. A project with a Markdown-only ledger migrates it once (`feature import`), and the
+  import refuses, naming them, any rows it cannot parse.
+- **R5.6** The plan stays Markdown. Its mechanical edits go through the documents tool: moving a
+  `done` phase from §5 to a one-line §2 Completed entry (`plan complete`, refused for a phase
+  not `done`), and exact replacements (`plan replace`, each old text found exactly once, all or
+  nothing).
 
 ### R6 — Changes mid-build
 - **R6.1** The agent classifies each request itself — **phase**, **contract change**, or **minor
@@ -132,6 +144,9 @@ and anything that modifies the legacy source (read-only in every stage).
   integers) tells each run which entries it has already folded in.
 - **R7.4** The developer never hand-edits `state.json` — they say what happened, the agent
   records it and confirms.
+- **R7.5** A tool's values file (`@FILE`) goes in **`.harness-tmp/`** at the working-tree root,
+  which the tools create with a `.gitignore` of `*`, so it never reaches git with no git command
+  run; a path outside the repo still works, and deleting the file after use is optional.
 
 ### R8 — Independent review
 - **R8.1** Review runs in a **separate session**; it never reviews code written in the same run.
@@ -154,7 +169,8 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R10.1** Every phase ends runnable and manually testable.
 - **R10.2** Exactly **one** `HOW_TO_RUN.md` exists — how to build, run and configure the app —
   updated only when that actually changes, and its commands run by the agent at hand-off.
-- **R10.3** Per-feature checks live in `FEATURE_STATUS.md`, beside the tested column. Changed
+- **R10.3** Per-feature checks live in the feature ledger (`features.json`, shown as
+  `FEATURE_STATUS.md`), beside the tested column. Changed
   behavior edits its check **in place** and resets the row to `untested` — no check may describe
   something that no longer works, and no `passed` mark may outlive the behavior it vouched for.
 - **R10.4** Every hand-off report carries **two counts** — features awaiting testing, and open
@@ -233,7 +249,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra (plus the re-slice approval, unless it is given in advance — R5.3) |
 | Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and, once the developer commits it, a git commit |
-| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, and finds legacy code through the code map (R13) |
+| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, finds legacy code through the code map (R13), and updates the ledger and the plan's bookkeeping through one tool command each (R5.5–R5.6) — while keeping each write, chain and reply small enough not to fail on the platform's output and time limits |
 | Q7 | **No explain-again round trips** — a report the developer cannot follow costs a whole extra request to clarify; R12 makes the first answer self-explanatory |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)
@@ -262,4 +278,5 @@ stateDiagram-v2
 *Forward only. `done` is terminal — a failure the developer reports, or a design change that
 invalidates the work, becomes new forward work, never a reopened phase. A run that stops early
 leaves the phase `in progress`; the next run resumes it (R11.7). Whether a human has
-tested it is tracked separately, per feature, in `FEATURE_STATUS.md`.*
+tested it is tracked separately, per feature, in the feature ledger (`features.json`, shown as
+`FEATURE_STATUS.md`).*

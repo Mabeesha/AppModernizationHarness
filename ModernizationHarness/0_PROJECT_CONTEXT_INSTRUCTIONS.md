@@ -698,8 +698,8 @@ Field notes (the later stages depend on these; keep them exact):
     Each phase builds on the files as they stand in the working tree, so the predecessor's code
     is there whether or not anything was committed or merged. Presence is always checked
     **by content**.
-  - **Whether a human has tested a phase's work is not recorded here.** That belongs to
-    `FEATURE_STATUS.md`, per feature, because a later phase can change what an earlier one
+  - **Whether a human has tested a phase's work is not recorded here.** That belongs to the
+    feature ledger (`features.json`, shown as `FEATURE_STATUS.md`), per feature, because a later phase can change what an earlier one
     delivered and a phase-level mark cannot express that.
 - **`edits[]`** — **minor** edits, created by the Implement stage: changes that touch no
   requirement, design contract, or plan scope (a config value, a label, an obvious bug fix).

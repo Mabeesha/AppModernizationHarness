@@ -318,6 +318,24 @@ class StateToolTest(unittest.TestCase):
         self.file.write_text("{not json", encoding="utf-8")
         self.assertIn("not valid JSON", self.refused("summary"))
 
+    def test_values_folder_is_created_and_ignores_itself(self):
+        # Values files (@FILE) go in .harness-tmp/ at the working-tree root; the tool creates
+        # it with a .gitignore of "*", so no git command is needed to keep it out of commits.
+        self.run_tool("summary")
+        self.assertEqual((self.dir / ".harness-tmp" / ".gitignore").read_text(encoding="ascii"),
+                         "*\n")
+        payload = self.dir / ".harness-tmp" / "values.json"
+        payload.write_text(json.dumps({"author": "developer", "origin": "out-of-band",
+                                       "summary": f"fixed {DASH} it"}, ensure_ascii=False),
+                           encoding="utf-8")
+        self.run_tool("add", "changeLog", "@" + str(payload))
+        self.assertEqual(self.state()["changeLog"][0]["summary"], f"fixed {DASH} it")
+        self.run_tool("summary")  # an existing folder and its files are left as they are
+        self.assertEqual(sorted(p.name for p in (self.dir / ".harness-tmp").iterdir()),
+                         [".gitignore", "values.json"])
+        (self.dir / ".harness-tmp" / "state.json").write_text("{}", encoding="utf-8")
+        self.run_tool("summary")  # a stray copy there is never taken for the real state.json
+
     def test_two_state_files_need_an_explicit_path(self):
         (self.dir / "other").mkdir()
         (self.dir / "other" / "state.json").write_text(json.dumps(INITIAL), encoding="utf-8")

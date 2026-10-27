@@ -50,7 +50,7 @@ stage runs — which is exactly where drift comes from.
 | **Phase** (`P-3`) | One planned increment of the build. Runnable and testable when it lands. |
 | **Minor edit** (`E-1`) | A small change that touches no requirement, design contract, or plan scope. Ships like a tiny phase. |
 | **`done`** | Built, and the agent's mechanical checks passed. It is the **final** status — nothing rewinds, and nothing waits on you. |
-| **`FEATURE_STATUS.md`** | The ledger: one row per feature — how to check it, which phase built it, whether *you* have tested it. Only you authorize a `passed`/`failed` mark, and it blocks nothing. |
+| **`FEATURE_STATUS.md`** | The ledger: one row per feature — how to check it, which phase built it, whether *you* have tested it. Only you authorize a `passed`/`failed` mark, and it blocks nothing. The rows are kept in `features.json`, and a script (`tools/docs.py`) rewrites this page from them — read it, don't edit it. |
 | **`state.json`** | The agent's memory: statuses, the change log, review records, and the branches and PRs you tell it about. **You never edit it by hand.** |
 | **`LEGACY_CODE_MAP_<App>.md`** | Where each part of the old code lives. Stage 1 saves it; a script lists every file and what it declares, and the agent adds which files hold each feature. Every later stage looks legacy code up there instead of searching — fewer model calls. |
 | **Retrofit phase** | A *new* phase that brings already-delivered code up to a changed design. `done` phases are never reopened. |

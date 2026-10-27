@@ -24,7 +24,7 @@ each increment is small, reviewable and separately testable.
 
 > **Nothing in this stage blocks on the developer having tested anything.** Phases move
 > `pending → in progress → done`, forward only. Whether a human has walked the app is recorded
-> per feature in `FEATURE_STATUS.md`, and it gates nothing. Your exit criteria are the only
+> per feature in the feature ledger, and it gates nothing. Your exit criteria are the only
 > gate in the loop.
 
 > **Changes mid-flight are normal, not exceptional.** The plan covers remaining work only and is
@@ -47,9 +47,10 @@ each increment is small, reviewable and separately testable.
 2. **`state.json`** — the live state: `phases[]` (status/lineage), `changeLog[]`, `reviews[]`,
    `context` (stacks, locations, repo and deployment decisions). **You read and update this
    every run.**
-2b. **`FEATURE_STATUS.md`** — the coverage ledger: what is built, how to check it, and what the
-   developer has tested. **You update rows at every hand-off**; you never write its `Tested`
-   column except on the developer's explicit word.
+2b. **The feature ledger** — read as `FEATURE_STATUS.md`, the view of `features.json`: what is
+   built, how to check it, and what the developer has tested. **You update rows at every
+   hand-off**, through `tools/docs.py` (`AGENTS.md §The Feature Ledger`); you write
+   `tested` only as `untested`, except on the developer's explicit word.
 3. **The phase or edit to perform** — from the prompt, or else the next planned phase. Step 0
    §Pick the work says which, including work a previous run left `in progress`.
 4. **Reference — the design documents** (HLD + LLD). The LLD is the authoritative contract.
@@ -107,8 +108,10 @@ Where this chat already resolved the paths in an earlier run, make the two one c
 `context.locations` it prints differs from the paths you used, read the documents again from the
 new ones. Read everything fresh every run, even in a chat that read it before — the developer
 may have changed any of it since. Then work from what you read and what this run wrote: do not
-open these documents again this run, except where your edit tool needs a file opened before
-editing it.
+open these documents again this run. **The one exception:** before editing a file with an edit
+tool that needs its own read first (GitLab Duo's does), open it with that tool's reader — the
+shell command above does not count. The plan and the ledger need no such read: change them
+through `tools/docs.py`.
 
 ---
 
@@ -286,9 +289,9 @@ other entries (0b, item 5), and reconcile it at Step 0b before building.
 
    The test between the second and third rows is *authority, not size* — the same test as 0a: a
    fix behind a stable contract is reconciliation; a change to the contract itself is a
-   retrofit. Whichever row applies, **every `FEATURE_STATUS.md` row whose behavior you change
-   resets to `untested`** and gains this phase (or edit) in its `Phase(s)` column (on a
-   minor-edit run, written at Step 2, item 3, once the edit is registered).
+   retrofit. Whichever row applies, **every ledger row whose behavior you change resets to
+   `untested`** and gains this phase (or edit) in its `phases` — written with Step 2, item 3's
+   rows in the same `feature set` call (on a minor-edit run, once the edit is registered).
 5. **Append a `changeLog` entry** (author `implement-agent`, origin `reconcile`) summarizing
    what you reconciled and which phases it touched. **Write Step 0's `changeLog` adds in one
    chained command** — this entry, item 3's developer notes, and any hand-edit (item 2) or
@@ -325,10 +328,15 @@ common case and should cost you one line.
 **Re-sliced or not**, move every phase that was `done` before this run started and still sits in
 plan §5 to §2 Completed, one line each — the bookkeeping every refresh makes
 (`3_PLAN_INSTRUCTIONS.md §Bookkeeping`), with no revision-history row, `changeLog` entry or
-`rerunCount` bump. Make the move by hand-off, in the same edit as any other plan change this run
-makes. The phase this run finishes stays in §5 until the next run, whose code check reads it
-there (§Starting From the Right Code) — unless no `pending` phase remains in §5: then move it at
-this hand-off, since no later run will.
+`rerunCount` bump. Make the move by hand-off with `python <stage folder>/tools/docs.py plan
+complete P-N "<one line>"` — several pairs in one command; it refuses a phase not `done` and
+prints the headings it removed, so check that they are that phase's — and
+any other plan change this run makes with `plan replace @FILE`: a JSON list of exact `{"old": …,
+"new": …}` pairs, each old text found once, applied all or none (`plan show P-N` prints one
+phase, `plan check` the headings the tool relies on). The phase this run finishes stays in §5
+until the next run, whose code check reads it there (§Starting From the Right Code) — unless no
+`pending` phase remains in §5: then move it at this hand-off, after Step 2, item 5's
+`status=done` write, since no later run will.
 
 If one does apply, **propose the re-slice and wait for the developer's approval before
 building to it.** Present: what changed, which phases you would add/remove/reorder, and which
@@ -368,8 +376,10 @@ unchanged" (0b, item 5). Work directly in the target repository's working tree �
    Write the task's files in as few steps as your tools allow (`AGENTS.md §Keeping the Request
    Count Down`).
 3. **Test** — add/adjust automated tests for the behavior; cover edge cases from the requirements.
-4. **Verify** — run the build, tests and linter **in one chained command**; exercise the task's
-   "done when" conditions (call the endpoint, render the screen). **A check counts only if it
+4. **Verify** — run the build, tests and linter in as few commands as the command time limit
+   allows: chained where the whole chain finishes well inside it, a long build or test suite on
+   its own; after a timeout, check by content what ran before re-running anything
+   (`AGENTS.md §Keeping the Request Count Down`). Exercise the task's "done when" conditions (call the endpoint, render the screen). **A check counts only if it
    ran and exercised the change.** A syntax-only check does not count, nor does a command that
    failed to start — a missing tool, an unrestored package — nor a test run that a compile error
    stopped before any test ran (fix it and rerun). Where only the project's declared
@@ -393,26 +403,33 @@ test guide where the change surface warrants.
 ## Step 2 — Hand Off
 
 1. **Run the phase's exit criteria** — the only gate. All must pass. You may only
-   mark `done` if they do. Run every criterion that is a command **in one chained command**;
-   if the chain stops, name the criterion that failed and those that did not run.
+   mark `done` if they do. Run the criteria that are commands chained, within the command time
+   limit as in Step 1, item 4; if a chain stops, name the criterion that failed and those that
+   did not run. **Never tick the plan's exit-criteria or task checkboxes** (`- [ ]`) — status
+   lives in `state.json`, and a ticked box is a second record that drifts.
 2. **Walk the developer test guide yourself** end to end; if a step is now wrong, fix it in the
-   plan (don't leave it stale). Start what the guide starts, then run its command-line steps —
-   API calls and their expected results — **in one chained command**. A step you cannot carry
+   plan (don't leave it stale). **First check the app's port is free** — a leftover instance
+   answers the walk with old code: stop it if it is a leftover of this app, else report it
+   rather than walk against it. Start what the guide starts, then run its command-line steps —
+   API calls and their expected results — **in one chained command**; when the walk is done,
+   stop what it started. A step you cannot carry
    out here (a screen, with no browser tool) is named in the report as not walked — never
    reported as walked.
-3. **Update `FEATURE_STATUS.md`** — the coverage ledger, one file for the whole project, in the
-   documents location. You **update rows in place**; you never regenerate it. For this run:
+3. **Update the feature ledger** — every row this run touched in **one** `feature set @FILE`
+   call, a new row by `feature add` (`AGENTS.md §The Feature Ledger`). You
+   **update rows in place**; you never regenerate it. For this run:
 
-   - Every row this phase **delivered**: set `Build` to `built in P-N`, add `P-N` to
-     `Phase(s)`, and fill `How to check` by distilling the phase's developer test guide into
-     1–3 concrete lines (a URL, a command, the expected result). This is the thing the
+   - Every row this phase **delivered**: set `build` to `built in P-N`, add `P-N` to `phases`,
+     and fill `howToCheck` by distilling the phase's developer test guide into 1–3 concrete
+     lines (a URL, a command, the expected result). This is the thing the
      developer will actually walk, possibly weeks from now — make it stand alone.
-   - Every row whose behavior this phase **changed**: add `P-N` to `Phase(s)`, edit
-     `How to check` in place so it describes the new behavior, and **reset `Tested` to
+   - Every row whose behavior this phase **changed**: add `P-N` to `phases`, edit
+     `howToCheck` in place so it describes the new behavior, and **reset `tested` to
      `untested`**. Never leave a check describing something that no longer works, and never
      leave a `passed` mark on behavior the developer has not seen.
-   - **Never write the `Tested` column** other than that reset. `passed` and `failed` come only
-     from the developer's explicit word (see §Recording Developer Decisions).
+   - **Never write `tested`** other than that reset. `passed` and `failed` come only from the
+     developer's explicit word (see §Recording Developer Decisions); the tool refuses them
+     without `--developer-said`.
 
 4. **Update `HOW_TO_RUN.md` only if it is now wrong.** One file for the whole project, in the
    documents location. It describes **how to build, run and configure the app as it stands**,
@@ -459,9 +476,11 @@ test guide where the change surface warrants.
      `progress.lastProcessedReviewNumber` to the `<n>` of the last review you addressed. Do
      **not** simply take the highest id present: an entry a developer added mid-run that you
      never folded in would be marked processed and silently lost.
-   - Ensure any task/guide edits are saved to the plan.
+   - Ensure any task/guide edits are saved to the plan (`plan replace`).
    - **Make these `state.json` writes in one chained command** — status, `sizeReport` and the
-     high-water marks (`AGENTS.md §Keeping the Request Count Down`). Any `add` this run made earlier
+     high-water marks (`AGENTS.md §Keeping the Request Count Down`) — and end it with item
+     7's `feature count`s, then `docs.py feature check` (and `plan check` when the plan
+     changed). Any `add` this run made earlier
      (`changeLog`, `edits`, a split's `phases`) has already printed its id, so the marks and
      `sizeReport` can use it — on a minor-edit run, these writes follow the entries that cite
      the edit (§Minor Edits).
@@ -478,8 +497,8 @@ test guide where the change surface warrants.
      it was too large.
    - The runnable state: exact commands to start, and a pointer to `HOW_TO_RUN.md`.
    - **The two counts, every run, without being asked:**
-     1. **features awaiting testing** — `FEATURE_STATUS.md` rows that are `built in …` and
-        `untested`, with the count this phase added or reset;
+     1. **features awaiting testing** — ledger rows that are `built in …` and `untested`
+        (`feature count`), with the count this phase added or reset (`feature count P-N`);
      2. **open review findings** — findings from `reviews[]` not yet fixed.
      Nothing blocks on either number. They exist because nothing blocks on either number: they
      are the only standing signal of how far ahead of verification the build has run.
@@ -504,10 +523,10 @@ by a phase (§When a Change Touches a Contract); do not stretch this category to
 The shape is the same as a phase, minus phase-status transitions: make the change with
 tests/docs/state updated, verify, update the ledger, prepare the commit hand-off, report, stop.
 
-**The documents on an edit run.** In `FEATURE_STATUS.md`, edit in place the `How to check` of
-any row whose behavior this edit changed, add `E-<n>` to its `Phase(s)`, and **reset its
-`Tested` to `untested`** — an edit changes delivered behavior exactly as a phase does. Add a row
-if the edit introduced a checkable feature. If the change is invisible to the developer, leave
+**The documents on an edit run.** In the feature ledger — one `feature set` call — edit in
+place the `howToCheck` of any row whose behavior this edit changed, add `E-<n>` to its `phases`,
+and **reset its `tested` to `untested`** — an edit changes delivered behavior exactly as a phase
+does. Add a row (`feature add`) if the edit introduced a checkable feature. If the change is invisible to the developer, leave
 the ledger alone. Touch `HOW_TO_RUN.md` only if the edit changed how the app is built, run or
 configured.
 
@@ -551,7 +570,7 @@ version) or in a skill that says the agent branches, commits, opens PRs or runs 
 For every unit of work:
 
 - **Update, in the same run:** the **tests** (new/changed behavior is covered), the
-  **documentation** (READMEs, the plan's test guide, **`FEATURE_STATUS.md`**, and
+  **documentation** (READMEs, the plan's test guide, **the feature ledger**, and
   **`HOW_TO_RUN.md`** if running the app changed), and **`state.json`** (statuses, change log).
 - **Hand off what the developer needs to commit it:**
   1. **The files you changed** — created, edited, deleted — including the documents and
@@ -585,15 +604,16 @@ decision you make mid-build.
 
 ### Recording Developer Decisions
 
-The developer never hand-edits `state.json` or `FEATURE_STATUS.md`. They tell you what
+The developer never hand-edits `state.json` or the feature ledger. They tell you what
 happened; you write it and confirm. **The protocol — what each statement maps to — is defined
 in `AGENTS.md §Recording What the Developer Tells You`, which is loaded in every session.
 Follow it there; it is not restated here so the two cannot drift.**
 
 Two points specific to this stage:
 
-- **Testing results are ledger writes, not status writes.** "accept P-2" ticks the
-  `FEATURE_STATUS.md` rows built in P-2; it does not change P-2's `status`, which stays `done`
+- **Testing results are ledger writes, not status writes.** "accept P-2" ticks the ledger
+  rows built in P-2 (`feature set P-2 tested=passed --developer-said`); it does not change
+  P-2's `status`, which stays `done`
   because the code is still built. Nothing in this stage waits on it.
 - **A reported failure is work to schedule**, not a rewind. Record it on the row and handle it
   per §Re-running a Phase (or Edit) That Failed Testing.
@@ -698,8 +718,8 @@ Stop and report (rather than improvising) if:
     about the moved work.** Criteria that bind every phase — build, tests, formatter/linter,
     any coverage bar, earlier phases still working — stay, and must pass. A split is never a
     way around a failing gate; name in the proposal every criterion you would remove;
-  - re-point every `FEATURE_STATUS.md` row for the moved work to `scheduled in` the new phase,
-    leaving `Tested` untouched;
+  - re-point every ledger row for the moved work to `scheduled in` the new phase (`feature
+    set`, one call), leaving `tested` untouched;
   - record the move in `sizeReport.pushedLater` and a `changeLog` entry, then hand off as
     usual.
 
@@ -741,12 +761,13 @@ no plan test guide of its own and does not displace the current phase.
 - [ ] `sizeReport` recorded and stated in the report, its verdict consistent with `pushedLater`.
       An approved split re-pointed its `FEATURE_STATUS.md` rows to the new phase; no row reads
       `scheduled in` this phase once it is `done`.
-- [ ] App in the promised runnable state; the developer test guide walked (steps that cannot be
-      carried out here named as not walked) and accurate.
-- [ ] **`FEATURE_STATUS.md` updated in place:** delivered rows read `built in P-N` with a
-      concrete `How to check`; rows whose **behavior** changed gained this phase and were
-      **reset to `untested`**;
-      no `Tested` value invented; no row deleted.
+- [ ] App in the promised runnable state; the developer test guide walked on a free port
+      (steps that cannot be carried out here named as not walked), accurate, and what the walk
+      started stopped.
+- [ ] **The feature ledger updated in place through `tools/docs.py`** (by hand under its rules
+      only without Python, said in the report): delivered rows read `built in P-N` with a
+      concrete `howToCheck`; rows whose **behavior** changed gained this phase and were **reset
+      to `untested`**; no `tested` value invented; no row deleted; `feature check` passes.
 - [ ] **`HOW_TO_RUN.md` accurate:** its commands run this session; edited only if building,
       running or configuring the app changed.
 - [ ] Previous phases' testable behavior still works (explicit replacements aside); the report
@@ -769,7 +790,8 @@ no plan test guide of its own and does not displace the current phase.
       what this run folded in — never blindly to the highest present.
 - [ ] Review findings folded in are named in the report; any too large went to Step 0c rather
       than stalling the run.
-- [ ] Phase (or edit) `status` is `done` in `state.json` — terminal; plan edits saved.
+- [ ] Phase (or edit) `status` is `done` in `state.json` — terminal; plan edits saved; no plan
+      checkbox ticked.
 - [ ] **The two counts are in the report** — features awaiting testing, and open review
       findings — asked for or not.
 - [ ] Open questions and assumptions reported, not silently resolved.

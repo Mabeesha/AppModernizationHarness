@@ -23,9 +23,11 @@ findingsCount); the true/false fields (sharedDataStore, sharedWithLegacy); the l
 (prUrls, docsTouched, phasesAffected, editsAffected), which take a,b,c; and sizeReport, which
 takes a JSON object. A wrong type is refused. Quote the whole pair when it has spaces:
 "summary=fixed the export header".
-Nested objects or text with quotes: write a JSON object of fields to a UTF-8 file outside the
-repo and pass @FILE in place of the pairs. Never pipe JSON in: Windows PowerShell 5.1 turns
-non-ASCII characters into "?" on the way.
+Nested objects or text with quotes: write a JSON object of fields to a UTF-8 file and pass
+@FILE in place of the pairs. Put the file in .harness-tmp/ under the working-tree root - this
+tool (and docs.py) creates that folder with a .gitignore of "*", so it never reaches git - or
+anywhere outside the repo; deleting it after use is optional. Never pipe JSON in: Windows
+PowerShell 5.1 turns non-ASCII characters into "?" on the way.
 Output is ASCII; a non-ASCII character prints as an escape such as \\u2014, and both k=v and
 @FILE turn that escape back into the character, so a copied value round-trips. (So k=v text
 cannot hold a literal backslash-u plus four hex digits; use @FILE with "\\\\u" for that.)
@@ -72,10 +74,23 @@ ALLOWED = {
     "result": (lambda v: v in ("clean", "findings"), "clean or findings"),
 }
 SKIP_DIRS = {".git", "node_modules", "bin", "obj", "target", "dist", "ModernizationHarness"}
+TMP_DIR = ".harness-tmp"  # values files; ignores itself in git
 
 
 def die(msg):
     sys.exit(f"state.py: {msg}")
+
+
+def ensure_tmp_dir():
+    """Create .harness-tmp/ with a .gitignore of "*" where missing; no git command needed."""
+    try:
+        os.makedirs(TMP_DIR, exist_ok=True)
+        ignore = os.path.join(TMP_DIR, ".gitignore")
+        if not os.path.exists(ignore):
+            with open(ignore, "w", encoding="ascii", newline="\n") as f:
+                f.write("*\n")
+    except OSError:
+        pass  # a read-only tree still runs every command
 
 
 def now():
@@ -346,6 +361,7 @@ COMMANDS = {"summary": cmd_summary, "get": cmd_get, "new": cmd_new, "add": cmd_a
 def main(argv):
     for stream in (sys.stdout, sys.stderr):  # ASCII survives any console encoding
         stream.reconfigure(encoding="ascii", errors="backslashreplace")
+    ensure_tmp_dir()
     path = None
     if argv[:1] == ["--file"]:
         if len(argv) < 2:

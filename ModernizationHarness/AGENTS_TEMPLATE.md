@@ -40,8 +40,9 @@ only the slice you ask for. Commands: `summary` (**start every run here**), `get
 (entries above the `progress` marks), `add`, `set`, `drop`, `check`. **Run it with no command for
 the full syntax** when a command is refused as malformed. Two things it will not refuse, so get
 them right first time: **field names must be exact** — a misspelled one is stored as a new field,
-not refused — and a value holding quotes or a nested object goes in an `@FILE` kept **outside the
-repo**, never piped in.
+not refused — and a value holding quotes or a nested object goes in an `@FILE`: a UTF-8 JSON
+file in **`.harness-tmp/`** at the working-tree root (the tools create it, and it keeps itself out
+of git), or outside the repo — never piped in.
 
 - **Two kinds of refusal.** A malformed command — unknown path, wrong value type, bad syntax — is
   yours: correct it and rerun. A rule refusal — a backward status, a write to
@@ -50,8 +51,27 @@ repo**, never piped in.
   for a status (Invariant 4), an appended entry to correct history (Invariant 3).
 - **Stage 0 is the one exception:** it writes the initial file (and a rerun's `context` changes)
   directly, then runs `check`.
-- **If Python is unavailable, in any stage,** edit `state.json` by hand under the same rules, keep
-  it valid JSON, and say so in the report.
+- **If Python is unavailable, in any stage,** edit `state.json` — and `features.json`,
+  `FEATURE_STATUS.md` and the plan — by hand under the same rules, keep the JSON valid and the
+  view's rows equal to `features.json`'s, and say so in the report. The next ledger write by the
+  tool then needs `--force`, once you have checked `features.json` holds every change.
+
+---
+
+## The Feature Ledger
+
+**The feature ledger is `features.json`** (beside `state.json`); **`FEATURE_STATUS.md` is a view
+generated from it. Never edit either by hand — use the documents tool,** `python <stage
+folder>/tools/docs.py`, run like the state tool (same `--file`, `k=v`, `@FILE`, output and
+refusal rules; run it with no command for the syntax):
+
+- **Read:** `feature show [P-N | ID …]`; `feature count [P-N]` — built-and-`untested` rows by
+  phase, and `failed` ones; `feature check`.
+- **Write:** `feature set <ID> k=v …`, or `feature set @FILE` with `[{"id": …, <fields>}, …]` for
+  several rows in one call; `feature add` for a new row (always `untested`). `phases=P-4`
+  appends. No row is ever deleted and no id ever changes. **`tested`: you write only
+  `untested`** — `passed` / `failed` need `--developer-said`, passed only on the developer's word
+  (invariant 5); the tool cannot check it.
 
 ---
 
@@ -107,8 +127,8 @@ stage and in ordinary chat:
 
 - **Batch independent reads.** Read several known files in **one command** that labels each
   one — bash: `tail -n +1 FILE1 FILE2`; PowerShell: `Get-ChildItem FILE1, FILE2 | % { "==> $_";
-  Get-Content -LiteralPath $_.FullName }` — or, where your tools allow several calls in one
-  step, issue them together.
+  Get-Content -LiteralPath $_.FullName -Encoding UTF8 }` — or, where your tools allow several
+  calls in one step, issue them together.
 - **Find legacy code through the code map.** Before searching or listing the legacy source, look
   in `LEGACY_CODE_MAP_<AppName>.md` in the documents location: §1 says where each area lives, §3
   lists every file with the names declared in it and their line numbers. Open only the files it
@@ -120,16 +140,35 @@ stage and in ordinary chat:
 - **Don't re-read what cannot have changed.** Within one run, a file only you have touched need
   not be read again. **Every stage run reads its inputs fresh** — between runs the developer,
   a formatter or a build may have changed any of them, and you cannot see that from memory.
-- **Chain dependent commands** — build, tests and linter; a run of state-tool writes — into one
+- **Chain dependent commands** — build, tests and linter (within the time limit below); a run
+  of state-tool writes — into one
   shell command that stops at the first failure (bash: `a && b && c`; Windows PowerShell 5.1:
   `a; if ($?) { b; if ($?) { c } }`). When a chain stops, say which step failed and which did
   not run. **Never chain a write that needs an id printed by an earlier `add`** — run that `add`
   on its own first. If your shell tool refuses chained commands, run them one at a time.
+- **Keep every command inside the platform's command time limit** (often 120 s, sometimes
+  30 s): chain only steps that finish well within it, and run a long build or test suite as a
+  command of its own. After a timeout, check by content what it changed before re-running
+  anything.
 - **Write in as few edits as possible.** Write a new file whole; group changes to one file into
   one edit where the tool allows; and where your tools allow several calls in one step, write
-  several files in that one step.
+  several files in that one step — **at most about three files or 400 lines per step**, so one
+  reply never reaches the model's output limit (a cut-off reply loses its writes). A large file
+  goes alone.
+- **Open a file with your edit tool's own reader before editing it,** where that tool requires
+  it (GitLab Duo's does) — a shell read does not count. A file you wrote this run needs none.
 - **Don't spend a call checking your own write.** A failed write or edit reports itself; re-read
   only when a later step needs the content.
+
+**Windows PowerShell 5.1** (the default on Windows) has traps that each cost a failed call:
+
+- Read with `Get-Content -Encoding UTF8`; if `—` still arrives garbled, first run
+  `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`.
+- Write files with your file or edit tool, or `-Encoding UTF8` — never `>`, `Out-File` or
+  `Set-Content` without it (they write UTF-16 or ANSI).
+- No `&&` or `||` (use `a; if ($?) { b }`). `Select-String` has no `-Recurse`: pipe
+  `Get-ChildItem -Recurse` into it. No `python -c` with quotes inside — write a script file.
+- If the command tool may run `cmd`, wrap the command: `powershell -NoProfile -Command "…"`.
 
 These never override a rule elsewhere: a stage's checks, stops and reports all still happen —
 they are just done in fewer calls.
@@ -171,7 +210,7 @@ A design or requirements change — even one affecting something delivered many 
    invalidates.
 2. **The next Stage 4 run's Step 0c re-plans**, proposing a **retrofit phase** for the
    invalidated code; the developer approves it.
-3. **That phase is built like any other**, and the `FEATURE_STATUS.md` rows it changes reset to
+3. **That phase is built like any other**, and the feature-ledger rows it changes reset to
    `untested`.
 
 A `done` phase is never reopened to absorb the change — the retrofit is new work that supersedes
@@ -190,11 +229,12 @@ it — and a phase ID is **never reused or renumbered**.
 4. **Phase and edit status moves forward only: `pending` → `in progress` → `done`.** You set all
    three on a phase as work proceeds; a minor edit is registered once its checks pass, already
    `done`. `done` is terminal — **what is built is built.** A reported failure is
-   recorded in `FEATURE_STATUS.md` and fixed as forward work, never by reopening what shipped it.
-5. **Only the developer authorizes `passed` or `failed` in `FEATURE_STATUS.md`** — they mean a
-   human ran the app. Write one only on their explicit word; never infer one or write one to clear
-   an inconvenient `untested`. The only value you may write yourself is `untested`, when your work
-   changed that feature's behavior. **That mark gates nothing:** no stage waits on it, so never
+   recorded in the feature ledger and fixed as forward work, never by reopening what shipped it.
+5. **Only the developer authorizes `passed` or `failed` in the feature ledger** — they mean a
+   human ran the app. Write one only on their explicit word (the tool's `--developer-said`);
+   never infer one, pass that flag otherwise, or write one to clear an inconvenient `untested`.
+   The only value you may write yourself is `untested`, when your work changed that feature's
+   behavior. **That mark gates nothing:** no stage waits on it, so never
    ask for it — least of all as a precondition for something else, which turns an attestation
    into a reflexive yes.
 6. **Never run a git command** — not to branch, commit, push, open or merge a PR, and not the
@@ -214,14 +254,14 @@ it — and a phase ID is **never reused or renumbered**.
 **This section is normative and lives only here** — these statements arrive in ordinary chat,
 where no stage file is loaded; stage files point back here.
 
-The developer edits neither `state.json` nor `FEATURE_STATUS.md`. They say what happened in
-plain language; you write it and confirm what you wrote:
+The developer edits neither `state.json` nor the feature ledger. They say what happened in
+plain language; you write it (`§The Feature Ledger`) and confirm what you wrote:
 
 | They say | You write |
 |---|---|
-| "accept P-2" / "P-2 passed testing" | in `FEATURE_STATUS.md`, every row reading `built in P-2` → `Tested: passed <today>`. **Nothing in `state.json` changes** — P-2 stays `done` |
-| "search works" / "the export screen is fine" | the matching row(s) only → `passed <today>` |
-| "P-2 failed — search returns 500" | the affected row(s) → `failed <today> — search returns 500`, **plus** a `changeLog[]` entry (`author: developer`, `origin: developer-prompt`). P-2 stays `done`; the fix is forward work |
+| "accept P-2" / "P-2 passed testing" | `feature set P-2 tested=passed --developer-said` — every row reading `built in P-2` → `passed <today>`, except a `failed` one; ask about the rows the tool names (left `failed`, or changed by P-2 but built elsewhere) and change only those they name. **Nothing in `state.json` changes** — P-2 stays `done` |
+| "search works" / "the export screen is fine" | the matching row(s) only: `feature set <ID> tested=passed --developer-said` |
+| "P-2 failed — search returns 500" | the affected row(s): `feature set <ID> "tested=failed - search returns 500" --developer-said` (the tool adds the date and the dash), **plus** a `changeLog[]` entry (`author: developer`, `origin: developer-prompt`). P-2 stays `done`; the fix is forward work |
 | "I hand-fixed X myself" | a `changeLog[]` entry, `author: developer`, `origin: out-of-band` |
 | "P-3 is on branch `phase/P-3`" / "P-3's PR is <url>" | that phase's (or edit's) `branch` / `prUrls` — the only way either is ever filled |
 | "commit P-3" / "merge P-3" / "open a PR" | **run nothing** (invariant 6) — give them the git commands, with the suggested commit message from that run's hand-off |

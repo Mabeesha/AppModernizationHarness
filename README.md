@@ -182,7 +182,9 @@ sign something went wrong.
 
 The plan is a rolling forecast, not a fixed schedule: delivered phases drop off it, and the
 remaining ones get re-checked before most build runs. What *doesn't* move is
-**`FEATURE_STATUS.md`** — every requirement has a row there, and rows are never deleted.
+**`FEATURE_STATUS.md`** — every requirement has a row there, and rows are never deleted. (The
+agent keeps the rows in `features.json` with a small script, `tools/docs.py`, which rewrites
+`FEATURE_STATUS.md` from them — so read that page, but don't edit it.)
 
 ## 4. Build it, one phase at a time
 

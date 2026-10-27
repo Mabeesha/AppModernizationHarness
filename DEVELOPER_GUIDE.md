@@ -32,7 +32,7 @@ listing reads as the running order:
 | `0_PROJECT_CONTEXT_INSTRUCTIONS.md` | 0 | Resolves your intake → `PROJECT_CONTEXT.md` + `INTAKE_RESOLVED.md` + `state.json` |
 | `1_REQUIREMENTS_EXTRACTION_INSTRUCTIONS.md` | 1 | Legacy app → three requirements docs + `LEGACY_CODE_MAP_<App>.md` (where the legacy code lives) |
 | `2_DESIGN_INSTRUCTIONS.md` | 2 | Requirements → HLD + LLD |
-| `3_PLAN_INSTRUCTIONS.md` | 3 | Design → phased plan (**remaining work only**) + `state.json phases[]` |
+| `3_PLAN_INSTRUCTIONS.md` | 3 | Design → phased plan (**remaining work only**) + `state.json phases[]` + the feature ledger (`features.json`, shown as `FEATURE_STATUS.md`) |
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | 4 | **Run once per phase**, in a loop, until done |
 | `5_REVIEW_INSTRUCTIONS.md` | 5 | Independent audit; findings loop back to stage 4 |
 
@@ -111,8 +111,8 @@ hold human-readable *content*; `state.json` holds *state*. Stage 0 initializes i
 read and append to it. **You never edit it by hand** — you tell the agent what happened
 ("accept P-2", "P-2 failed", "P-3's PR is <url>") and it records the change and confirms.
 
-It holds **machine facts only**. What you have tested is *not* in here — that lives in
-`FEATURE_STATUS.md`, per feature, because a later phase can change what an earlier one built.
+It holds **machine facts only**. What you have tested is *not* in here — that lives in the
+feature ledger, per feature, because a later phase can change what an earlier one built.
 
 - `context` — stacks, CI/CD mode, and the **constraints** (by ID, e.g. `C1`, `C2`).
 - `stages` — status + `rerunCount` for context/requirements/design/plan.
@@ -260,7 +260,11 @@ that safe:
   tested it. Refreshes may move rows between phases but never delete one, and the ledger is
   **never regenerated** — later runs update rows in place. The phase list is a forecast;
   **the ledger is what proves the build is complete**, and whole-build Review flags any
-  `unscheduled` row.
+  `unscheduled` row. The rows live in **`features.json`**; a small script, `tools/docs.py`,
+  rewrites `FEATURE_STATUS.md` from them every time the agent changes one. So read
+  `FEATURE_STATUS.md`, but don't edit it: if you do, the agent's next ledger write stops and
+  asks how to carry your change over. The same script refuses what the ledger's rules forbid —
+  deleting a row, changing its id, a value outside the allowed ones.
 
 **Your job after:** sanity-check the slicing. Is P-1 genuinely small? Are the features you need
 to see early actually early? If not, say so now — it's cheapest before any code exists.
@@ -269,7 +273,8 @@ to see early actually early? If not, say so now — it's cheapest before any cod
 One run builds one phase **or** one minor edit — and **it classifies which itself**; you don't
 have to declare it. Every run: **classifies** the work, **reconciles** changes from
 `state.json`, **refreshes the forward plan** (Step 0c), implements in your working tree,
-updates **tests + docs + state + the ledger**, marks the phase `done`, hands you **the list of
+updates **tests + docs + state + the ledger** (the ledger and the plan's bookkeeping through
+`tools/docs.py`, one command each), marks the phase `done`, hands you **the list of
 changed files and a suggested commit message**, and **stops**. `done` is the end of the line — there is no further
 status, and nothing waits on you.
 
@@ -328,7 +333,7 @@ it:
 
 | You say | It writes |
 |---|---|
-| "accept P-2" | ticks every ledger row P-2 built — `passed <today>`. P-2 stays `done` |
+| "accept P-2" | ticks every ledger row P-2 built — `passed <today>`. P-2 stays `done`. It leaves a row marked `failed` alone, and asks you about it and about any untested row P-2 changed but another phase built |
 | "accept P-2, P-3, P-4" | the same, for each in turn |
 | "search works" | ticks that one row |
 | "P-2 failed — search returns 500" | `failed` on the affected rows, plus a `changeLog` entry. The fix is planned forward |
@@ -338,6 +343,10 @@ it:
 
 **It never runs git and never asks you to.** You commit, or you don't, and it needs nothing
 from you either way.
+
+A `passed` or `failed` mark goes through the ledger script with a `--developer-said` flag, and
+the script refuses one without it. That is a reminder to the agent, not a lock: the script
+cannot tell whether you really said it.
 
 Accepting several at once is fine **when you name them** — deferring testing is a supported way
 to work. What gets challenged is the vague version: "accept everything so far" usually means
@@ -536,6 +545,9 @@ larger edits. The rest is how **you** run it:
    and is not yet on the map's *Excluded:* line, add `--exclude` for it and for every folder
    already on that line that still exists (the script refuses a folder that is gone):
    `python <stage folder>/tools/codemap.py <legacy app> --out ./out/LEGACY_CODE_MAP_<App>.md`
+7. **Leave `.harness-tmp/` alone.** The tools create this folder in your project for the small
+   files the agent hands them (it used to have to squeeze them into long shell commands, which
+   often failed). It keeps itself out of git. Delete it between runs if you like; it comes back.
 
 ---
 
@@ -551,7 +563,7 @@ You can move a project that is part-way through its build onto a newer harness v
 folders (`git diff <old> <new> -- ModernizationHarness`). The steps below are enough when
 `tools/state.py` and the `state.json` schema are unchanged and no stage you already ran gained a
 new output. If either changed, read the new version's `docs/DESIGN.md` first — you may need a
-stage rerun.
+stage rerun — and look below for a subsection about that version.
 
 ### 1. Find your stage folder
 
@@ -698,6 +710,46 @@ only the map, so it writes nothing to `state.json` and needs no Design rerun. Th
 run; skip it if the requirements are already done and you rarely go back to the legacy code.
 
 ---
+
+### Upgrading to a version with the feature-ledger tool (`features.json`)
+
+This covers a project whose `FEATURE_STATUS.md` was written before `tools/docs.py` existed
+(DD-29). The ledger's rows now live in `features.json`, and `FEATURE_STATUS.md` is rewritten from
+them. Your state file is unchanged (`tools/state.py` only gained the `.harness-tmp/` folder,
+DD-30), and nothing you have produced is redone. Do steps 1–6 above, then **one migration
+step, before your next run**:
+
+1. **Rebuild `AGENTS.md` from the new template** (step 4) — it has a new section, *The Feature
+   Ledger and the Plan*, a short list of Windows PowerShell 5.1 traps, and new limits on how
+   much the agent writes or chains in one go. Add your own lines back.
+2. **Turn your ledger into `features.json`.** From your project folder:
+
+   ```powershell
+   python <stage folder>\tools\docs.py feature import .\out\FEATURE_STATUS.md
+   ```
+
+   Use your documents folder if it is not `out`. It prints how many rows it read and their ids —
+   check that every row you expect is there. Your original file is kept beside it as
+   `FEATURE_STATUS.md.bak`, and `FEATURE_STATUS.md` is rewritten in the new layout.
+3. **If it refuses**, it writes nothing and names each row it could not read — a value that is
+   not one of `unscheduled` / `scheduled in P-N` / `built in P-N`, a tested mark without a
+   `YYYY-MM-DD` date, a phase id that `state.json` does not have, a duplicate id. Fix those rows
+   in the Markdown file — the last time you edit it by hand — and run the command again.
+4. **If it prints `warning:` lines**, the rows were imported but disagree with `state.json` (for
+   example a row still `scheduled in` a phase that is done). Tell the next Stage 4 run about
+   them; it re-points them.
+5. **Check the plan:** `python <stage folder>\tools\docs.py plan check`. The agent now moves a
+   finished phase into the plan's Completed section with this tool, which finds each phase by
+   a heading like `## Phase P-4: Reporting`. It also needs every phase heading at the same
+   level (all `##` or all `###`), and every code block closed. Inside a phase, any other
+   heading at or above the phase's level is refused, except in the last phase: there such a
+   heading — or one a level down that comes after the phase's Exit criteria — ends the phase
+   and stays in the plan. One level down is otherwise fine (`### Notes` under `## Phase` moves
+   with its phase). Where it cannot tell where a phase ends, it refuses rather than guess. If the check names a
+   heading or a line, change it to fit — a formatting fix, not a plan change.
+
+Without Python nothing changes: the agent edits both files by hand under the same rules and
+says so in its report.
 
 ## Worked Examples
 
@@ -936,7 +988,9 @@ After the final phase is delivered:
 | `LEGACY_CODE_MAP_<App>.md` | Stage 1 (sections 2–3 by `tools/codemap.py`) | no — rerun the tool if the legacy code changes, or once your new code's folder exists inside the legacy folder (tip 6 in §Keeping the Request Bill Down) | Stage 1 only; every other stage reads it |
 | HLD / LLD | Stage 2 | **yes — design changes** | Stage 2 rerun only (same clarifying carve-out). Every rerun adds a §0 Revision History row |
 | `PLAN_<App>.md` — remaining phases | Stage 3 | say what you want; the agent re-slices | **Stage 4 Step 0c re-slices remaining phases with your approval**; statuses and test-guide fixes |
-| `FEATURE_STATUS.md` | Stage 3 | **no hand-editing** — say "accept P-2" / "search works" | Stage 4 updates rows in place; rows **never deleted**, file **never regenerated** |
+| `features.json` (the ledger) | Stage 3, through `tools/docs.py` | **no hand-editing** — say "accept P-2" / "search works" | Stage 4 updates rows in place through `tools/docs.py`; rows **never deleted**, ledger **never regenerated** |
+| `FEATURE_STATUS.md` | `tools/docs.py`, from `features.json` | no — read it; a hand edit stops the agent's next ledger write | rewritten by the tool on every ledger write |
+| `.harness-tmp/` | the tools | no — delete it between runs if you like | the agent's values files for the tools; ignored by git |
 | `HOW_TO_RUN.md` (one file) | Stage 4 | no | only when building/running/configuring the app changes |
 | `state.json` phases[] | Stage 3 (init) | **no hand-editing** | status (forward only); branch and PRs only when you name them |
 | `state.json` edits[] | Stage 4 | **no hand-editing** | appends each **minor** edit once its checks pass, already `done`; otherwise the same lifecycle as a phase |

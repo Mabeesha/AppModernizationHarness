@@ -10,10 +10,11 @@ You produce **two artifacts**:
 
 1. **`PLAN_<AppName>.md`** — the phases, their tasks, developer test guides and exit criteria.
    Rebuilt on every refresh; it covers remaining work only.
-2. **`FEATURE_STATUS.md`** — the coverage ledger: one row per requirement or design element,
-   how to check it, which phase(s) built it, and whether the developer has tested it. You
-   **create** it on the first run; every later run and every later stage updates rows in place
-   and never regenerates it. Stages 4 and 5 both read it, so a first run that skips it leaves
+2. **The feature ledger** — `features.json`, shown as the generated `FEATURE_STATUS.md`: one
+   row per requirement or design element, how to check it, which phase(s) built it, and whether
+   the developer has tested it. You **create** it on the first run, through `tools/docs.py`
+   (`AGENTS.md §The Feature Ledger`); every later run and every later stage updates
+   rows in place and never regenerates it. Stages 4 and 5 both read it, so a first run that skips it leaves
    the rest of the pipeline with nothing to update.
 
 You also populate `state.json phases[]`.
@@ -65,8 +66,9 @@ in `state.json`, not in prose**.
 
 6. **The existing `PLAN_<AppName>.md`** — its §2 Completed list is an input you must carry
    forward, not regenerate from scratch.
-7. **`FEATURE_STATUS.md`** — the coverage ledger you created on the first run. Carry every row
-   forward; never regenerate it from scratch (see §`FEATURE_STATUS.md`).
+7. **The feature ledger** — read as `FEATURE_STATUS.md`, the view of the `features.json` you
+   created on the first run. Carry every row forward; never regenerate it from scratch (see
+   §Output 2).
 8. **`state.json` `phases[]`, `changeLog[]`, `reviews[]`** — what is already built, and what
    changed since the plan was last written. The **reason** for the refresh usually lives here.
 9. **The design documents' `## 0. Revision History`** — tells you *what* changed in the design and
@@ -280,9 +282,15 @@ Use the state tool: `add phases "name=<phase name>"` once per new phase fills th
 and prints the id it allocated — **that printed id is the one the plan uses**, so allocate
 before you write the id into the document.
 
-**Then write `FEATURE_STATUS.md`** (§`FEATURE_STATUS.md` below) — one row per requirement ID /
-design element from the Step 1 checklist. On the first run this is a fresh document; on a
-refresh you **update rows in place** and never regenerate it.
+**Then write the ledger** (§Output 2) — one row per requirement ID / design element from the
+Step 1 checklist. On the first run, add every row in **one** call, `feature add @FILE`, with the
+rows as a JSON list in a file in `.harness-tmp/`. Where an older harness left a Markdown-only
+`FEATURE_STATUS.md` and no `features.json`, run `feature import` on it first and never re-add its
+rows. On a refresh you **update rows in place** with `feature set` (several rows in one `@FILE`;
+a new requirement's row by `feature add`) and never regenerate the ledger. **End with `plan check` and `feature check`**, chained: later
+runs edit the plan through the tool (`plan complete` moves a `done` phase to §2; `plan replace
+@FILE` applies exact `{"old": …, "new": …}` pairs, all or none), which finds each phase by the
+template's heading — so a plan it cannot delimit safely is fixed now, not at a hand-off.
 
 On a **refresh**, sync `phases[]` rather than rewriting it: leave `done` and
 `in progress` entries exactly as they are, remove `pending` entries for phases you dropped
@@ -306,9 +314,9 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
    - A Mermaid flowchart of remaining phase progression.
 
 ## 2. Completed
-   - One line per `done` phase, oldest first: `P-2 — Auth & core backend — delivered the
+   - One line per `done` phase, oldest first: `- P-2 — Auth & core backend — delivered the
      auth seam and the employee endpoints.` Nothing more; the detail is in git and in
-     state.json. This section only grows.
+     state.json. This section only grows. `plan complete` writes these lines.
 
 ## 3. Plan Revision History
    - Table: date (UTC) / what changed in this refresh / why / phases added / phases removed.
@@ -336,26 +344,31 @@ Save as **`PLAN_<AppName>.md`** in the location given in the prompt. Structure:
 
 > **Important:** the status board and change log are **not** Markdown tables in this plan —
 > they live in `state.json` (`phases[]`, `changeLog[]`), and what is built and tested lives in
-> `FEATURE_STATUS.md`. Keeping them out of the plan is what makes branching and "redo from a
+> the feature ledger. Keeping them out of the plan is what makes branching and "redo from a
 > stage" tractable: the plan is rebuilt freely, the state and the ledger are never rebuilt.
 > You initialize `phases[]` and create the ledger; the change log is appended by the
 > Implement/Review stages and the developer.
 
 ---
 
-## Output 2 — `FEATURE_STATUS.md`
+## Output 2 — The Feature Ledger (`features.json`, shown as `FEATURE_STATUS.md`)
 
-The coverage ledger. Save as `FEATURE_STATUS.md`, beside the plan, in the documents location. **You create it on the
+The coverage ledger. Its record is **`features.json`**, beside `state.json` in the documents
+location; **`FEATURE_STATUS.md`** beside it is the view `tools/docs.py` renders on every write.
+Never edit either by hand (`AGENTS.md §The Feature Ledger`). **You create it on the
 first run and never regenerate it afterwards** — later runs and later stages update rows in
 place. It is feature-keyed rather than phase-keyed, because a later phase can change what an
 earlier one delivered and a phase-level record cannot express that.
 
+Each row you add, in the JSON list `feature add @FILE` takes (`tested` is filled as `untested`):
+
+```json
+{ "id": "FR-9", "feature": "Audit log", "howToCheck": [], "phases": [], "build": "unscheduled" }
+```
+
+The view the tool renders from the rows:
+
 ```markdown
-# Feature Status: <AppName>
-
-*What has been built, how to check it, and what the developer has tested.
-Rows are never deleted. Updated by the Implement stage at every hand-off.*
-
 | ID | Feature | How to check | Phase(s) | Build | Tested |
 |---|---|---|---|---|---|
 | FR-3 | Employee search by name | `GET /api/employees?q=smith` → 200, 3 rows | P-2 | built in P-2 | passed 2026-02-14 |
@@ -363,15 +376,17 @@ Rows are never deleted. Updated by the Implement stage at every hand-off.*
 | FR-9 | Audit log | — | — | unscheduled | untested |
 ```
 
-- **`ID`** — the requirement ID or design element. The same IDs the phases and tasks trace to.
-- **`How to check`** — 1–3 concrete lines: a URL, a command, an expected result. You write a
-  placeholder (`—`) for unbuilt rows; the Implement stage fills it at hand-off by distilling
-  that phase's developer test guide. Keep it short — a row that needs a long walkthrough should
-  be two rows.
-- **`Phase(s)`** — every phase and edit that built **or changed** this feature, in order.
-- **`Build`** — `unscheduled` | `scheduled in P-N` | `built in P-N`.
-- **`Tested`** — `untested` | `passed <date>` | `failed <date> — <symptom>`. **Only ever
-  written on the developer's word**; no agent marks a row tested on its own.
+- **`id`** (`ID`) — the requirement ID or design element. The same IDs the phases and tasks
+  trace to. Permanent.
+- **`howToCheck`** (`How to check`) — 1–3 concrete lines: a URL, a command, an expected result.
+  Empty for unbuilt rows (the view shows `—`); the Implement stage fills it at hand-off by
+  distilling that phase's developer test guide. Keep it short — a row that needs a long
+  walkthrough should be two rows.
+- **`phases`** (`Phase(s)`) — every phase and edit that built **or changed** this feature, in
+  order. It only grows.
+- **`build`** (`Build`) — `unscheduled` | `scheduled in P-N` | `built in P-N`.
+- **`tested`** (`Tested`) — `untested` | `passed <date>` | `failed <date> — <symptom>`. **Only
+  ever written on the developer's word**; no agent marks a row tested on its own.
 
 Rules that hold the ledger together:
 
@@ -383,8 +398,12 @@ Rules that hold the ledger together:
   longer exists.
 - **A failure never rewinds a status.** `failed` is recorded on the row, the fix is planned as
   forward work, and the phase that built it stays `done`.
+- **The tool refuses what breaks these:** it has no delete, keeps ids permanent, takes only the
+  values above, and refuses a row `scheduled in` a `done` phase.
 
 ### Phase template (use for every phase in §5)
+Keep its heading exactly as shown, give a phase no other heading at that level, and close every
+code block — `tools/docs.py` finds where a phase starts and ends by them.
 ```markdown
 ## Phase <P-N>: <Name>
 - **Goal:** what this phase achieves, in one or two sentences.
@@ -477,7 +496,8 @@ not a reopened one. Plan the retrofit like any other phase:
 ### Bookkeeping
 
 Update `PLAN_<AppName>.md` (§1, §2, §3, §5 as applicable) and re-sync `phases[]` per
-Step 3. **Then re-point `FEATURE_STATUS.md`:** every row reading `scheduled in P-N` whose phase
+Step 3. **Then re-point the ledger** — `feature set`, every row in one `@FILE`: every row
+reading `scheduled in P-N` whose phase
 this refresh **dropped or resequenced** must move to the phase that will now deliver it, or to
 `unscheduled` with a reason in §6. A row pointing at a phase that no longer exists is the one
 way a refresh can quietly lose coverage. Likewise, any row still reading `scheduled in` a phase
@@ -490,7 +510,8 @@ increment `stages.plan.rerunCount`. **A "no change" refresh writes none of these
 a revision, and recording it would bury the real ones.
 
 **One exception, on every refresh including "no change":** move phases that have become
-`done` since the last run out of §5 into §2 Completed. That is bookkeeping, not a revision —
+`done` since the last run out of §5 into §2 Completed — `plan complete P-N "<one line>"`, several
+pairs in one command. That is bookkeeping, not a revision —
 do it without a revision-history row, a `changeLog` entry, or a `rerunCount` bump. §5 holds
 remaining work only, and a delivered phase listed there reads as outstanding to the developer
 and to a whole-build review.
@@ -506,10 +527,12 @@ and to a whole-build review.
       walkable in one sitting and reviewable in one pass, roughly even in building and
       checking work, rationale stated in §1 — with Phase 1 and the hardening phase excepted
       only as Step 2 allows; no phase count was imposed beyond what `PROJECT_CONTEXT` sets.
-- [ ] **`FEATURE_STATUS.md` complete and carried forward** — every design element and
-      requirement ID has a row with a `Build` value (`built in P-N` / `scheduled in P-N` /
+- [ ] **The feature ledger complete and carried forward** — written through `tools/docs.py`
+      (by hand under its rules only without Python, said in the report); every design element
+      and requirement ID has a row with a `build` value (`built in P-N` / `scheduled in P-N` /
       `unscheduled`); no row from the previous version was dropped or regenerated; every
-      `unscheduled` row is explained in §6; no `Tested` value was written by you.
+      `unscheduled` row is explained in §6; no `tested` value was written by you; `feature
+      check` and `plan check` pass.
 - [ ] Phases build monotonically — no phase breaks a previous one, except marked replacements.
 - [ ] Every constraint's *Plan* obligation (per `PROJECT_CONTEXT §4`) is reflected in the
       phasing and confirmed by a phase's exit criteria; CI/CD handled per the context mode.

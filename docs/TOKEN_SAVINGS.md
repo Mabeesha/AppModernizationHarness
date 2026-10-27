@@ -1,9 +1,11 @@
 # Token Savings — Options
 
-*Status: a proposal. Nothing in §3 is applied except Option 17 (the legacy code map, DD-27);
-Options 18–19 are recorded for after a measured Sonnet run.
+*Status: a proposal. Nothing in §3 is applied except Option 17 (the legacy code map, DD-27)
+and Option 20 (the ledger and plan tool, values files in the repo, and fixes for the failed
+calls of a real Stage 4 run — DD-29, DD-30); Options 18–19 are recorded for after a measured
+Sonnet run.
 Each option says whether it needs a design change (and so a yes) or is only a way of running the
-harness. Last updated 2026-10-25.*
+harness. Last updated 2026-10-27.*
 
 ---
 
@@ -27,6 +29,7 @@ context limit. So the goal is **fewer calls**, and some options below now cost m
 | 8 Read only plan-named sections | **Backfires** — more, smaller reads |
 | 13 Mechanical checks as scripts | Still helps — one call replaces several |
 | 17 Legacy code map | **Helps — applied** (DD-27): a script builds it for no model calls, and later lookups skip the search calls |
+| 20 Ledger and plan tool; fewer failed calls | **Helps — applied** (DD-29, DD-30): one command per ledger or plan update, and limits that stop calls failing |
 | 9, 12, 14, 15, 16 | Neutral, or help only if they remove calls |
 
 What was applied for per-call billing (DD-25, Q6, on branch `no-agent-git`): `AGENTS.md
@@ -377,6 +380,39 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   `docs/DESIGN.md`; R7 in `docs/REQUIREMENTS.md`; Stage 4 §Locating your inputs and Step 2
   item 5; `AGENTS_TEMPLATE.md §Reading and Writing state.json`; the guides.
 
+#### Option 20 — A tool for the ledger and the plan, and fewer failed calls *(applied 2026-10-27, DD-29, DD-30, R5.5–R5.6, R7.5)*
+
+- **Why:** a real Stage 4 run on Opus counted 31 failed or timed-out tool calls over four runs —
+  each a billed call that did nothing. The causes: one step writing 11 files hit the model's
+  output limit; build, tests and lint chained into one command hit a 120 s (and a 30 s) limit;
+  the command tool sometimes ran `cmd`, not PowerShell; Duo's edit tool refuses a file its own
+  reader never opened; Windows PowerShell 5.1 traps (`-Recurse` on `Select-String`, quoting,
+  `python -c`, and the harness's own batch-read command reading without `-Encoding UTF8`);
+  values files had to sit outside the repo, where Duo's file tool cannot write; and a leftover
+  app instance on the test port. Updating the plan, `HOW_TO_RUN.md` and the Markdown ledger
+  took ad-hoc scripts and 9–10 calls of reads, retries and checks.
+- **What:** (1) `tools/docs.py`: the ledger becomes `features.json`, edited by `feature set` /
+  `add` (several rows in one call) with the ledger's rules as refusals, `FEATURE_STATUS.md` a
+  generated view, `feature count` for the hand-off's count and `feature check` against
+  `state.json`; the plan stays Markdown with `plan complete` (§5 → §2) and `plan replace` (exact
+  pairs, all or nothing). (2) Values files in `.harness-tmp/`, which the tools create and which
+  ignores itself in git. (3) `AGENTS.md §Keeping the Request Count Down` gains a size cap per
+  write step, the command time limit, read-before-edit, and a short PowerShell 5.1 list; Stage 4
+  gains the port check before the test-guide walk and "never tick the plan's checkboxes".
+- **Saves:** calls that fail, and the 9–10 calls of hand-made ledger and plan scripts per run.
+  Not measured. `HOW_TO_RUN.md` is helped only by the read-before-edit rule; a general exact-replace
+  command for any document is a possible follow-up.
+- **Mid-project:** one `feature import` of the existing `FEATURE_STATUS.md` and a rebuilt
+  `AGENTS.md` (`DEVELOPER_GUIDE.md §Upgrading the Harness Mid-Project`).
+- **Relation to other options:** this is Option 13 applied to the ledger — `feature check`
+  checks the ledger against `state.json` — and the first piece of Option 16's "no quoting or
+  PowerShell-pipe pitfalls" without MCP. It does not do Option 19 (a start-of-run command in the
+  state tool) or Option 18 (more exact phase entries); both still wait for a measured Sonnet run.
+  Option 18's "Delivers" field would pair with `plan show`.
+- **Touches (done):** DD-29, DD-30, R4.4, R5.5–R5.6, R7.5, R10.3, Q6; `tools/docs.py` and
+  `eval/tests/test_docs_tool.py`; `tools/state.py` (the folder) and its tests; `tools/codemap.py`
+  skips the folder; `AGENTS_TEMPLATE.md`; Stages 0, 3, 4, 5; the guides.
+
 ### Rejected
 
 | Idea | Why not |
@@ -418,4 +454,5 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 7. **After one measured Sonnet phase** (calls, stops and first-time exit-criteria passes against
    an Opus phase): Option 19 if the start of a run or the high-water marks cost calls or go
    wrong; Option 18 if Sonnet loops on fix-ups or guesses file locations, and enough phases
-   remain to repay a Stage 3 refresh.
+   remain to repay a Stage 3 refresh. Count failed and timed-out calls too — Option 20 (applied)
+   is meant to bring them near zero.

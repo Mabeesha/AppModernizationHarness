@@ -77,6 +77,7 @@ Open the `report.md` path for the readable version.
 | Prove the checks still work | `uv run tests/fault_injection.py` |
 | Test the `state.json` tool (`ModernizationHarness/tools/state.py`) | `uv run tests/test_state_tool.py` |
 | Test the legacy code map tool (`ModernizationHarness/tools/codemap.py`) | `uv run tests/test_codemap_tool.py` |
+| Test the ledger and plan tool (`ModernizationHarness/tools/docs.py`) | `uv run tests/test_docs_tool.py` |
 
 `--checks` accepts check ids (`B1`) and group letters (`B`), mixed freely. An
 unknown selector is an error, not a silent no-op — a typo in CI must not read as

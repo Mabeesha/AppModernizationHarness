@@ -31,9 +31,11 @@ anything** — you find, classify, and hand back a report. Fixes go through the 
    target lives in. You **append a new entry to `reviews[]`** and, for each actionable finding,
    append a `changeLog[]` entry so the Implement stage picks it up. You write nothing else to
    `state.json` — there is no status on a target for a review to set.
-1b. **`FEATURE_STATUS.md`** — the coverage ledger: what is built, how to check it, and what the
-   developer has tested. It is your coverage baseline and the source of the "untested" section
-   of your report. **Read-only to you**, like the code.
+1b. **`FEATURE_STATUS.md`** — the coverage ledger (the view `tools/docs.py` generates from
+   `features.json`): what is built, how to check it, and what the developer has tested. It is
+   your coverage baseline and the source of the "untested" section of your report; `docs.py
+   feature count [<target>]` prints its counts. **Read-only to you**, like the code: run none of
+   the tool's write commands.
 2. **The three requirements documents** — the "what/why" bar.
 3. **The design documents** (HLD + LLD) — the contract bar.
 4. **`PROJECT_CONTEXT.md`** — constraints (by ID, with their obligations in §4), target
@@ -259,7 +261,8 @@ filenames unique and ordered — two reviews of the same target never collide:
 - One paragraph: what was reviewed, the headline result. Written per
   `AGENTS.md §Writing for the Developer`.
 ## Built vs. asked for
-- `FEATURE_STATUS.md` rows in scope, counted by `Build`: built / scheduled / unscheduled.
+- `FEATURE_STATUS.md` rows in scope, counted by `Build`: built / scheduled / unscheduled
+  (`feature count`, with the target's id for a phase or edit).
 - **Every row that is missing entirely** — asked for in the requirements or design and absent
   from the ledger. These are the coverage holes the phase list cannot show you.
 - Requirements/design elements expected in this target: covered / missing / partial.
@@ -281,7 +284,8 @@ filenames unique and ordered — two reviews of the same target never collide:
 ## Follow-ups (Minors)
 ```
 
-Do **not** modify application code, the design, the requirements, or `FEATURE_STATUS.md` —
+Do **not** modify application code, the design, the requirements, or the feature ledger
+(`features.json` or `FEATURE_STATUS.md`) —
 reviewing is read-only on all of them. The only things you write are the `reviews[]` entry
 (appended), a `changeLog[]` entry per Blocker/Major (appended), and the report itself.
 
