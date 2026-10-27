@@ -4,12 +4,13 @@
 Usage: python docs.py [--file STATE] [--plan PATH] <feature|plan> <command> ...
 
 The feature ledger: features.json is the record; FEATURE_STATUS.md is a view it generates.
-  feature show [P-N | E-N | ID ...]   rows a phase or edit touched, or the rows named; all if none
+  feature show [P-N | E-N | ID ... | group=<title>]   rows a phase/edit touched, named, or in a group
   feature add ID "feature=..." [k=v ...] | @FILE   new row(s), untested; creates features.json
   feature set ID k=v ... | ID @FILE | @FILE        update row(s) in place
   feature set P-N "tested=passed" --developer-said every row reading "built in P-N" except a
                                       failed one; those, and untested rows that list P-N but were
                                       built elsewhere, are named, not changed
+  feature add-group "<title>"         a new, empty group, last
   feature count [P-N | E-N ...]       built-and-untested by phase, failed, totals; scoped if given
   feature check                       schema, values, ids, state.json cross-checks, the view
   feature import PATH                 one time: turn a Markdown FEATURE_STATUS.md into features.json
@@ -20,9 +21,13 @@ The plan: PLAN_<App>.md stays Markdown.
   plan replace @FILE                  exact old->new pairs, each old found exactly once; all or none
   plan check                          the headings this tool relies on are present and parse
 
-A row: id, feature, howToCheck (lines), phases (P-N / E-N that built or changed it, in order),
-build (unscheduled | scheduled in P-N | built in P-N), tested (untested | passed YYYY-MM-DD |
-failed YYYY-MM-DD \\u2014 <symptom>). In k=v, howToCheck takes one line (several: @FILE with a
+The ledger: app, schemaVersion, preamble (lines), groups ([{title, before, after}] - lines
+around each group's table), features (rows). A row: id, feature, howToCheck (lines), phases
+(P-N / E-N that built or changed it, in order), build (unscheduled | scheduled in P-N |
+built in P-N), tested (untested | passed YYYY-MM-DD |
+failed YYYY-MM-DD \\u2014 <symptom>), and optionally group (a groups title; group= ungroups).
+The view renders the preamble, the ungrouped rows, then each group as "## <title>", its before
+text, its table and its after text. In k=v, howToCheck takes one line (several: @FILE with a
 JSON list), and phases=P-4,E-2 appends the ids not yet there - ids are never removed.
 @FILE for add: a JSON list of rows; for set: a list of {"id": ..., fields} or one object of
 fields after an ID. A date left out of passed/failed is today's.
@@ -32,7 +37,12 @@ written as passed or failed only with --developer-said - which you pass only whe
 said so in this chat. The tool cannot check that; the flag is a speed bump, not proof.
 A FEATURE_STATUS.md changed by hand is never overwritten silently: writes are refused until
 --force (which overwrites it) - first carry any change worth keeping into features.json.
-feature import takes tested only exactly as above - it never fills in a date.
+feature import takes every ledger table in the file, in order; the first heading naming
+"Feature Status" is the title, a heading with a ledger table under it starts a group, and other
+text (other headings included) is kept as the preamble or a group's before/after. It refuses,
+by line, what it cannot place - any "|" line outside a code block that is not part of a ledger
+table (a blank line inside a table; a header that is not the six columns). tested is taken only
+exactly as above - it never fills in a date. It prints the rows per group.
 A phase subsection runs from its heading to the next phase heading or the end of section 5
 (headings in code blocks never count). Inside a phase, a heading at or above its level that is
 not the template's own (Tasks, What is testable, Developer test guide, Exit criteria,
@@ -62,6 +72,7 @@ from datetime import date
 SKIP_DIRS = {".git", "node_modules", "bin", "obj", "target", "dist", "ModernizationHarness"}
 TMP_DIR = ".harness-tmp"
 FIELDS = ("id", "feature", "howToCheck", "phases", "build", "tested")
+ROW_KEYS = FIELDS + ("group",)  # group is optional: the title of a groups[] entry
 DASH = "—"
 UNIT_RE = re.compile(r"[PE]-\d+")
 PHASE_RE = re.compile(r"P-\d+")
@@ -285,7 +296,10 @@ def norm_tested(v):
 def shape_problems(row):
     """Malformed: what makes a row not a row. Shared by add, set, import and check."""
     rid = row.get("id")
-    out = [f"{rid}: unknown field {k!r} (fields: {', '.join(FIELDS)})" for k in row if k not in FIELDS]
+    out = [f"{rid}: unknown field {k!r} (fields: {', '.join(ROW_KEYS)})" for k in row
+           if k not in ROW_KEYS]
+    if "group" in row and (not isinstance(row["group"], str) or not row["group"].strip()):
+        out.append(f"{rid}: group must be a group's title")
     if not isinstance(rid, str) or not rid.strip() or rid != rid.strip() or "|" in rid \
             or "\n" in rid or rid.startswith(("@", "-")) or UNIT_RE.fullmatch(rid or ""):
         out.append(f"bad id {rid!r}: text, no '|', not a phase or edit id")
@@ -358,26 +372,47 @@ def load_ledger(docs, create=False, validate=True):
     if validate:
         bad = [p for r in ledger["features"]
                for p in (shape_problems(r) if isinstance(r, dict) else [f"not a row: {r!r}"])]
+        bad += ledger_problems(ledger)
         if bad:
             die(f"{docs.features} has malformed rows; `feature check` lists them:\n" + "\n".join(bad))
     return ledger, style
 
 
-def render(ledger):
+def table_lines(rows):
     def cell(s):
         return " ".join(str(s).split()).replace("|", "\\|")
 
-    lines = [f"# Feature Status: {ledger.get('app')}", "",
-             "*What has been built, how to check it, and what the developer has tested. Rows are "
-             "never deleted.", f"Generated from `features.json` by `tools/docs.py` {DASH} do not "
-             "edit this file; tell the agent what you tested.*", "",
-             "| ID | Feature | How to check | Phase(s) | Build | Tested |",
-             "|---|---|---|---|---|---|"]
-    for r in ledger["features"]:
-        lines.append("| " + " | ".join([
+    out = ["| ID | Feature | How to check | Phase(s) | Build | Tested |",
+           "|---|---|---|---|---|---|"]
+    for r in rows:
+        out.append("| " + " | ".join([
             cell(r["id"]), cell(r["feature"]),
             "<br>".join(cell(c) for c in r["howToCheck"]) or DASH,
             ", ".join(r["phases"]) or DASH, r["build"], cell(r["tested"])]) + " |")
+    return out
+
+
+def render(ledger):
+    """The view: title and note; the preamble; ungrouped rows (always a table when there are no
+    groups); then each group in order as a '## <title>' heading, its before text, its table
+    (a header-only table when it has no rows, so the text around it keeps its place) and its
+    after text. Blocks are separated by one blank line."""
+    rows, groups = ledger["features"], ledger.get("groups") or []
+    blocks = [ledger["preamble"]] if ledger.get("preamble") else []
+    ungrouped = [r for r in rows if not r.get("group")]
+    if ungrouped or not groups:
+        blocks.append(table_lines(ungrouped))
+    for g in groups:
+        blocks.append([f"## {g['title']}"])
+        blocks += [g["before"]] if g.get("before") else []
+        blocks.append(table_lines([r for r in rows if r.get("group") == g["title"]]))
+        blocks += [g["after"]] if g.get("after") else []
+    lines = [f"# Feature Status: {ledger.get('app')}", "",
+             "*What has been built, how to check it, and what the developer has tested. Rows are "
+             "never deleted.", f"Generated from `features.json` by `tools/docs.py` {DASH} do not "
+             "edit this file; tell the agent what you tested.*"]
+    for block in blocks:
+        lines += [""] + block
     body = "\n".join(lines) + "\n"
     return f"{MARK}{sha(body)} -->\n{body}"
 
@@ -399,7 +434,8 @@ def save_ledger(docs, ledger, style, force):
     if status in ("hand-written", "hand-edited") and not force:
         refuse(f"{docs.view} was changed by hand since docs.py wrote it; nothing written. "
                f"Recover: {FIX_VIEW}")
-    data = encode(json.dumps(ledger, indent=2, ensure_ascii=False) + "\n", (False, style[1]))
+    data = encode(json.dumps(ordered(ledger), indent=2, ensure_ascii=False) + "\n",
+                  (False, style[1]))
     write_all([(docs.features, data), (docs.view, encode(render(ledger), view_style))])
 
 
@@ -416,7 +452,7 @@ def touched(row, units):
     return bool(set(row["phases"]) & units) or bool(m and m.group(2) in units)
 
 
-def apply_fields(docs, row, fields, developer):
+def apply_fields(docs, row, fields, developer, groups=()):
     """Update one row in place (a copy is passed), applying every rule.
     Returns (malformed, rule breaks)."""
     problems = []
@@ -425,8 +461,16 @@ def apply_fields(docs, row, fields, developer):
             if value != row["id"]:
                 refuse(f"{row['id']}: ids are permanent; never changed")
             continue
-        if key not in FIELDS:
-            problems.append(f"{row['id']}: unknown field {key!r} (fields: {', '.join(FIELDS)})")
+        if key not in ROW_KEYS:
+            problems.append(f"{row['id']}: unknown field {key!r} (fields: {', '.join(ROW_KEYS)})")
+            continue
+        if key == "group":
+            if value in ("", None):
+                row.pop("group", None)
+            elif value not in groups:
+                problems.append(f"{row['id']}: no group {value!r} - `feature add-group` creates one")
+            else:
+                row["group"] = value
             continue
         if key == "phases":
             value = [value] if isinstance(value, str) else value
@@ -477,6 +521,9 @@ def cmd_feature_add(docs, args, flags):
             refuse(f"{row.get('id')} is already a row; change it with `feature set`, ids are unique")
         if row["tested"] != "untested":
             refuse(f"{row.get('id')}: a new row is untested; only the developer marks one tested")
+        if "group" in row and row["group"] not in [g.get("title") for g in ledger.get("groups", [])]:
+            problems.append(f"{row.get('id')}: no group {row['group']!r} - `feature add-group` "
+                            "creates one")
         bad, broken = state_problems(docs, row, strict=False)
         problems += shape_problems(row) + bad
         rules += broken
@@ -543,7 +590,8 @@ def cmd_feature_set(docs, args, flags):
         if not fields:
             die(f"{rid}: nothing to write")
         row = json.loads(json.dumps(by_id[rid]))
-        bad, broken = apply_fields(docs, row, fields, developer)
+        bad, broken = apply_fields(docs, row, fields, developer,
+                                   [g.get("title") for g in ledger.get("groups", [])])
         problems += bad
         rules += broken
         by_id[rid] = row
@@ -560,6 +608,14 @@ def cmd_feature_set(docs, args, flags):
 def cmd_feature_show(docs, args, flags):
     ledger, _ = load_ledger(docs)
     rows = ledger["features"]
+    wanted = [unescape(a.split("=", 1)[1]) for a in args if a.startswith("group=")]
+    args = [a for a in args if not a.startswith("group=")]
+    if wanted:
+        titles = [g.get("title") for g in ledger.get("groups", [])]
+        unknown = [w for w in wanted if w not in titles]
+        if unknown:
+            die(f"no group {unknown}")
+        rows = [r for r in rows if r.get("group") in wanted]
     if args:
         units = {a for a in args if UNIT_RE.fullmatch(a)}
         ids = [unescape(a) for a in args if not UNIT_RE.fullmatch(a)]
@@ -604,6 +660,7 @@ def cmd_feature_count(docs, args, flags):
 def cmd_feature_check(docs, args, flags):
     ledger, _ = load_ledger(docs, validate=False)
     problems = [] if ledger.get("app") else ["features.json: app missing"]
+    problems += ledger_problems(ledger)
     ids = [r.get("id") for r in ledger["features"] if isinstance(r, dict)]
     problems += [f"duplicate id {i}" for i in sorted({i for i in ids if ids.count(i) > 1}, key=str)]
     for r in ledger["features"]:
@@ -630,8 +687,65 @@ def cmd_feature_render(docs, args, flags):
     print(f"rendered {docs.view} ({len(ledger['features'])} rows)")
 
 
+def ledger_problems(ledger):
+    """Malformed preamble, groups, or a row's group naming no group."""
+    out = []
+    pre = ledger.get("preamble", [])
+    if not isinstance(pre, list) or not all(isinstance(l, str) and "\n" not in l for l in pre):
+        out.append("preamble must be a list of one-line texts")
+    groups = ledger.get("groups", [])
+    titles = []
+    if not isinstance(groups, list):
+        out.append("groups must be a list")
+        groups = []
+    for g in groups:
+        t = g.get("title") if isinstance(g, dict) else None
+        if not isinstance(t, str) or not t.strip() or t != t.strip() or "\n" in t:
+            out.append(f"group {g!r}: title must be one line of text")
+            continue
+        if t in titles:
+            out.append(f"group {t!r} appears twice")
+        titles.append(t)
+        for k in ("before", "after"):
+            v = g.get(k, [])
+            if not isinstance(v, list) or not all(isinstance(l, str) and "\n" not in l for l in v):
+                out.append(f"group {t!r}: {k} must be a list of one-line texts")
+        out += [f"group {t!r}: unknown field {k!r}" for k in g if k not in ("title", "before", "after")]
+    for r in ledger.get("features", []):
+        if isinstance(r, dict) and "group" in r and r["group"] not in titles:
+            out.append(f"{r.get('id')}: group {r['group']!r} is not in groups - "
+                       "`feature add-group` creates one")
+    return out
+
+
+def ordered(ledger):
+    """Top-level keys in schema order; empty preamble and groups left out."""
+    out = {k: ledger[k] for k in ("app", "schemaVersion") if k in ledger}
+    out.update({k: ledger[k] for k in ("preamble", "groups") if ledger.get(k)})
+    out["features"] = ledger["features"]
+    out.update({k: v for k, v in ledger.items() if k not in out and k not in ("preamble", "groups")})
+    return out
+
+
+def cmd_feature_add_group(docs, args, flags):
+    if len(args) != 1 or not unescape(args[0]).strip():
+        die('add-group takes one title: feature add-group "<title>"')
+    title = " ".join(unescape(args[0]).split())
+    ledger, style = load_ledger(docs)
+    groups = ledger.setdefault("groups", [])
+    if any(g.get("title") == title for g in groups):
+        refuse(f"group {title!r} already exists")
+    groups.append({"title": title, "before": [], "after": []})
+    save_ledger(docs, ledger, style, "--force" in flags)
+    print(f"added group {title}")
+
+
 HEAD_NAMES = {"id": "id", "feature": "feature", "how to check": "howToCheck",
               "phase(s)": "phases", "phases": "phases", "build": "build", "tested": "tested"}
+def is_separator(line):
+    """A Markdown table's |---|---| line."""
+    s = line.strip()
+    return s.startswith("|") and "---" in s and not s.strip("|:- ")
 
 
 def split_row(line):
@@ -648,6 +762,186 @@ def plain(cell):
                   lambda m: m.group(1).lower(), s)
 
 
+def ledger_header(line):
+    """The column order if this line is a ledger table's header row, else None."""
+    if not line.lstrip().startswith("|"):
+        return None
+    names = [plain(c).lower() for c in split_row(line)]
+    if sorted(HEAD_NAMES.get(n, n) for n in names) != sorted(FIELDS):
+        return None
+    return [HEAD_NAMES[n] for n in names]
+
+
+def parse_row(docs, cols, line):
+    raw = dict(zip(cols, split_row(line)))
+    empty = {"", "-", "—", "–"}
+    row = {"id": plain(raw["id"]), "feature": raw["feature"],
+           "howToCheck": [] if raw["howToCheck"] in empty else
+           [c.strip() for c in re.split(r"(?i)<br\s*/?>", raw["howToCheck"]) if c.strip()],
+           "phases": [] if plain(raw["phases"]) in empty else
+           [u for u in re.split(r"[,;\s]+", plain(raw["phases"])) if u],
+           "build": norm_build(plain(raw["build"])) or plain(raw["build"]),
+           "tested": plain(raw["tested"])}  # exact: a date is never invented here
+    return row, shape_problems(row) + state_problems(docs, row, strict=False)[0]
+
+
+def trim(lines):
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return lines
+
+
+def squeeze(lines):
+    """Trim blank lines at both ends and collapse each run of blank lines outside a code block
+    to one."""
+    out, code = [], dict(fences(lines))
+    for i, line in enumerate(lines):
+        if line.strip() or code.get(i) or (out and out[-1].strip()):
+            out.append(line if line.strip() or code.get(i) else "")
+    return trim(out)
+
+
+def stray_table_lines(lines, code, table):
+    """Problems for each run of '|' lines outside a code block that no ledger table took."""
+    out, i = [], 0
+    while i < len(lines):
+        if code.get(i) or i in table or not lines[i].lstrip().startswith("|"):
+            i += 1
+            continue
+        j = i
+        while j < len(lines) and not code.get(j) and j not in table \
+                and lines[j].lstrip().startswith("|"):
+            j += 1
+        where = f"line {i + 1}" if j == i + 1 else f"lines {i + 1}-{j}"
+        p = i - 1
+        while p >= 0 and not lines[p].strip():
+            p -= 1
+        if p >= 0 and p in table and p < i - 1:
+            why = f"a blank line splits the ledger table above (line {p + 2}); remove it"
+        elif j - i >= 2 and is_separator(lines[i + 1]):
+            why = ("this table's header is not the six ledger columns (ID | Feature | How to "
+                   "check | Phase(s) | Build | Tested): " + " | ".join(split_row(lines[i]))
+                   + " - rename or remove the extra column, or put a table that is not part of "
+                   "the ledger in a code block")
+        else:
+            why = ("a table row outside any ledger table - join it to its table, or put it in a "
+                   "code block")
+        out.append(f"{where}: {why}")
+        i = j
+    return out
+
+
+def parse_ledger_md(docs, text):
+    """Every ledger table in the file, in order, with the text around it.
+    Returns (rows, preamble, groups, problems, notes, counts)."""
+    lines = text.split("\n")
+    code = dict(fences(lines))
+    heads = sorted(i for i, _, _ in headings(lines))
+    title = next((i for i in heads if "feature status" in lines[i].lower()), None)
+    skip = set()  # lines regenerated by render: the marker, the title, the generated note
+    if lines and MARK_RE.fullmatch(lines[0]):
+        skip.add(0)
+    if title is not None:
+        skip.add(title)
+        j = title + 1
+        while j < len(lines) and not lines[j].strip():
+            j += 1
+        k = j
+        while k < len(lines) and lines[k].strip() and k not in heads:
+            k += 1
+        para = " ".join(lines[j:k])
+        if para.startswith("*") and "what has been built" in para.lower():
+            skip.update(range(j, k))
+    rows, problems, notes = [], [], []
+    # a heading starts a group only when a ledger table follows it before the next heading;
+    # any other heading (a legend, a sub-note) is kept as text where it stands
+    tabled = set()
+    for n, h in enumerate(heads):
+        nxt = heads[n + 1] if n + 1 < len(heads) else len(lines)
+        if h != title and any(not code.get(i) and ledger_header(lines[i]) for i in range(h + 1, nxt)):
+            tabled.add(h)
+    untabled = [lines[h].strip() for h in heads if h != title and h not in tabled]
+    if untabled:
+        notes.append(f"note: heading(s) with no ledger table kept as text: {'; '.join(untabled)}")
+    levels = sorted({len(lines[h]) - len(lines[h].lstrip("#")) for h in tabled})
+    if levels and levels != [2]:
+        notes.append(f"note: group headings at {', '.join('#' * l for l in levels)} are shown "
+                     "as ## under the title")
+    preamble, groups, placed, consumed, table = [], [], set(), set(skip), set()
+    group, seen_table = None, False  # group None: the ungrouped area before the first group
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if i in skip:
+            i += 1
+            continue
+        if i in tabled:
+            group = {"title": " ".join(line.lstrip("#").split()), "before": [], "after": []}
+            if not group["title"]:
+                problems.append(f"line {i + 1}: a heading with no title")
+            groups.append(group)
+            consumed.add(i)
+            seen_table = False
+            i += 1
+            continue
+        cols = None if code.get(i) else ledger_header(line)
+        if cols:
+            if i + 1 >= len(lines) or not is_separator(lines[i + 1]):
+                problems.append(f"line {i + 2}: a ledger table's header is not followed by |---|")
+                consumed.add(i)
+                table.add(i)
+                i += 1
+                continue
+            name = group["title"] if group else "(ungrouped)"
+            if seen_table:
+                notes.append(f"note: {name} has more than one table; they become one, and the "
+                             "text between them now follows it")
+            seen_table = True
+            consumed.update((i, i + 1))
+            table.update((i, i + 1))
+            i += 2
+            while i < len(lines) and lines[i].lstrip().startswith("|"):
+                cells = split_row(lines[i])
+                consumed.add(i)
+                table.add(i)
+                if len(cells) != len(cols):
+                    problems.append(f"line {i + 1}: {len(cells)} cells, expected {len(cols)}: "
+                                    f"{lines[i].strip()}")
+                else:
+                    row, bad = parse_row(docs, cols, lines[i])
+                    problems += [f"line {i + 1} ({row['id']}): {p}" for p in bad]
+                    if group:
+                        row["group"] = group["title"]
+                    rows.append(row)
+                i += 1
+            continue
+        if group is None:
+            if seen_table and line.strip() and not notes_moved(notes):
+                notes.append("note: text after the ungrouped table now sits above it")
+            preamble.append(line)
+        else:
+            (group["after"] if seen_table else group["before"]).append(line)
+        placed.add(i)
+        i += 1
+    problems += stray_table_lines(lines, code, table)
+    titles = [g["title"] for g in groups]
+    problems += [f"two group headings read {t!r}; rename one" for t in sorted(set(titles))
+                 if titles.count(t) > 1]
+    lost = [i for i, l in enumerate(lines) if l.strip() and i not in consumed | placed]
+    problems += [f"line {i + 1}: cannot be placed: {lines[i].strip()}" for i in lost]
+    for g in groups:
+        g["before"], g["after"] = squeeze(g["before"]), squeeze(g["after"])
+    counts = [("(ungrouped)", sum(1 for r in rows if "group" not in r))] + \
+        [(g["title"], sum(1 for r in rows if r.get("group") == g["title"])) for g in groups]
+    return rows, squeeze(preamble), groups, problems, notes, counts
+
+
+def notes_moved(notes):
+    return any("now sits above it" in n for n in notes)
+
+
 def cmd_feature_import(docs, args, flags):
     if len(args) != 1:
         die("import takes the path of the Markdown FEATURE_STATUS.md")
@@ -659,51 +953,17 @@ def cmd_feature_import(docs, args, flags):
     status = view_status(docs)[0]
     if not same and status in ("hand-written", "hand-edited") and "--force" not in flags:
         refuse(f"{docs.view} exists and is not the file being imported; nothing written")
-    lines = text.split("\n")
-    head = None
-    for i, line in enumerate(lines):
-        if line.lstrip().startswith("|"):
-            names = [plain(c).lower() for c in split_row(line)]
-            if sorted(HEAD_NAMES.get(n, n) for n in names) == sorted(FIELDS):
-                head = i
-                cols = [HEAD_NAMES[n] for n in names]
-                break
-    if head is None:
-        die(f"{source}: no table with the columns ID | Feature | How to check | Phase(s) | Build | Tested")
-    rows, problems, i = [], [], head + 2
-    while i < len(lines) and lines[i].lstrip().startswith("|"):
-        cells = split_row(lines[i])
-        if len(cells) != len(cols):
-            problems.append(f"line {i + 1}: {len(cells)} cells, expected {len(cols)}: {lines[i].strip()}")
-            i += 1
-            continue
-        raw = dict(zip(cols, cells))
-        empty = {"", "-", "—", "–"}
-        row = {"id": plain(raw["id"]), "feature": raw["feature"],
-               "howToCheck": [] if raw["howToCheck"] in empty else
-               [c.strip() for c in re.split(r"(?i)<br\s*/?>", raw["howToCheck"]) if c.strip()],
-               "phases": [] if plain(raw["phases"]) in empty else
-               [u for u in re.split(r"[,;\s]+", plain(raw["phases"])) if u],
-               "build": norm_build(plain(raw["build"])) or plain(raw["build"]),
-               "tested": plain(raw["tested"])}  # exact: a date is never invented here
-        bad = shape_problems(row) + state_problems(docs, row, strict=False)[0]
-        problems += [f"line {i + 1} ({row['id']}): {p}" for p in bad]
-        rows.append(row)
-        i += 1
+    rows, preamble, groups, problems, notes, counts = parse_ledger_md(docs, text)
     ids = [r["id"] for r in rows]
     problems += [f"duplicate id {d}" for d in sorted({d for d in ids if ids.count(d) > 1})]
     if not rows:
-        problems.append(f"{source}: the table has no rows")
+        problems.append(f"{source}: no ledger table rows (columns ID | Feature | How to check | "
+                        "Phase(s) | Build | Tested)")
     if problems:
-        die("cannot import; nothing written - fix these rows in the Markdown file and rerun:\n"
+        die("cannot import; nothing written - fix these in the Markdown file and rerun:\n"
             + "\n".join(problems))
-    outside, italic = [], False  # the title and the italic note are regenerated
-    for n, line in enumerate(lines):
-        italic = bool(line.strip()) and (italic or (n < head and line.startswith("*")))
-        if line.strip() and not italic and not head <= n < i \
-                and not line.startswith(("# ", "<!--")):
-            outside.append(line)
-    ledger = {"app": docs.state.get("project"), "schemaVersion": 1, "features": rows}
+    ledger = ordered({"app": docs.state.get("project"), "schemaVersion": 1,
+                      "preamble": preamble, "groups": groups, "features": rows})
     items = [(docs.features, encode(json.dumps(ledger, indent=2, ensure_ascii=False) + "\n"))]
     backup = None
     if os.path.exists(docs.view) and status != "ours":
@@ -716,10 +976,12 @@ def cmd_feature_import(docs, args, flags):
     items.append((docs.view, encode(render(ledger), view_style)))
     write_all(items)
     print(f"imported {len(rows)} rows: {', '.join(ids)}")
+    shown = [(n, c) for n, c in counts if n != "(ungrouped)" or c]
+    print("rows per group: " + "; ".join(f"{n}: {c}" for n, c in shown) + f"; total {len(rows)}")
     if backup:
         print(f"the Markdown original is kept as {backup}")
-    if outside:
-        print(f"note: {len(outside)} line(s) outside the table were not carried over (see the original)")
+    for n in notes:
+        print(n)
     for r in rows:
         for p in state_problems(docs, r, strict=True)[1]:
             print(f"warning: {p} - fix it with `feature set`")
@@ -995,6 +1257,7 @@ def cmd_plan_check(docs, args, flags):
 COMMANDS = {
     ("feature", "show"): (cmd_feature_show, set(), True),
     ("feature", "add"): (cmd_feature_add, {"--force"}, False),
+    ("feature", "add-group"): (cmd_feature_add_group, {"--force"}, False),
     ("feature", "set"): (cmd_feature_set, {"--force", "--developer-said"}, False),
     ("feature", "count"): (cmd_feature_count, set(), True),
     ("feature", "check"): (cmd_feature_check, set(), True),

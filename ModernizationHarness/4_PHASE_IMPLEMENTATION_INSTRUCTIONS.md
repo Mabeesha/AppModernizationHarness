@@ -416,7 +416,8 @@ test guide where the change surface warrants.
    out here (a screen, with no browser tool) is named in the report as not walked — never
    reported as walked.
 3. **Update the feature ledger** — every row this run touched in **one** `feature set @FILE`
-   call, a new row by `feature add` (`AGENTS.md §The Feature Ledger`). You
+   call, a new row by `feature add` — with `group=` when the ledger is grouped
+   (`AGENTS.md §The Feature Ledger`). You
    **update rows in place**; you never regenerate it. For this run:
 
    - Every row this phase **delivered**: set `build` to `built in P-N`, add `P-N` to `phases`,

@@ -68,8 +68,8 @@ refusal rules; run it with no command for the syntax):
 - **Read:** `feature show [P-N | ID …]`; `feature count [P-N]` — built-and-`untested` rows by
   phase, and `failed` ones; `feature check`.
 - **Write:** `feature set <ID> k=v …`, or `feature set @FILE` with `[{"id": …, <fields>}, …]` for
-  several rows in one call; `feature add` for a new row (always `untested`). `phases=P-4`
-  appends. No row is ever deleted and no id ever changes. **`tested`: you write only
+  several rows in one call; `feature add` for a new row (always `untested`; in a grouped
+  ledger with `group=<title>`, a new group by `feature add-group`). `phases=P-4` appends. No row is ever deleted and no id ever changes. **`tested`: you write only
   `untested`** — `passed` / `failed` need `--developer-said`, passed only on the developer's word
   (invariant 5); the tool cannot check it.
 

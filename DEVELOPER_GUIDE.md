@@ -720,7 +720,7 @@ DD-30), and nothing you have produced is redone. Do steps 1–6 above, then **on
 step, before your next run**:
 
 1. **Rebuild `AGENTS.md` from the new template** (step 4) — it has a new section, *The Feature
-   Ledger and the Plan*, a short list of Windows PowerShell 5.1 traps, and new limits on how
+   Ledger*, a short list of Windows PowerShell 5.1 traps, and new limits on how
    much the agent writes or chains in one go. Add your own lines back.
 2. **Turn your ledger into `features.json`.** From your project folder:
 
@@ -728,13 +728,33 @@ step, before your next run**:
    python <stage folder>\tools\docs.py feature import .\out\FEATURE_STATUS.md
    ```
 
-   Use your documents folder if it is not `out`. It prints how many rows it read and their ids —
-   check that every row you expect is there. Your original file is kept beside it as
-   `FEATURE_STATUS.md.bak`, and `FEATURE_STATUS.md` is rewritten in the new layout.
+   Use your documents folder if it is not `out`. It reads every table in the file. If your
+   ledger is split under headings (one table per feature area, say), each heading becomes a
+   group, and your notes around the tables are kept with it. It prints the rows it read, their
+   ids, and **the number of rows in each group and in total — compare these with your
+   original** before you go on. Your original file is kept beside it as `FEATURE_STATUS.md.bak`,
+   and `FEATURE_STATUS.md` is rewritten in the new layout: the title, then each group under a
+   `##` heading with its notes and its table.
+
+   **Already imported with an earlier version of this tool?** That version read only the first
+   table and could drop rows. Undo it and import again, from your documents folder:
+
+   ```powershell
+   Move-Item -Force FEATURE_STATUS.md.bak FEATURE_STATUS.md; if ($?) { Remove-Item features.json }
+   ```
+
+   It removes `features.json` only once your original is back in place. Do this only if no
+   Stage 4 run has changed the ledger since that import — those changes would be lost. If one has, ask the agent to compare the two files and carry the missing rows
+   over instead.
 3. **If it refuses**, it writes nothing and names each row it could not read — a value that is
    not one of `unscheduled` / `scheduled in P-N` / `built in P-N`, a tested mark without a
    `YYYY-MM-DD` date, a phase id that `state.json` does not have, a duplicate id. Fix those rows
-   in the Markdown file — the last time you edit it by hand — and run the command again.
+   in the Markdown file — the last time you edit it by hand — and run the command again. It
+   also refuses, naming the lines: a blank line inside a table (remove it); a table whose header
+   is not exactly the six ledger columns, such as an extra `Notes` column or `Status` for
+   `Tested` (rename or remove the column; a table that is not part of the ledger goes in a code
+   block); two group headings with the same title; and a table header with no `|---|` line under
+   it. A heading with no table under it, such as `# Legend`, is kept as text, not as a group.
 4. **If it prints `warning:` lines**, the rows were imported but disagree with `state.json` (for
    example a row still `scheduled in` a phase that is done). Tell the next Stage 4 run about
    them; it re-points them.

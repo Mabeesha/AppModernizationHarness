@@ -360,13 +360,18 @@ first run and never regenerate it afterwards** — later runs and later stages u
 place. It is feature-keyed rather than phase-keyed, because a later phase can change what an
 earlier one delivered and a phase-level record cannot express that.
 
-Each row you add, in the JSON list `feature add @FILE` takes (`tested` is filled as `untested`):
+The ledger may be grouped under headings (e.g. one per feature area): create each group with
+`feature add-group "<title>"`, in the order the view should show them, and give each row its
+`group`. Each row you add, in the JSON list `feature add @FILE` takes (`tested` is filled as
+`untested`; `group` is optional):
 
 ```json
-{ "id": "FR-9", "feature": "Audit log", "howToCheck": [], "phases": [], "build": "unscheduled" }
+{ "id": "FR-9", "feature": "Audit log", "howToCheck": [], "phases": [], "build": "unscheduled",
+  "group": "Audit" }
 ```
 
-The view the tool renders from the rows:
+The view the tool renders from the rows (a grouped ledger shows one such table under a
+`## <group>` heading per group):
 
 ```markdown
 | ID | Feature | How to check | Phase(s) | Build | Tested |
