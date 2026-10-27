@@ -268,6 +268,41 @@ class DocsToolTest(unittest.TestCase):
         self.assertIn("(FR-10): FR-10: tested must be", err)
         self.assertFalse(self.features.exists())
 
+    def _older_forms(self):
+        return TEMPLATE_LEDGER + (
+            "| C2 | Strict parity | P-1 part: verbatim | P-1..P-4 | built in P-1 | untested |\n"
+            "| A-2 | Menu gate | Server part: authorities | P-2, P-4 | "
+            "built in P-2 (server); P-4 (client) | untested |\n")
+
+    def test_import_refuses_a_split_build_without_a_choice(self):
+        self.view.write_text(self._older_forms(), encoding="utf-8")
+        err = self.refused("feature", "import", str(self.view))
+        self.assertIn("(A-2): build 'built in P-2 (server); P-4 (client)' names several phases",
+                      err)
+        self.assertIn("--split-scheduled", err)
+        self.assertNotIn("C2", err)  # the range alone converts without a choice
+        self.assertIn("not both", self.run_tool("feature", "import", str(self.view),
+                                                "--split-scheduled", "--split-built",
+                                                ok=False).stderr)
+
+    def test_import_converts_ranges_and_split_builds(self):
+        self.view.write_text(self._older_forms(), encoding="utf-8")
+        out = self.run_tool("feature", "import", str(self.view), "--split-scheduled").stdout
+        self.assertIn("C2: phases P-1..P-4 imported as P-1 to P-4", out)
+        self.assertIn("A-2: build 'built in P-2 (server); P-4 (client)' imported as "
+                      "'scheduled in P-4'", out)
+        self.assertEqual(self.row("C2")["phases"], ["P-1", "P-2", "P-3", "P-4"])
+        a2 = self.row("A-2")
+        self.assertEqual((a2["build"], a2["phases"]), ("scheduled in P-4", ["P-2", "P-4"]))
+        self.assertEqual(a2["howToCheck"][-1],
+                         "Build before import: built in P-2 (server); P-4 (client)")
+        self.run_tool("feature", "check")
+
+    def test_import_split_built_counts_the_first_phase(self):
+        self.view.write_text(self._older_forms(), encoding="utf-8")
+        self.run_tool("feature", "import", str(self.view), "--split-built")
+        self.assertEqual(self.row("A-2")["build"], "built in P-2")
+
     def test_import_runs_once(self):
         self.imported()
         self.assertIn("already exists", self.refused("feature", "import", str(self.view)))

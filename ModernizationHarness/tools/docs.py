@@ -13,7 +13,8 @@ The feature ledger: features.json is the record; FEATURE_STATUS.md is a view it 
   feature add-group "<title>"         a new, empty group, last
   feature count [P-N | E-N ...]       built-and-untested by phase, failed, totals; scoped if given
   feature check                       schema, values, ids, state.json cross-checks, the view
-  feature import PATH                 one time: turn a Markdown FEATURE_STATUS.md into features.json
+  feature import PATH [--split-scheduled | --split-built]
+                                      one time: turn a Markdown FEATURE_STATUS.md into features.json
   feature render                      rewrite FEATURE_STATUS.md (every write already does)
 The plan: PLAN_<App>.md stays Markdown.
   plan show P-N ...                   print each phase's section 5 subsection
@@ -42,7 +43,12 @@ feature import takes every ledger table in the file, in order; the first heading
 text (other headings included) is kept as the preamble or a group's before/after. It refuses,
 by line, what it cannot place - any "|" line outside a code block that is not part of a ledger
 table (a blank line inside a table; a header that is not the six columns). tested is taken only
-exactly as above - it never fills in a date. It prints the rows per group.
+exactly as above - it never fills in a date. It prints the rows per group. Two older forms are
+converted, each with a note: a phase range (P-1..P-15) becomes the list of its phases; a build
+naming several phases ("built in P-2 (server); P-4 (client)") is refused unless you pass
+--split-scheduled (scheduled in the last phase: still owed) or --split-built (built in the
+first: testable now), which applies to every such row and keeps the original text as a How to
+check line.
 A phase subsection runs from its heading to the next phase heading or the end of section 5
 (headings in code blocks never count). Inside a phase, a heading at or above its level that is
 not the template's own (Tasks, What is testable, Developer test guide, Exit criteria,
@@ -772,16 +778,56 @@ def ledger_header(line):
     return [HEAD_NAMES[n] for n in names]
 
 
+RANGE_RE = re.compile(r"P-(\d+)\s*(?:\.\.|…)\s*P-(\d+)")
+
+
+def expand_ranges(text, notes, rid):
+    """P-1..P-15 in a Phase(s) cell -> P-1, P-2, ..., P-15 (import only)."""
+    def one(m):
+        a, b = int(m.group(1)), int(m.group(2))
+        if a > b:
+            return m.group(0)
+        notes.append(f"note: {rid}: phases {m.group(0)} imported as P-{a} to P-{b}")
+        return ", ".join(f"P-{n}" for n in range(a, b + 1))
+    return RANGE_RE.sub(one, text)
+
+
+def split_build(row, mode, notes):
+    """A build cell naming several phases ("built in P-2 (server); P-4 (client)") -> one value,
+    as --split-scheduled (scheduled in the last phase) or --split-built (built in the first)
+    chooses; the original text is kept as a How to check line. Returns a problem or None."""
+    original = row["build"]
+    ids = PHASE_RE.findall(original)
+    if norm_build(original) or not original.lower().startswith("built in") or len(ids) < 2:
+        return None
+    if mode is None:
+        return (f"build {original!r} names several phases: rerun with --split-scheduled (the "
+                f"row stays owed: scheduled in {ids[-1]}) or --split-built (counted as built "
+                f"in {ids[0]} now)")
+    row["build"] = f"scheduled in {ids[-1]}" if mode == "scheduled" else f"built in {ids[0]}"
+    row["howToCheck"].append(f"Build before import: {original}")
+    if ids[0] not in row["phases"]:
+        row["phases"].insert(0, ids[0])
+    notes.append(f"note: {row['id']}: build {original!r} imported as {row['build']!r}")
+    return None
+
+
 def parse_row(docs, cols, line):
     raw = dict(zip(cols, split_row(line)))
     empty = {"", "-", "—", "–"}
-    row = {"id": plain(raw["id"]), "feature": raw["feature"],
+    notes = docs.import_notes if hasattr(docs, "import_notes") else []
+    rid = plain(raw["id"])
+    phases = plain(raw["phases"])
+    row = {"id": rid, "feature": raw["feature"],
            "howToCheck": [] if raw["howToCheck"] in empty else
            [c.strip() for c in re.split(r"(?i)<br\s*/?>", raw["howToCheck"]) if c.strip()],
-           "phases": [] if plain(raw["phases"]) in empty else
-           [u for u in re.split(r"[,;\s]+", plain(raw["phases"])) if u],
+           "phases": [] if phases in empty else
+           [u for u in re.split(r"[,;\s]+", expand_ranges(phases, notes, rid)) if u],
            "build": norm_build(plain(raw["build"])) or plain(raw["build"]),
            "tested": plain(raw["tested"])}  # exact: a date is never invented here
+    split = split_build(row, getattr(docs, "split_mode", None), notes)
+    if split:
+        return row, [split]
     return row, shape_problems(row) + state_problems(docs, row, strict=False)[0]
 
 
@@ -953,7 +999,13 @@ def cmd_feature_import(docs, args, flags):
     status = view_status(docs)[0]
     if not same and status in ("hand-written", "hand-edited") and "--force" not in flags:
         refuse(f"{docs.view} exists and is not the file being imported; nothing written")
+    if {"--split-scheduled", "--split-built"} <= flags:
+        die("give --split-scheduled or --split-built, not both")
+    docs.split_mode = ("scheduled" if "--split-scheduled" in flags else
+                       "built" if "--split-built" in flags else None)
+    docs.import_notes = []
     rows, preamble, groups, problems, notes, counts = parse_ledger_md(docs, text)
+    notes = docs.import_notes + notes
     ids = [r["id"] for r in rows]
     problems += [f"duplicate id {d}" for d in sorted({d for d in ids if ids.count(d) > 1})]
     if not rows:
@@ -1261,7 +1313,8 @@ COMMANDS = {
     ("feature", "set"): (cmd_feature_set, {"--force", "--developer-said"}, False),
     ("feature", "count"): (cmd_feature_count, set(), True),
     ("feature", "check"): (cmd_feature_check, set(), True),
-    ("feature", "import"): (cmd_feature_import, {"--force"}, False),
+    ("feature", "import"): (cmd_feature_import, {"--force", "--split-scheduled", "--split-built"},
+                            False),
     ("feature", "render"): (cmd_feature_render, {"--force"}, False),
     ("plan", "show"): (cmd_plan_show, set(), True),
     ("plan", "complete"): (cmd_plan_complete, set(), False),

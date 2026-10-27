@@ -755,6 +755,19 @@ step, before your next run**:
    `Tested` (rename or remove the column; a table that is not part of the ledger goes in a code
    block); two group headings with the same title; and a table header with no `|---|` line under
    it. A heading with no table under it, such as `# Legend`, is kept as text, not as a group.
+
+   Two older forms are converted for you, each with a `note:` line. A phase range such as
+   `P-1..P-15` becomes the list of those phases. A Build cell naming several phases, such as
+   `built in P-2 (server); P-4 (client)`, is refused until you choose how to read it — for
+   every such row at once — and the original text is kept as a *How to check* line:
+   - `--split-scheduled` → `scheduled in P-4`: the feature is still owed to the later phase, and
+     a re-slice cannot lose it; the part already built is not counted as awaiting testing.
+   - `--split-built` → `built in P-2`: the part already built counts now and can be accepted;
+     the later phase resets the row to `untested` when it adds its part.
+
+   ```powershell
+   python <stage folder>\tools\docs.py feature import .\out\FEATURE_STATUS.md --split-scheduled
+   ```
 4. **If it prints `warning:` lines**, the rows were imported but disagree with `state.json` (for
    example a row still `scheduled in` a phase that is done). Tell the next Stage 4 run about
    them; it re-points them.
