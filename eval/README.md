@@ -78,6 +78,7 @@ Open the `report.md` path for the readable version.
 | Test the `state.json` tool (`ModernizationHarness/tools/state.py`) | `uv run tests/test_state_tool.py` |
 | Test the legacy code map tool (`ModernizationHarness/tools/codemap.py`) | `uv run tests/test_codemap_tool.py` |
 | Test the ledger and plan tool (`ModernizationHarness/tools/docs.py`) | `uv run tests/test_docs_tool.py` |
+| Check every tool's `.txt` mirror matches it (`ModernizationHarness/tools/<name>.txt`) | `uv run tests/test_tool_mirrors.py` — add `--sync` to refresh them |
 
 `--checks` accepts check ids (`B1`) and group letters (`B`), mixed freely. An
 unknown selector is an error, not a silent no-op — a typo in CI must not read as

@@ -34,6 +34,7 @@ chat it shares with the previous run (DD-25) — does one unit of work, writes s
 | `5_REVIEW_INSTRUCTIONS.md` | stage | Independent audit; findings back into `state.json` |
 | `tools/state.py` | tool | Reads and writes `state.json` for every stage after 0 (DD-18) |
 | `tools/codemap.py` | tool | Writes `LEGACY_CODE_MAP_<AppName>.md` from the legacy source, keeping Stage 1's notes on a rerun (DD-27) |
+| `tools/<name>.txt` | copy | A plain-text mirror of each tool, kept identical to it by `eval/tests/test_tool_mirrors.py`; nothing runs or reads it |
 | `tools/docs.py` | tool | Writes `features.json` and renders `FEATURE_STATUS.md` from it; moves a done phase to plan §2 and applies exact plan replacements (DD-29) |
 | `skills/` | vendored skills | Upstream Angular and .NET agent skills, installed into `.agents/skills/`; `AGENTS.md` invariant 6 overrides any git step in them |
 | `DEVELOPER_GUIDE.md` / `README.md` / `USE_CASES.md` | guide | The reasoning / the five-minute start / the situations you'll hit, by example |

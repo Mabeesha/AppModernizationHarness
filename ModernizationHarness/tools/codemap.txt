@@ -49,7 +49,7 @@ EXCLUDES = re.compile(r"^<!-- codemap:exclude (.+) -->$", re.M)
 SKIP_DIRS = {".git", ".svn", ".hg", ".vs", ".vscode", ".idea", ".gradle", "node_modules",
              "bin", "obj", "packages", "target", "dist", "__pycache__", ".venv", "venv",
              "testresults", "modernizationharness", ".agents",
-             ".harness-backups", "modernizationharness.bak"}
+             ".harness-backups", ".harness-tmp", "modernizationharness.bak"}
 SKIP_LOWER = {d.lower() for d in SKIP_DIRS}
 MAX_BYTES = 2_000_000
 MAX_NAMES = 40          # per file; the rest are counted, not listed
