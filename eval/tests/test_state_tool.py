@@ -105,6 +105,143 @@ class StateToolTest(unittest.TestCase):
         self.assertEqual([e["id"] for e in new["changeLog"]], [3])
         self.assertEqual([r["id"] for r in new["reviews"]], ["R-10"])  # not R-2..R-9 as text
 
+    # --- start: one command that begins a Stage 4 run ----------------------------------------
+
+    DOCS = ["PROJECT_CONTEXT.md", "PLAN_Demo.md", "FEATURE_STATUS.md", "features.json",
+            "HOW_TO_RUN.md", "HIGH_LEVEL_DESIGN_Demo.md", "LOW_LEVEL_DESIGN_Demo.md",
+            "BUSINESS_REQUIREMENTS_Demo.md", "FUNCTIONAL_REQUIREMENTS_Demo.md",
+            "TECHNICAL_REQUIREMENTS_Demo.md", "LEGACY_CODE_MAP_Demo.md"]
+
+    def start(self):
+        """Run start; assert it exits 0 and leaves state.json byte for byte as it was.
+        Returns {section title: [lines]}, in output order."""
+        before = self.file.read_bytes()
+        out = self.run_tool("start").stdout
+        self.assertEqual(self.file.read_bytes(), before, "start changed state.json")
+        sections, current = {}, None
+        for line in out.splitlines():
+            if line.startswith("== "):
+                current = line[3:].split(" (")[0]
+                sections[current] = []
+            else:
+                sections[current].append(line)
+        return sections
+
+    def doc_lines(self, sections):
+        return {line.split()[2].replace("\\", "/").split("/")[-1]: line
+                for key, lines in sections.items() if key.startswith("documents")
+                for line in lines if line.startswith(("required ", "optional "))}
+
+    def test_start_on_a_fresh_state(self):
+        s = self.start()
+        self.assertEqual(list(s), ["summary", "new", "context", "phases", "edits",
+                                   "stages.plan", "marks at hand-off", "documents in out"])
+        self.assertEqual(json.loads(s["stages.plan"][0]), INITIAL["stages"]["plan"])
+        self.assertEqual(s["summary"], self.run_tool("summary").stdout.splitlines())
+        self.assertEqual(json.loads(s["new"][0]), {"changeLog": [], "reviews": []})
+        self.assertEqual(s["context"], [self.run_tool("get", "context").stdout.strip()])
+        self.assertEqual((s["phases"], s["edits"]), (["[]"], ["[]"]))
+        self.assertEqual(s["marks at hand-off"][0], "no new entries: the marks stay "
+                         "lastProcessedChangeLogId=0 lastProcessedReviewNumber=0")
+        docs = self.doc_lines(s)
+        self.assertEqual(list(docs), self.DOCS)
+        for name, line in docs.items():
+            optional = name in ("features.json", "HOW_TO_RUN.md", "LEGACY_CODE_MAP_Demo.md")
+            self.assertTrue(line.startswith(("optional" if optional else "required") + " missing "),
+                            line)
+
+    def test_start_prints_new_entries_and_the_marks_to_write(self):
+        for i in range(3):
+            self.run_tool("add", "changeLog", "author=developer", "origin=developer-prompt",
+                          f"summary=note {i}")
+        for _ in range(2):
+            self.run_tool("add", "reviews", "target=P-1", "result=clean",
+                          "blockerCount=0", "findingsCount=0")
+        self.run_tool("set", "progress", "lastProcessedChangeLogId=1",
+                      "lastProcessedReviewNumber=1")
+        s = self.start()
+        self.assertEqual(s["new"], [self.run_tool("new").stdout.strip()])
+        self.assertEqual(s["marks at hand-off"][0], "if you fold in everything in new: "
+                         "lastProcessedChangeLogId=3 lastProcessedReviewNumber=2")
+        self.assertIn("reconcile", s["marks at hand-off"][1])
+        # only a review is new: the change-log mark stays where it is
+        self.run_tool("set", "progress", "lastProcessedChangeLogId=3")
+        self.assertIn("lastProcessedChangeLogId=3 lastProcessedReviewNumber=2",
+                      self.start()["marks at hand-off"][0])
+
+    def test_start_finds_documents_by_conventional_name(self):
+        out = self.dir / "out"
+        for name in self.DOCS:
+            (out / name).write_text("x", encoding="utf-8")
+        (out / "PLAN_Old.md").write_text("x", encoding="utf-8")  # the exact name wins
+        docs = self.doc_lines(self.start())
+        self.assertEqual(list(docs), self.DOCS)
+        for line in docs.values():
+            self.assertRegex(line, r"^(required|optional) found out[\\/]\S+$")
+
+    def test_start_says_when_a_document_is_ambiguous_or_named_differently(self):
+        out = self.dir / "out"
+        for name in ("HIGH_LEVEL_DESIGN_A.md", "HIGH_LEVEL_DESIGN_B.md", "LOW_LEVEL_DESIGN_Old.md"):
+            (out / name).write_text("x", encoding="utf-8")
+        s = self.start()
+        lines = s["documents in out"]
+        self.assertIn("required ambiguous out" + ("\\" if sys.platform == "win32" else "/")
+                      + "HIGH_LEVEL_DESIGN_*.md  (HIGH_LEVEL_DESIGN_A.md, HIGH_LEVEL_DESIGN_B.md)",
+                      lines)
+        lld = next(line for line in lines if "LOW_LEVEL" in line)
+        self.assertTrue(lld.startswith("required found ") and "LOW_LEVEL_DESIGN_Old.md" in lld
+                        and lld.endswith("(not LOW_LEVEL_DESIGN_Demo.md)"), lld)
+
+    def test_start_reports_code_locations(self):
+        (self.dir / "app").mkdir()
+        self.run_tool("set", "context.locations", "targetRepo=app", "legacySource=legacy",
+                      "targetRepoFrontend=null")
+        self.assertEqual(self.start()["code"],
+                         ["legacySource: missing legacy", "targetRepo: found app"])
+
+    def test_start_stops_when_state_json_is_not_in_the_documents_location(self):
+        (self.dir / "docs").mkdir()
+        self.run_tool("set", "context.locations", "documents=docs")
+        lines = self.start()["documents in docs"]
+        sep = "\\" if sys.platform == "win32" else "/"
+        self.assertEqual(lines[0], "state.json is not in the documents location (docs); docs.py "
+                         f"updates the ledger and plan beside state.json (out): stop and ask")
+        self.assertEqual(len(self.doc_lines({"documents": lines})), len(self.DOCS))
+        self.assertTrue(lines[1].endswith(f"docs{sep}PROJECT_CONTEXT.md"), lines[1])
+
+    def test_start_says_once_when_the_documents_location_is_not_found(self):
+        self.run_tool("set", "context.locations", "documents=nowhere")
+        self.assertEqual(self.start()["documents in nowhere"],
+                         ["documents location nowhere not found from here: run from the "
+                          "working-tree root"])
+
+    def test_start_uses_the_state_folder_when_documents_is_not_set(self):
+        self.run_tool("set", "context.locations", "documents=null")
+        s = self.start()
+        self.assertIn("documents in out", s)
+        self.assertEqual(len(s["documents in out"]), len(self.DOCS))  # no stop line
+
+    def test_start_survives_a_context_that_is_not_an_object(self):
+        for context in (None, "text"):
+            self.file.write_text(json.dumps(dict(INITIAL, context=context)), encoding="utf-8")
+            s = self.start()
+            self.assertEqual(s["context"], [json.dumps(context)])
+            self.assertIn("documents in out", s)
+            self.assertNotIn("code", s)
+
+    def test_start_output_is_ascii(self):
+        state = dict(INITIAL, project="Démo")
+        self.file.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+        (self.dir / "out" / "PLAN_Démo.md").write_text("x", encoding="utf-8")
+        s = self.start()  # run_tool decodes stdout as ASCII, so any other byte fails here
+        self.assertIn('project: "D\\u00e9mo"', s["summary"][0])
+        plan = next(line for line in s["documents in out"] if "PLAN_" in line)
+        self.assertTrue(plan.startswith("required found ") and plan.endswith("PLAN_D\\u00e9mo.md"),
+                        plan)
+
+    def test_start_takes_no_arguments(self):
+        self.assertIn("no arguments", self.refused("start", "now"))
+
     # --- ids ----------------------------------------------------------------------------------
 
     def test_ids_are_allocated_and_printed(self):

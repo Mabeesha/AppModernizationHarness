@@ -3,6 +3,9 @@
 
 Usage: python state.py [--file PATH] <command> ...
 
+  start                       begin a Stage 4 run: summary, new, context, phases, edits,
+                              stages.plan, the marks to write at hand-off, the input
+                              documents' paths
   summary                     one-screen overview: stages, phases, edits, marks, counts
   get [PATH]                  print the value at PATH (whole file if omitted)
   new                         changeLog / reviews entries above the progress high-water marks
@@ -16,6 +19,15 @@ add fills id, utc and the schema defaults, and requires:
   reviews target result blockerCount findingsCount
   author: developer, implement-agent, review-agent; origin: developer-prompt, reconcile,
   out-of-band, review-R-<n>; result: clean, findings. A phase's name never changes.
+
+start writes nothing and is one command, so it needs no chaining in any shell. Its marks line
+is what to write at hand-off if the run folds in everything new printed. It looks documents up
+in context.locations.documents (relative to the current directory - run it from the
+working-tree root, like every command; state.json lives in that folder) by their conventional
+names, <AppName> being project, and prints each as required or optional, and found, missing or
+ambiguous; a missing one still exits 0. A documents location not found from here prints one
+line saying so in place of the documents; one that does not hold this state.json prints a
+stop-and-ask line.
 
 PATH is dotted; a list segment matches an element by id, e.g. phases.P-3 or changeLog.12.
 A value is text, except: null; the integer fields (progress marks, rerunCount, blockerCount,
@@ -75,6 +87,7 @@ ALLOWED = {
 }
 SKIP_DIRS = {".git", "node_modules", "bin", "obj", "target", "dist", "ModernizationHarness"}
 TMP_DIR = ".harness-tmp"  # values files; ignores itself in git
+STATE_PATH = None  # the state file this run read; set by main, used by start
 
 
 def die(msg):
@@ -253,15 +266,132 @@ def cmd_get(state, args):
     print(json.dumps(value, indent=None if args else 2))
 
 
-def cmd_new(state, _):
+def unprocessed(state):
     p = state.get("progress", {})
-    out = {
+    return {
         "changeLog": [e for e in state.get("changeLog", [])
                       if num(e["id"]) > p.get("lastProcessedChangeLogId", 0)],
         "reviews": [r for r in state.get("reviews", [])
                     if num(r["id"]) > p.get("lastProcessedReviewNumber", 0)],
     }
-    print(json.dumps(out))
+
+
+def cmd_new(state, _):
+    print(json.dumps(unprocessed(state)))
+
+
+# Stage 4's input documents in the documents location: (name, required, said when missing)
+START_DOCS = (
+    ("PROJECT_CONTEXT.md", True, ""),
+    ("PLAN_{app}.md", True, ""),
+    ("FEATURE_STATUS.md", True, ""),
+    ("features.json", False,
+     "docs.py needs it; a Markdown-only ledger moves over by feature import"),
+    ("HOW_TO_RUN.md", False, "no phase has written it yet"),
+    ("HIGH_LEVEL_DESIGN_{app}.md", True, ""),
+    ("LOW_LEVEL_DESIGN_{app}.md", True, ""),
+    ("BUSINESS_REQUIREMENTS_{app}.md", True, ""),
+    ("FUNCTIONAL_REQUIREMENTS_{app}.md", True, ""),
+    ("TECHNICAL_REQUIREMENTS_{app}.md", True, ""),
+    ("LEGACY_CODE_MAP_{app}.md", False, "search the legacy source instead"),
+)
+
+
+def text(s):
+    """A path or name as ASCII, non-ASCII as \\u escapes like every other value printed."""
+    return "".join(c if ord(c) < 128 else json.dumps(c)[1:-1] for c in str(s))
+
+
+def same_dir(a, b):
+    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
+
+
+def find_doc(folder, pattern, app):
+    """(status, path, note): the exact conventional name, else the one <prefix>_*.md there."""
+    exact = os.path.join(folder, pattern.format(app=app))
+    if os.path.isfile(exact) or "{app}" not in pattern:
+        return ("found" if os.path.isfile(exact) else "missing"), exact, ""
+    prefix = pattern.split("{app}")[0]
+    try:
+        hits = sorted(f for f in os.listdir(folder) if f.startswith(prefix) and f.endswith(".md"))
+    except OSError:
+        hits = []
+    if len(hits) == 1:
+        return "found", os.path.join(folder, hits[0]), f"not {pattern.format(app=app)}"
+    if hits:
+        return "ambiguous", os.path.join(folder, prefix + "*.md"), ", ".join(hits)
+    return "missing", exact, ""
+
+
+def print_marks(state, new):
+    p = state.get("progress", {})
+    log_mark = max([num(e["id"]) for e in new["changeLog"]]
+                   + [p.get("lastProcessedChangeLogId", 0)])
+    review_mark = max([num(r["id"]) for r in new["reviews"]]
+                      + [p.get("lastProcessedReviewNumber", 0)])
+    marks = f"lastProcessedChangeLogId={log_mark} lastProcessedReviewNumber={review_mark}"
+    print("== marks at hand-off (information only; start writes nothing)")
+    print(f"if you fold in everything in new: {marks}" if new["changeLog"] or new["reviews"]
+          else f"no new entries: the marks stay {marks}")
+    print("raise lastProcessedChangeLogId to the id of each entry this run adds, but never past "
+          "an entry you did not reconcile")
+
+
+def print_inputs(state, state_path):
+    """The documents by conventional name, from the documents location as read from the
+    working-tree root; state.json lives in that folder (Stage 0 puts it there)."""
+    context = state.get("context")
+    locations = context.get("locations") if isinstance(context, dict) else None
+    locations = locations if isinstance(locations, dict) else {}
+    state_dir = os.path.normpath(os.path.dirname(state_path) or ".")
+    folder = locations.get("documents")
+    stop = "a required one missing or ambiguous: stop and ask"
+    if isinstance(folder, str) and folder:
+        print(f"== documents in {text(folder)} (context.locations.documents; {stop})")
+    else:
+        folder = state_dir
+        print(f"== documents in {text(folder)} (state.json's folder, as "
+              f"context.locations.documents is not set; {stop})")
+    if not os.path.isdir(folder):
+        print(f"documents location {text(folder)} not found from here: run from the "
+              "working-tree root")
+    else:
+        if not same_dir(folder, state_dir):
+            print(f"state.json is not in the documents location ({text(folder)}); docs.py "
+                  f"updates the ledger and plan beside state.json ({text(state_dir)}): "
+                  "stop and ask")
+        app = state.get("project") or "<AppName>"
+        for pattern, required, why in START_DOCS:
+            status, path, note = find_doc(folder, pattern, app)
+            note = why if status == "missing" and why else note
+            line = (f"{'required' if required else 'optional'} {status} "
+                    f"{text(os.path.normpath(path))}")
+            print(line + (f"  ({text(note)})" if note else ""))
+    code = [(k, locations[k]) for k in ("legacySource", "targetRepo", "targetRepoFrontend")
+            if isinstance(locations.get(k), str) and locations[k]]
+    if code:
+        print("== code (context.locations)")
+    for k, v in code:
+        print(f"{k}: {'found' if os.path.isdir(v) else 'missing'} {text(v)}")
+
+
+def cmd_start(state, args):
+    """Everything a Stage 4 run reads from state at its start, in one command; writes nothing."""
+    if args:
+        die("start takes no arguments")
+    print("== summary")
+    cmd_summary(state, [])
+    new = unprocessed(state)
+    print("== new (changeLog and reviews above the progress marks)")
+    print(json.dumps(new))
+    for part in ("context", "phases", "edits"):
+        print(f"== {part}")
+        cmd_get(state, [part])
+    stages = state.get("stages")
+    print("== stages.plan")
+    print(json.dumps(stages.get("plan") if isinstance(stages, dict) else None))
+    print_marks(state, new)
+    print_inputs(state, STATE_PATH)
 
 
 def cmd_add(state, args):
@@ -354,8 +484,8 @@ def cmd_check(state, _):
     print("ok")
 
 
-COMMANDS = {"summary": cmd_summary, "get": cmd_get, "new": cmd_new, "add": cmd_add,
-            "set": cmd_set, "drop": cmd_drop, "check": cmd_check}
+COMMANDS = {"start": cmd_start, "summary": cmd_summary, "get": cmd_get, "new": cmd_new,
+            "add": cmd_add, "set": cmd_set, "drop": cmd_drop, "check": cmd_check}
 
 
 def main(argv):
@@ -370,7 +500,8 @@ def main(argv):
     if not argv or argv[0] not in COMMANDS:
         print(__doc__)
         sys.exit(2)
-    path = path or find_file()
+    global STATE_PATH
+    path = STATE_PATH = path or find_file()
     state = load(path)
     out = io.StringIO()
     with contextlib.redirect_stdout(out):  # hold the result back until the write succeeds

@@ -1,9 +1,9 @@
 # Token Savings — Options
 
-*Status: a proposal. Nothing in §3 is applied except Option 17 (the legacy code map, DD-27)
-and Option 20 (the ledger and plan tool, values files in the repo, and fixes for the failed
-calls of a real Stage 4 run — DD-29, DD-30); Options 18–19 are recorded for after a measured
-Sonnet run.
+*Status: a proposal. Nothing in §3 is applied except Option 17 (the legacy code map, DD-27),
+Option 19 (`state.py start`, one command that begins a Stage 4 run — DD-18) and Option 20 (the
+ledger and plan tool, values files in the repo, and fixes for the failed calls of a real Stage 4
+run — DD-29, DD-30); Option 18 is recorded for after a measured Sonnet run.
 Each option says whether it needs a design change (and so a yes) or is only a way of running the
 harness. Last updated 2026-10-27.*
 
@@ -29,6 +29,7 @@ context limit. So the goal is **fewer calls**, and some options below now cost m
 | 8 Read only plan-named sections | **Backfires** — more, smaller reads |
 | 13 Mechanical checks as scripts | Still helps — one call replaces several |
 | 17 Legacy code map | **Helps — applied** (DD-27): a script builds it for no model calls, and later lookups skip the search calls |
+| 19 Start-of-run command | **Helps — applied** (DD-18): one command, no chain, so a `cmd` command tool no longer turns the start into one read per call |
 | 20 Ledger and plan tool; fewer failed calls | **Helps — applied** (DD-29, DD-30): one command per ledger or plan update, and limits that stop calls failing |
 | 9, 12, 14, 15, 16 | Neutral, or help only if they remove calls |
 
@@ -47,6 +48,11 @@ the test-guide walk and the remaining `HOW_TO_RUN.md` commands chained; the docu
 the start not reopened. Rough estimate, not measured: 6–15 fewer calls in a 27–72-call phase.
 The same change put Stage 4's steps in run order, turned its three decisions into tables, and
 counts a check only if it actually ran (R4.1).
+
+Added 2026-10-27 (Option 19): Stage 4's state read is one command, `state.py start`, instead of
+a chain of five. A real Duo run showed its command tool runs `cmd`, which does not split on `;`:
+the chain reached `state.py` as `summary;`, which printed its usage text, and the agent fell back
+to one read per call.
 
 ---
 
@@ -262,6 +268,9 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 - **Smaller alternative:** move the locating procedure once into `AGENTS_TEMPLATE.md` (always
   loaded) and leave a one-line pointer in each stage. Saves the same ~300 tokens and stops five
   copies drifting, with no schema or tool change.
+- **Since Option 19 (applied):** Stage 4 already gets its paths from `state.py start`, found by
+  conventional name with no schema change; this option would add exact stored paths and the
+  other stages.
 
 #### Option 13 — Move other mechanical checks into scripts
 
@@ -357,7 +366,7 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   fields when present); a DD in `docs/DESIGN.md`; R5 in `docs/REQUIREMENTS.md`; the guides'
   plan descriptions; possibly a Tier 1 eval check for the template's shape.
 
-#### Option 19 — A start-of-run command in the state tool *(not applied — waits for a measured Sonnet run)*
+#### Option 19 — A start-of-run command in the state tool *(applied 2026-10-27, DD-18)*
 
 - **What:** two additions to `tools/state.py`, both new output only:
   1. **One command that starts a Stage 4 run** — it prints `summary`, `new`, `context`,
@@ -376,9 +385,20 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 - **Risk:** the platform may cut off very long tool output — test the print-the-documents
   variant on a real project first; the paths-only variant has no such risk. Close to Option 12;
   build them together if both are wanted.
-- **Touches:** a design change — `state.py` and `eval/tests/test_state_tool.py`; DD-18 in
-  `docs/DESIGN.md`; R7 in `docs/REQUIREMENTS.md`; Stage 4 §Locating your inputs and Step 2
-  item 5; `AGENTS_TEMPLATE.md §Reading and Writing state.json`; the guides.
+- **Why it was applied without waiting:** a real Duo run showed the chained start does not
+  work when the command tool runs `cmd` (no `;` splitting): `state.py` received `summary;` and
+  printed its usage text, and the agent fell back to one read per call.
+- **Applied as:** part 1 as `python state.py start` — `summary`, `new`, `context`, `phases`,
+  `edits`, `stages.plan`, then each input document's path from `context.locations.documents`
+  (required or optional; found, missing or ambiguous) and the code locations. The print-the-documents variant
+  was not built; the documents are read in one step after it. Part 2 is folded into `start`, not
+  `new` (whose output is unchanged): a marks line gives the values to write at hand-off if
+  everything `new` printed is folded in — information only, with the reminder to raise the
+  change-log mark to each entry the run adds, but never past one it did not reconcile.
+  R7 lists no commands, so `docs/REQUIREMENTS.md` did not change.
+- **Touches (done):** `state.py` and `eval/tests/test_state_tool.py`; DD-18, DD-25 and Q6 in
+  `docs/DESIGN.md`; Stage 4 §Locating your inputs, Step 0b item 1, Step 0c and Step 2 item 5;
+  `AGENTS_TEMPLATE.md §Reading and Writing state.json`; `DEVELOPER_GUIDE.md`.
 
 #### Option 20 — A tool for the ledger and the plan, and fewer failed calls *(applied 2026-10-27, DD-29, DD-30, R5.5–R5.6, R7.5)*
 
@@ -407,7 +427,8 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 - **Relation to other options:** this is Option 13 applied to the ledger — `feature check`
   checks the ledger against `state.json` — and the first piece of Option 16's "no quoting or
   PowerShell-pipe pitfalls" without MCP. It does not do Option 19 (a start-of-run command in the
-  state tool) or Option 18 (more exact phase entries); both still wait for a measured Sonnet run.
+  state tool, applied separately the same day) or Option 18 (more exact phase entries), which
+  still waits for a measured Sonnet run.
   Option 18's "Delivers" field would pair with `plan show`.
 - **Touches (done):** DD-29, DD-30, R4.4, R5.5–R5.6, R7.5, R10.3, Q6; `tools/docs.py` and
   `eval/tests/test_docs_tool.py`; `tools/state.py` (the folder) and its tests; `tools/codemap.py`
@@ -452,7 +473,6 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
    prove too manual), Option 14 (after a measured run), Option 15 (for easier starting), Option
    16 (state-tool commands cause real trouble).
 7. **After one measured Sonnet phase** (calls, stops and first-time exit-criteria passes against
-   an Opus phase): Option 19 if the start of a run or the high-water marks cost calls or go
-   wrong; Option 18 if Sonnet loops on fix-ups or guesses file locations, and enough phases
+   an Opus phase): Option 18 if Sonnet loops on fix-ups or guesses file locations, and enough phases
    remain to repay a Stage 3 refresh. Count failed and timed-out calls too — Option 20 (applied)
    is meant to bring them near zero.

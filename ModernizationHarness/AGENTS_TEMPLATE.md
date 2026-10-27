@@ -36,8 +36,9 @@ of what the stage usually does is not a stage run.
 **Never open, paste, or hand-edit `state.json` — use the state tool,** `tools/state.py` beside
 the stage files: `python <stage folder>/tools/state.py <command>` from the working-tree root
 (`python3` where `python` is absent; `--file <path>` first when the prompt gives one). It returns
-only the slice you ask for. Commands: `summary` (**start every run here**), `get <path>`, `new`
-(entries above the `progress` marks), `add`, `set`, `drop`, `check`. **Run it with no command for
+only the slice you ask for. Commands: `start` (**start every Stage 4 run here** — one command,
+no chain), `summary` (**start every other run here**), `get <path>`, `new` (entries above the
+`progress` marks), `add`, `set`, `drop`, `check`. **Run it with no command for
 the full syntax** when a command is refused as malformed. Two things it will not refuse, so get
 them right first time: **field names must be exact** — a misspelled one is stored as a new field,
 not refused — and a value holding quotes or a nested object goes in an `@FILE`: a UTF-8 JSON
@@ -141,11 +142,10 @@ stage and in ordinary chat:
   not be read again. **Every stage run reads its inputs fresh** — between runs the developer,
   a formatter or a build may have changed any of them, and you cannot see that from memory.
 - **Chain dependent commands** — build, tests and linter (within the time limit below); a run
-  of state-tool writes — into one
-  shell command that stops at the first failure (bash: `a && b && c`; Windows PowerShell 5.1:
-  `a; if ($?) { b; if ($?) { c } }`). When a chain stops, say which step failed and which did
-  not run. **Never chain a write that needs an id printed by an earlier `add`** — run that `add`
-  on its own first. If your shell tool refuses chained commands, run them one at a time.
+  of state-tool writes — into one shell command that stops at the first failure (bash and
+  `cmd`: `a && b && c`; Windows PowerShell 5.1: `a; if ($?) { b; if ($?) { c } }`). When a
+  chain stops, say which step failed and which did not run. **Never chain a write that needs an
+  id printed by an earlier `add`** — run that `add` on its own first. If your shell tool refuses chained commands, run them one at a time.
 - **Keep every command inside the platform's command time limit** (often 120 s, sometimes
   30 s): chain only steps that finish well within it, and run a long build or test suite as a
   command of its own. After a timeout, check by content what it changed before re-running
@@ -168,7 +168,8 @@ stage and in ordinary chat:
   `Set-Content` without it (they write UTF-16 or ANSI).
 - No `&&` or `||` (use `a; if ($?) { b }`). `Select-String` has no `-Recurse`: pipe
   `Get-ChildItem -Recurse` into it. No `python -c` with quotes inside — write a script file.
-- If the command tool may run `cmd`, wrap the command: `powershell -NoProfile -Command "…"`.
+- A `;` chain answered by a tool's usage text or by `got 'if'` means the command tool runs `cmd`,
+  not PowerShell: chain with `&&` there.
 
 These never override a rule elsewhere: a stage's checks, stops and reports all still happen —
 they are just done in fewer calls.

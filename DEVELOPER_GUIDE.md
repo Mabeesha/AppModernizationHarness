@@ -784,6 +784,13 @@ step, before your next run**:
 Without Python nothing changes: the agent edits both files by hand under the same rules and
 says so in its report.
 
+### Upgrading to a version with `state.py start`
+
+`tools/state.py` gained one command, `start`, which Stage 4 now runs to begin each run (one
+command instead of a chain that failed when the agent's command tool ran `cmd`). Nothing to
+migrate: copy in the new stage folder and rebuild `AGENTS.md` (steps 3–4) so both mention it;
+your `state.json` is unchanged.
+
 ## Worked Examples
 
 The examples below show the **prompts** you'd give the agent at each step. Replace bracketed

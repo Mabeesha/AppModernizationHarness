@@ -80,7 +80,7 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    (`AGENTS.md §Reading and Writing state.json`).
 2. **The document inputs listed in §Inputs** — resolve from `context.locations.documents` by their
    conventional filenames (`PROJECT_CONTEXT.md` and the `<AppName>`-suffixed
-   requirements/design/plan docs this stage consumes).
+   requirements/design/plan docs this stage consumes); the state tool's `start` prints them.
 3. **The legacy source and target code repository**, where this stage needs them — from
    `context.locations.legacySource` and `context.locations.targetRepo` (plus
    `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
@@ -94,23 +94,30 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.
 
-**Start every run with two commands** (`AGENTS.md §Keeping the Request Count Down`):
+**Start every run with two steps** (`AGENTS.md §Keeping the Request Count Down`):
 
-1. **State, in one chained command** — `summary`, `new`, `get context`, `get phases`,
-   `get edits`. That is what Step 0 needs from `state.json`: the locations, the repo and
-   deployment decisions, the unprocessed entries, and every phase's and edit's status, notes and
-   `sizeReport` (a re-slice also needs `get stages.plan`).
-2. **Documents, in one command**, once their paths are known — the plan, `FEATURE_STATUS.md`,
+1. **State, in one command: `python <stage folder>/tools/state.py start`** — one command, not a
+   chain, so it runs in any shell. It prints what Step 0 needs from `state.json` (`summary`,
+   `new`, `context`, `phases`, `edits`, `stages.plan`: the locations, the repo and deployment
+   decisions, the unprocessed entries, every phase's and edit's status, notes and `sizeReport`,
+   and what a re-slice records), the marks to write at hand-off if you fold in everything `new`
+   printed (Step 2, item 5), the code locations, and each input document's path by item 2 —
+   *required* or *optional*, and *found*, *missing* or *ambiguous*. A required one missing or
+   ambiguous, or a line saying `state.json` is not in the documents location: stop and ask, as
+   above. A documents location *not found from here* means you are not at the working-tree
+   root: run it from there.
+2. **Documents, in one step**, from the paths `start` printed — the plan, `FEATURE_STATUS.md`,
    `HOW_TO_RUN.md` where it exists, the HLD and LLD, the three requirements files and
-   `PROJECT_CONTEXT.md`.
+   `PROJECT_CONTEXT.md` — with your file tool, several files in one step where it allows, or one
+   shell command for your shell.
 
-Where this chat already resolved the paths in an earlier run, make the two one command; if the
-`context.locations` it prints differs from the paths you used, read the documents again from the
-new ones. Read everything fresh every run, even in a chat that read it before — the developer
-may have changed any of it since. Then work from what you read and what this run wrote: do not
-open these documents again this run. **The one exception:** before editing a file with an edit
-tool that needs its own read first (GitLab Duo's does), open it with that tool's reader — the
-shell command above does not count. The plan and the ledger need no such read: change them
+Where this chat already knows the paths from an earlier run, read the documents in the same step
+as `start`; if the paths `start` prints differ from the ones you used, read the documents again
+from the new ones. Read everything fresh every run, even in a chat that read it before — the
+developer may have changed any of it since. Then work from what you read and what this run
+wrote: do not open these documents again this run. **The one exception:** before editing a file
+with an edit tool that needs its own read first (GitLab Duo's does), open it with that tool's
+reader — a shell read does not count. The plan and the ledger need no such read: change them
 through `tools/docs.py`.
 
 ---
@@ -257,8 +264,8 @@ other entries (0b, item 5), and reconcile it at Step 0b before building.
 
 ### 0b. Reconcile (fold in changes since the last run)
 1. **Read the new entries in `state.json`**, using the high-water mark in `progress` — this is
-   how you tell new from already-applied, so never eyeball it. The state tool's `new` prints
-   exactly the first two below; read nothing older:
+   how you tell new from already-applied, so never eyeball it. The `new` part of `start`'s
+   output is exactly the first two below; read nothing older:
    - `changeLog[]` entries whose `id` is **greater than `progress.lastProcessedChangeLogId`**.
    - `reviews[]` whose `R-<n>` **number** is greater than `progress.lastProcessedReviewNumber`
      — compare `<n>` **numerically**, never as text (`R-10` sorts before `R-2` as a string).
@@ -319,7 +326,7 @@ whether the remaining phases are still the right slicing, per
 |---|---|
 | A design or requirements doc gained a **Revision History** row since the last run | the `changeLog` entries `new` printed (every stage rerun appends one), or a hand edit 0b logged |
 | A review left findings too large to fold into this phase | the `reviews[]` entries `new` printed |
-| The previous phase revealed the slicing was wrong | its `sizeReport`, printed by `get phases`: *too large* or *too small*. A *too large* already resolved by an approved split is not, on its own, a reason — re-slice only if the remaining phases look as large as the one that overflowed |
+| The previous phase revealed the slicing was wrong | its `sizeReport`, printed by `start`: *too large* or *too small*. A *too large* already resolved by an approved split is not, on its own, a reason — re-slice only if the remaining phases look as large as the one that overflowed |
 | The developer asked for a different shape | the prompt |
 
 If none applies, report **"plan unchanged — building P-N"** and go to Step 1. This is the
@@ -474,7 +481,8 @@ test guide where the change surface warrants.
      with. Not written for a minor edit.
    - **Advance the high-water mark** to **what this run actually folded in** — the highest
      `changeLog[].id` you reconciled, plus any entries you appended yourself; and
-     `progress.lastProcessedReviewNumber` to the `<n>` of the last review you addressed. Do
+     `progress.lastProcessedReviewNumber` to the `<n>` of the last review you addressed.
+     `start`'s marks line gives both when you folded in everything `new` printed. Do
      **not** simply take the highest id present: an entry a developer added mid-run that you
      never folded in would be marked processed and silently lost.
    - Ensure any task/guide edits are saved to the plan (`plan replace`).
