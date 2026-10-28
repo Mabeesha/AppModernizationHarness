@@ -31,6 +31,7 @@ context limit. So the goal is **fewer calls**, and some options below now cost m
 | 17 Legacy code map | **Helps — applied** (DD-27): a script builds it for no model calls, and later lookups skip the search calls |
 | 19 Start-of-run command | **Helps — applied** (DD-18): one command, no chain, so a `cmd` command tool no longer turns the start into one read per call |
 | 20 Ledger and plan tool; fewer failed calls | **Helps — applied** (DD-29, DD-30): one command per ledger or plan update, and limits that stop calls failing |
+| Shell commands through `pwsh` on Windows | **Helps — applied 2026-10-27** (DD-25): Duo sometimes hands a session's first command to `cmd`; `pwsh -NoProfile -Command "…"` runs the same from `cmd` or PowerShell 5.1, so chains stay one call and stop failing |
 | 9, 12, 14, 15, 16 | Neutral, or help only if they remove calls |
 
 What was applied for per-call billing (DD-25, Q6, on branch `no-agent-git`): `AGENTS.md

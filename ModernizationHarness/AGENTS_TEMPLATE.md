@@ -126,10 +126,10 @@ The agent platform may bill **per model call**, not per token: every tool call y
 followed by another billed call. Reading more in one call costs nothing extra. So, in every
 stage and in ordinary chat:
 
-- **Batch independent reads.** Read several known files in **one command** that labels each
-  one — bash: `tail -n +1 FILE1 FILE2`; PowerShell: `Get-ChildItem FILE1, FILE2 | % { "==> $_";
-  Get-Content -LiteralPath $_.FullName -Encoding UTF8 }` — or, where your tools allow several
-  calls in one step, issue them together.
+- **Batch independent reads.** Read several known files in **one step**: with your file tool,
+  several reads issued together where it allows (on Windows, prefer this — a shell command that
+  labels each file needs `$`, which the outer shell may rewrite); in bash, `tail -n +1 FILE1
+  FILE2`.
 - **Find legacy code through the code map.** Before searching or listing the legacy source, look
   in `LEGACY_CODE_MAP_<AppName>.md` in the documents location: §1 says where each area lives, §3
   lists every file with the names declared in it and their line numbers. Open only the files it
@@ -142,8 +142,8 @@ stage and in ordinary chat:
   not be read again. **Every stage run reads its inputs fresh** — between runs the developer,
   a formatter or a build may have changed any of them, and you cannot see that from memory.
 - **Chain dependent commands** — build, tests and linter (within the time limit below); a run
-  of state-tool writes — into one shell command that stops at the first failure (bash and
-  `cmd`: `a && b && c`; Windows PowerShell 5.1: `a; if ($?) { b; if ($?) { c } }`). When a
+  of state-tool writes — into one shell command that stops at the first failure: bash
+  `a && b && c`; on Windows **`pwsh -NoProfile -Command "a && b && c"`** (below). When a
   chain stops, say which step failed and which did not run. **Never chain a write that needs an
   id printed by an earlier `add`** — run that `add` on its own first. If your shell tool refuses chained commands, run them one at a time.
 - **Keep every command inside the platform's command time limit** (often 120 s, sometimes
@@ -160,16 +160,22 @@ stage and in ordinary chat:
 - **Don't spend a call checking your own write.** A failed write or edit reports itself; re-read
   only when a later step needs the content.
 
-**Windows PowerShell 5.1** (the default on Windows) has traps that each cost a failed call:
+**On Windows, run shell commands through PowerShell 7** — `pwsh -NoProfile -Command "…"`. A
+command tool may hand a command to `cmd` or to Windows PowerShell 5.1 (on GitLab Duo, often the
+first command of a session goes to `cmd`); either one starts `pwsh`, which then runs the rest the
+same way, with `&&`, and reads and writes UTF-8. Each trap below costs a failed call:
 
-- Read with `Get-Content -Encoding UTF8`; if `—` still arrives garbled, first run
-  `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`.
-- Write files with your file or edit tool, or `-Encoding UTF8` — never `>`, `Out-File` or
-  `Set-Content` without it (they write UTF-16 or ANSI).
-- No `&&` or `||` (use `a; if ($?) { b }`). `Select-String` has no `-Recurse`: pipe
-  `Get-ChildItem -Recurse` into it. No `python -c` with quotes inside — write a script file.
-- A `;` chain answered by a tool's usage text or by `got 'if'` means the command tool runs `cmd`,
-  not PowerShell: chain with `&&` there.
+- **Inside the quotes:** single quotes only, and no `$` or `%` — the outer shell rewrites them
+  (`"... 'status=in progress' ..."`). A command that needs `$` goes in a script file in
+  `.harness-tmp/`, run with `pwsh -NoProfile -File`. A program alone with plain arguments
+  (`python ... start`) needs no wrapper.
+- **No `pwsh`** (`pwsh -v` fails): run one plain program per command — no `;`, `&&` or `|` —
+  and say so in the report.
+- **Answered `is not recognized as an internal or external command`, or by a tool's usage text
+  for a `;` chain:** it ran in `cmd`. Rerun it through `pwsh`; don't switch to `cmd` syntax.
+- Write files with your file or edit tool, never `>` or `Out-File` from Windows PowerShell 5.1
+  (UTF-16). `Select-String` has no `-Recurse`: pipe `Get-ChildItem -Recurse` into it. No
+  `python -c` with quotes inside — write a script file.
 
 These never override a rule elsewhere: a stage's checks, stops and reports all still happen —
 they are just done in fewer calls.

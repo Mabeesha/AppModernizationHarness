@@ -720,7 +720,7 @@ DD-30), and nothing you have produced is redone. Do steps 1–6 above, then **on
 step, before your next run**:
 
 1. **Rebuild `AGENTS.md` from the new template** (step 4) — it has a new section, *The Feature
-   Ledger*, a short list of Windows PowerShell 5.1 traps, and new limits on how
+   Ledger*, the rule to run Windows shell commands through `pwsh` with its short list of traps, and new limits on how
    much the agent writes or chains in one go. Add your own lines back.
 2. **Turn your ledger into `features.json`.** From your project folder:
 
@@ -790,6 +790,15 @@ says so in its report.
 command instead of a chain that failed when the agent's command tool ran `cmd`). Nothing to
 migrate: copy in the new stage folder and rebuild `AGENTS.md` (steps 3–4) so both mention it;
 your `state.json` is unchanged.
+
+### Windows: install PowerShell 7 (`pwsh`)
+
+The rebuilt `AGENTS.md` tells the agent to run its shell commands on Windows as
+`pwsh -NoProfile -Command "…"`. That works whether the agent's command tool hands the command to
+`cmd` or to Windows PowerShell 5.1 — on GitLab Duo the first command of a session often goes to
+`cmd`, which breaks PowerShell syntax. Check that `pwsh -v` works on the machine the agent runs
+on; if not, install PowerShell 7. Without it the agent falls back to one plain command per call:
+nothing breaks, but chained steps cost more calls.
 
 ## Worked Examples
 
