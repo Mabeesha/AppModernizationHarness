@@ -384,9 +384,10 @@ unchanged" (0b, item 5). Work directly in the target repository's working tree �
    Count Down`).
 3. **Test** — add/adjust automated tests for the behavior; cover edge cases from the requirements.
 4. **Verify** — run the build, tests and linter in as few commands as the command time limit
-   allows: chained where the whole chain finishes well inside it, a long build or test suite on
-   its own; after a timeout, check by content what ran before re-running anything
-   (`AGENTS.md §Keeping the Request Count Down`). Exercise the task's "done when" conditions (call the endpoint, render the screen). **A check counts only if it
+   allows: chained where the whole chain finishes well inside it; a build or test suite that
+   may outlast the limit through `tools/longrun.py` — `start`, then `wait` until it has
+   finished (still running is not a result); after a timeout, check by content what ran before
+   re-running anything (`AGENTS.md §Keeping the Request Count Down`). Exercise the task's "done when" conditions (call the endpoint, render the screen). **A check counts only if it
    ran and exercised the change.** A syntax-only check does not count, nor does a command that
    failed to start — a missing tool, an unrestored package — nor a test run that a compile error
    stopped before any test ran (fix it and rerun). Where only the project's declared
@@ -411,15 +412,17 @@ test guide where the change surface warrants.
 
 1. **Run the phase's exit criteria** — the only gate. All must pass. You may only
    mark `done` if they do. Run the criteria that are commands chained, within the command time
-   limit as in Step 1, item 4; if a chain stops, name the criterion that failed and those that
-   did not run. **Never tick the plan's exit-criteria or task checkboxes** (`- [ ]`) — status
+   limit as in Step 1, item 4 — a long one through `tools/longrun.py`, which passes only on
+   exit 0 once finished (still running, stopped or lost is not a pass); if a chain stops, name
+   the criterion that failed and those that did not run. **Never tick the plan's exit-criteria or task checkboxes** (`- [ ]`) — status
    lives in `state.json`, and a ticked box is a second record that drifts.
 2. **Walk the developer test guide yourself** end to end; if a step is now wrong, fix it in the
    plan (don't leave it stale). **First check the app's port is free** — a leftover instance
    answers the walk with old code: stop it if it is a leftover of this app, else report it
-   rather than walk against it. Start what the guide starts, then run its command-line steps —
-   API calls and their expected results — **in one chained command**; when the walk is done,
-   stop what it started. A step you cannot carry
+   rather than walk against it. Start what the guide starts — a server through
+   `longrun.py start <name> --seconds <until it is up>`, where `still running` is expected —
+   then run its command-line steps — API calls and their expected results — **in one chained
+   command**; when the walk is done, stop what it started (`longrun.py stop <name>`). A step you cannot carry
    out here (a screen, with no browser tool) is named in the report as not walked — never
    reported as walked.
 3. **Update the feature ledger** — every row this run touched in **one** `feature set @FILE`

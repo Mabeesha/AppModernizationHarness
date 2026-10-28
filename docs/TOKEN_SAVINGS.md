@@ -3,9 +3,10 @@
 *Status: a proposal. Nothing in §3 is applied except Option 17 (the legacy code map, DD-27),
 Option 19 (`state.py start`, one command that begins a Stage 4 run — DD-18) and Option 20 (the
 ledger and plan tool, values files in the repo, and fixes for the failed calls of a real Stage 4
-run — DD-29, DD-30); Option 18 is recorded for after a measured Sonnet run.
+run — DD-29, DD-30) and Option 21 (long commands past the time limit, and values files Duo's
+file tools can write — DD-31, DD-30); Option 18 is recorded for after a measured Sonnet run.
 Each option says whether it needs a design change (and so a yes) or is only a way of running the
-harness. Last updated 2026-10-27.*
+harness. Last updated 2026-10-28.*
 
 ---
 
@@ -417,7 +418,7 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   generated view, `feature count` for the hand-off's count and `feature check` against
   `state.json`; the plan stays Markdown with `plan complete` (§5 → §2) and `plan replace` (exact
   pairs, all or nothing). (2) Values files in `.harness-tmp/`, which the tools create and which
-  ignores itself in git. (3) `AGENTS.md §Keeping the Request Count Down` gains a size cap per
+  ignores itself in git (no longer ignored since Option 21). (3) `AGENTS.md §Keeping the Request Count Down` gains a size cap per
   write step, the command time limit, read-before-edit, and a short PowerShell 5.1 list; Stage 4
   gains the port check before the test-guide walk and "never tick the plan's checkboxes".
 - **Saves:** calls that fail, and the 9–10 calls of hand-made ledger and plan scripts per run.
@@ -434,6 +435,41 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
 - **Touches (done):** DD-29, DD-30, R4.4, R5.5–R5.6, R7.5, R10.3, Q6; `tools/docs.py` and
   `eval/tests/test_docs_tool.py`; `tools/state.py` (the folder) and its tests; `tools/codemap.py`
   skips the folder; `AGENTS_TEMPLATE.md`; Stages 0, 3, 4, 5; the guides.
+
+#### Option 21 — Long commands past the time limit, and values files Duo can write *(applied 2026-10-28, DD-30, DD-31, R4.5, R7.5)*
+
+- **Why:** a real Duo session (Windows) reported three things. (1) `ng test` and `mvn verify`
+  (Spotless, PMD, SpotBugs, 138 tests, JaCoCo) were cut off by the command time limit — 120 s,
+  sometimes 30 s — and the agent improvised a background job writing a log, then polled it.
+  (2) Duo's file tools cannot read or write a git-ignored path, and `.harness-tmp/` ignored
+  itself. (3) Duo's create-file tool will not overwrite a file and its edit tool needs a prior
+  read, so temp files piled up (`summarize.ps1`, `p3-rows.json`) and a values file was written
+  into a project folder instead.
+- **What:** (1) `tools/longrun.py`: `start <name> -- <program> <args>` runs the program in the
+  background with no shell, its output in `.harness-tmp/<name>.out.txt`, and waits up to 100 s;
+  `wait <name>` waits again; each prints the state, exit code, time so far and the log's last
+  lines, with an exit status per outcome (0 passed, 1 failed, 3 still running, 4 lost, 2
+  malformed or refused); `stop` ends it, a lost run's program too. The runner starts through
+  a go-between, so a platform that kills a timed-out call's process tree does not kill the
+  build; on Windows a program is never the extension-less shell script (`./mvnw`); the log is
+  `.out.txt`, since many projects' `.gitignore` holds `*.log`. `AGENTS.md §Keeping the Request Count Down`, Stage 4
+  (verify, exit criteria, the test-guide walk's server) and Stage 5 (running the build) use it.
+  (2) `.harness-tmp/` is no longer git-ignored; the old `.gitignore` of `*` is removed.
+  (3) `state.py` and `docs.py` delete a values file in `.harness-tmp/` once they have read it,
+  whatever the outcome; `AGENTS.md` says every temporary file goes there, and a script file
+  deletes itself at its end.
+- **Saves:** the improvised background-and-poll calls and the timed-out runs before them, and
+  the failed writes into an ignored folder. A long build still costs one call per wait (about
+  one per 100 s); raising the platform's command time limit, where the admin allows it, saves
+  those too. Not measured.
+- **Risk:** whether a detached program survives Duo's command tool could not be tested outside
+  Duo. If it does not, the first `wait` reports *lost* and the agent runs the command directly,
+  as before.
+- **Mid-project:** nothing to migrate; the old `.gitignore` goes on the next tool run
+  (`DEVELOPER_GUIDE.md §Upgrading the Harness Mid-Project`).
+- **Touches (done):** DD-25, DD-30, DD-31, R4.5, R7.5, Q6; `tools/longrun.py` (new) and
+  `eval/tests/test_longrun_tool.py`; `tools/state.py`, `tools/docs.py` and their tests;
+  `AGENTS_TEMPLATE.md`; Stages 4 and 5; the guides.
 
 ### Rejected
 

@@ -62,7 +62,9 @@ structure plan check cannot delimit safely, including a code fence never closed.
 state.json is found as state.py finds it (--file overrides) and is only read; features.json,
 FEATURE_STATUS.md and PLAN_<project>.md sit beside it (--plan overrides the plan's path).
 Values files go in .harness-tmp/ under the working-tree root, which this tool and state.py
-create (it ignores itself in git); a path outside the repo works too. k=v and @FILE turn a
+create; a path outside the repo works too. As in state.py, a values file in a folder named
+.harness-tmp is deleted once the command has read it, whatever the outcome, and one line on
+stderr says so; the folder is not git-ignored. k=v and @FILE turn a
 \\u2014-style escape back into its character. Output is ASCII; writes are UTF-8, keep the
 file's line endings, go through a temp file, and nothing is printed until they succeed.
 """
@@ -73,10 +75,13 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import date
 
 SKIP_DIRS = {".git", "node_modules", "bin", "obj", "target", "dist", "ModernizationHarness"}
-TMP_DIR = ".harness-tmp"
+TMP_DIR = ".harness-tmp"  # values files; deleted once read
+OLD_IGNORE = (b"*", b"*\n", b"*\r\n")  # the .gitignore older versions wrote in TMP_DIR
+READ_VALUES = []  # values files in TMP_DIR this command read; deleted when it ends
 FIELDS = ("id", "feature", "howToCheck", "phases", "build", "tested")
 ROW_KEYS = FIELDS + ("group",)  # group is optional: the title of a groups[] entry
 DASH = "—"
@@ -102,15 +107,46 @@ def refuse(msg):
 
 
 def ensure_tmp_dir():
-    """.harness-tmp/ at the working-tree root holds values files; its .gitignore hides it."""
+    """.harness-tmp/ at the working-tree root holds values files. It is not git-ignored -
+    GitLab Duo's file tools refuse an ignored path - so the .gitignore of "*" older versions
+    wrote there is removed; one with anything else in it is the developer's and is kept."""
     try:
         os.makedirs(TMP_DIR, exist_ok=True)
         ignore = os.path.join(TMP_DIR, ".gitignore")
-        if not os.path.exists(ignore):
-            with open(ignore, "w", encoding="ascii", newline="\n") as f:
-                f.write("*\n")
+        if os.path.isfile(ignore):
+            with open(ignore, "rb") as f:
+                old = f.read() in OLD_IGNORE
+            if old:
+                os.remove(ignore)
+                print(f"removed {ignore} (an older harness wrote it; the folder is no longer "
+                      "git-ignored, so the agent's file tools can write there)", file=sys.stderr)
     except OSError:
         pass  # a read-only tree still runs every command
+
+
+def in_tmp_dir(path):
+    """True for a file inside a folder named .harness-tmp, wherever the command runs from."""
+    folders = os.path.normcase(os.path.abspath(path)).split(os.sep)[:-1]
+    return os.path.normcase(TMP_DIR) in folders
+
+
+def remove_read_values():
+    """Delete the values files this command read from .harness-tmp/, success or not, so the next
+    write there is a new file (a create-only file tool cannot overwrite) and none is left over."""
+    for path in READ_VALUES:
+        for attempt in range(5):
+            try:
+                os.remove(path)
+                print(f"removed {path} (a values file is used once)", file=sys.stderr)
+            except FileNotFoundError:
+                pass
+            except OSError as e:  # on Windows, open in another program - perhaps for a moment
+                if isinstance(e, PermissionError) and attempt < 4:
+                    time.sleep(0.1)
+                    continue
+                print(f"could not remove {path}: {e.strerror}; write the next values file "
+                      "under a new name", file=sys.stderr)
+            break
 
 
 # --- files ----------------------------------------------------------------------------------
@@ -229,8 +265,11 @@ def is_file_arg(args):
 
 
 def read_values(arg):
-    value = load_json(arg[1:])
-    return unescape_tree(value)
+    """An @FILE's JSON; a file in .harness-tmp/ is deleted when the command ends."""
+    path = arg[1:]
+    if in_tmp_dir(path) and path not in READ_VALUES:
+        READ_VALUES.append(path)
+    return unescape_tree(load_json(path))
 
 
 def unescape_tree(v):
@@ -1326,6 +1365,13 @@ COMMANDS = {
 def main(argv):
     for stream in (sys.stdout, sys.stderr):  # ASCII survives any console encoding
         stream.reconfigure(encoding="ascii", errors="backslashreplace")
+    try:
+        run(argv)
+    finally:  # on a refusal too: sys.exit raises, so this runs before its message is printed
+        remove_read_values()
+
+
+def run(argv):
     ensure_tmp_dir()
     state_path = plan_path = None
     while argv[:1] in (["--file"], ["--plan"]):

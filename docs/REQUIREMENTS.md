@@ -12,7 +12,7 @@ application with a coding agent, **one small testable increment at a time**, wit
 control of scope, quality, or history.
 
 It ships as Markdown files the developer copies into their project and cites in prompts, plus
-three small stdlib-Python tools (the state tool, the legacy code map tool, and the documents tool that keeps the feature ledger and the plan's bookkeeping), vendored agent skills, and install scripts that copy it all
+four small stdlib-Python tools (the state tool, the legacy code map tool, the documents tool that keeps the feature ledger and the plan's bookkeeping, and the long-command tool that runs a build past the platform's command time limit), vendored agent skills, and install scripts that copy it all
 into place. No runtime or service to maintain.
 
 ## 2. Users & actors
@@ -99,6 +99,13 @@ and anything that modifies the legacy source (read-only in every stage).
   for any row whose behavior it changed. The documents tool refuses `passed` or `failed` unless
   the command states the developer said so (`--developer-said`); it cannot verify that, so the
   flag is a speed bump, not proof.
+- **R4.5** A check that may outlast the platform's command time limit — a full build, a test
+  suite with coverage — runs through the **long-command tool** (`tools/longrun.py`): started in
+  the background, then waited for in calls that each end inside the limit, until it finishes. It
+  passes only when it finished with exit code 0; one still running, stopped, or lost (its
+  process ended without an exit code) has not passed. A check that cannot finish within the
+  limit even through the tool is reported as not run, and the developer is asked to run it
+  (R4.1, DD-31).
 
 ### R5 — Rolling plan
 - **R5.1** The plan covers **remaining work only**; `done` phases drop to a Completed line,
@@ -145,8 +152,12 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R7.4** The developer never hand-edits `state.json` — they say what happened, the agent
   records it and confirms.
 - **R7.5** A tool's values file (`@FILE`) goes in **`.harness-tmp/`** at the working-tree root,
-  which the tools create with a `.gitignore` of `*`, so it never reaches git with no git command
-  run; a path outside the repo still works, and deleting the file after use is optional.
+  which the tools create and git does not ignore, so an agent's file tools may write there (a
+  path outside the repo still works). **A values file there is deleted once a tool has read it**,
+  whatever the outcome, so each write is a new file and none lingers to be committed; a file the
+  command never read is kept, and a file elsewhere is never deleted. A leftover shows in
+  `git status` as untracked, and the developer may delete it. The `.gitignore` of `*` older
+  versions wrote in the folder is removed (DD-30).
 
 ### R8 — Independent review
 - **R8.1** Review runs in a **separate session**; it never reviews code written in the same run.
@@ -249,7 +260,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra (plus the re-slice approval, unless it is given in advance — R5.3) |
 | Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and, once the developer commits it, a git commit |
-| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, finds legacy code through the code map (R13), and updates the ledger and the plan's bookkeeping through one tool command each (R5.5–R5.6) — while keeping each write, chain and reply small enough not to fail on the platform's output and time limits |
+| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, finds legacy code through the code map (R13), updates the ledger and the plan's bookkeeping through one tool command each (R5.5–R5.6), and runs a command that may outlast the command time limit through the long-command tool rather than letting it time out (R4.5) — while keeping each write, chain and reply small enough not to fail on the platform's output and time limits |
 | Q7 | **No explain-again round trips** — a report the developer cannot follow costs a whole extra request to clarify; R12 makes the first answer self-explanatory |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)

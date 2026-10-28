@@ -455,23 +455,89 @@ class StateToolTest(unittest.TestCase):
         self.file.write_text("{not json", encoding="utf-8")
         self.assertIn("not valid JSON", self.refused("summary"))
 
-    def test_values_folder_is_created_and_ignores_itself(self):
-        # Values files (@FILE) go in .harness-tmp/ at the working-tree root; the tool creates
-        # it with a .gitignore of "*", so no git command is needed to keep it out of commits.
+    def values(self, obj, name="values.json", folder=".harness-tmp"):
+        path = self.dir / folder / name
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(obj if isinstance(obj, str) else json.dumps(obj, ensure_ascii=False),
+                        encoding="utf-8")
+        return path
+
+    def test_values_folder_is_created_and_not_ignored(self):
+        # Values files (@FILE) go in .harness-tmp/ at the working-tree root. The tool creates the
+        # folder with no .gitignore: GitLab Duo's file tools refuse a git-ignored path.
         self.run_tool("summary")
-        self.assertEqual((self.dir / ".harness-tmp" / ".gitignore").read_text(encoding="ascii"),
-                         "*\n")
-        payload = self.dir / ".harness-tmp" / "values.json"
-        payload.write_text(json.dumps({"author": "developer", "origin": "out-of-band",
-                                       "summary": f"fixed {DASH} it"}, ensure_ascii=False),
-                           encoding="utf-8")
-        self.run_tool("add", "changeLog", "@" + str(payload))
-        self.assertEqual(self.state()["changeLog"][0]["summary"], f"fixed {DASH} it")
-        self.run_tool("summary")  # an existing folder and its files are left as they are
-        self.assertEqual(sorted(p.name for p in (self.dir / ".harness-tmp").iterdir()),
-                         [".gitignore", "values.json"])
+        self.assertTrue((self.dir / ".harness-tmp").is_dir())
+        self.assertEqual(list((self.dir / ".harness-tmp").iterdir()), [])
         (self.dir / ".harness-tmp" / "state.json").write_text("{}", encoding="utf-8")
         self.run_tool("summary")  # a stray copy there is never taken for the real state.json
+
+    def test_a_values_file_in_the_folder_is_deleted_once_read(self):
+        payload = self.values({"author": "developer", "origin": "out-of-band",
+                               "summary": f"fixed {DASH} it"})
+        res = self.run_tool("add", "changeLog", "@" + str(payload))
+        self.assertEqual(res.stdout, "1\n")  # stdout stays the result; the note is on stderr
+        self.assertIn("removed", res.stderr)
+        self.assertIn("values.json", res.stderr)
+        self.assertFalse(payload.exists())
+        self.assertEqual(self.state()["changeLog"][0]["summary"], f"fixed {DASH} it")
+
+    def test_a_values_file_is_deleted_on_a_refusal_or_a_malformed_file_too(self):
+        self.run_tool("add", "phases", "name=Scaffold")
+        cases = {
+            "rule": ("set", "phases.P-1", {"status": "pending"}),  # backward: refused
+            "malformed": ("set", "phases.P-1", "{not json"),
+            "wrong type": ("add", "reviews", {"target": "P-1", "result": "clean",
+                                              "blockerCount": "one", "findingsCount": 0}),
+        }
+        self.run_tool("set", "phases.P-1", "status=done")
+        for label, (cmd, target, obj) in cases.items():
+            with self.subTest(label):
+                payload = self.values(obj, name=f"{label.replace(' ', '-')}.json")
+                res = self.refused(cmd, target, "@" + str(payload))
+                self.assertFalse(payload.exists(), f"{label}: values file left behind")
+                self.assertIn("removed", res)
+
+    def test_a_values_file_never_read_or_outside_the_folder_is_kept(self):
+        payload = self.values({"name": "Scaffold"})
+        self.refused("add", "nonsense", "@" + str(payload))  # stopped before reading it
+        self.assertTrue(payload.exists())
+        outside = self.values({"name": "Scaffold"}, folder="elsewhere")
+        res = self.run_tool("add", "phases", "@" + str(outside))
+        self.assertTrue(outside.exists())
+        self.assertNotIn("removed", res.stderr)
+        self.run_tool("add", "phases", "@missing.json", ok=False)  # a read error: nothing to remove
+
+    def test_a_values_file_read_from_another_folder_is_still_deleted(self):
+        # the folder is recognised by name, not by the current directory
+        payload = self.values({"name": "Scaffold"})
+        res = subprocess.run([sys.executable, str(TOOL), "--file", str(self.file), "add",
+                              "phases", "@" + str(payload)], cwd=self.dir / "out",
+                             capture_output=True, encoding="ascii")
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertFalse(payload.exists())
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows file locks")
+    def test_a_values_file_open_elsewhere_is_named_not_fatal(self):
+        payload = self.values({"name": "Scaffold"})
+        with open(payload, "rb"):  # an open handle stops a delete on Windows
+            res = self.run_tool("add", "phases", "@" + str(payload))
+        self.assertIn("could not remove", res.stderr)
+        self.assertIn("new name", res.stderr)
+        self.assertEqual(self.state()["phases"][0]["name"], "Scaffold")
+
+    def test_the_old_self_ignoring_gitignore_is_removed_and_any_other_kept(self):
+        ignore = self.dir / ".harness-tmp" / ".gitignore"
+        ignore.parent.mkdir()
+        for content in (b"*\n", b"*", b"*\r\n"):
+            with self.subTest(content=content):
+                ignore.write_bytes(content)
+                res = self.run_tool("summary")
+                self.assertFalse(ignore.exists())
+                self.assertIn("removed", res.stderr)
+                self.assertTrue(res.stdout.startswith("project:"))  # stdout is unchanged
+        ignore.write_bytes(b"*\n# mine\n")
+        self.run_tool("summary")
+        self.assertEqual(ignore.read_bytes(), b"*\n# mine\n")
 
     def test_two_state_files_need_an_explicit_path(self):
         (self.dir / "other").mkdir()

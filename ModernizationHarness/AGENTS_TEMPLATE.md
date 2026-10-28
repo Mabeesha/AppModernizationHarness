@@ -42,8 +42,10 @@ no chain), `summary` (**start every other run here**), `get <path>`, `new` (entr
 the full syntax** when a command is refused as malformed. Two things it will not refuse, so get
 them right first time: **field names must be exact** — a misspelled one is stored as a new field,
 not refused — and a value holding quotes or a nested object goes in an `@FILE`: a UTF-8 JSON
-file in **`.harness-tmp/`** at the working-tree root (the tools create it, and it keeps itself out
-of git), or outside the repo — never piped in.
+file in **`.harness-tmp/`** at the working-tree root (the tools create it), or outside the repo
+— never piped in. **A values file in `.harness-tmp/` is used once:** the tool deletes it after
+reading it, refused or not, so write a new one for each command (the same name is free again);
+one the command never read stays — if your create tool refuses it, use a new name.
 
 - **Two kinds of refusal.** A malformed command — unknown path, wrong value type, bad syntax — is
   yours: correct it and rerun. A rule refusal — a backward status, a write to
@@ -147,9 +149,18 @@ stage and in ordinary chat:
   chain stops, say which step failed and which did not run. **Never chain a write that needs an
   id printed by an earlier `add`** — run that `add` on its own first. If your shell tool refuses chained commands, run them one at a time.
 - **Keep every command inside the platform's command time limit** (often 120 s, sometimes
-  30 s): chain only steps that finish well within it, and run a long build or test suite as a
-  command of its own. After a timeout, check by content what it changed before re-running
-  anything.
+  30 s): chain only steps that finish well within it. **A command that may outlast it** — a full
+  build, a test suite with coverage — runs through the long-command tool: `python <stage
+  folder>/tools/longrun.py start <name> [--dir <folder>] -- <program> <args>` — one program,
+  no shell, `pwsh` wrapper or chain; a run-once flag where it watches (`ng test --watch=false`);
+  double quotes round an argument with a `.` after a `-` (`"-Dmaven.test.skip=true"`), which
+  Windows PowerShell 5.1 splits in two (single quotes inside a `pwsh -Command` wrapper). It runs in the background and `start` waits up to
+  100 s; while it answers `still running` (exit 3), run `longrun.py wait <name>` — never a
+  shorter `--seconds`; on a 30 s limit add `--seconds 25` to both. Two long checks may run side
+  by side: `start a --seconds 0 …`, `start b …`, then `wait` each. Exit 0 passed; exit 1
+  failed (it says where the log is); `lost` (exit 4): do what it prints. `longrun.py stop
+  <name>` ends one. After a timeout, check by content what it
+  changed before re-running anything.
 - **Write in as few edits as possible.** Write a new file whole; group changes to one file into
   one edit where the tool allows; and where your tools allow several calls in one step, write
   several files in that one step — **at most about three files or 400 lines per step**, so one
@@ -167,8 +178,10 @@ same way, with `&&`, and reads and writes UTF-8. Each trap below costs a failed 
 
 - **Inside the quotes:** single quotes only, and no `$` or `%` — the outer shell rewrites them
   (`"... 'status=in progress' ..."`). A command that needs `$` goes in a script file in
-  `.harness-tmp/`, run with `pwsh -NoProfile -File`. A program alone with plain arguments
-  (`python ... start`) needs no wrapper.
+  `.harness-tmp/`, run with `pwsh -NoProfile -File`; end it with
+  `Remove-Item -LiteralPath $PSCommandPath` so it does not linger. A program alone with plain
+  arguments (`python ... start`) needs no wrapper. **Every temporary file — values file, script
+  — goes in `.harness-tmp/`, never in a project folder.**
 - **No `pwsh`** (`pwsh -v` fails): run one plain program per command — no `;`, `&&` or `|` —
   and say so in the report.
 - **Answered `is not recognized as an internal or external command`, or by a tool's usage text

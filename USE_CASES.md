@@ -72,6 +72,7 @@ behind the scenes, and what is true afterwards. Prompts are copy-paste ready.
 | Starting a brand-new project | Copy `AGENTS.md` and `INTAKE.md` into place, then run Stages 0→3 once each |
 | Build the next planned increment | `run stage 4` |
 | A run stopped halfway (timeout, crash) | `run stage 4` — it finishes the half-built phase first, judged by what is in the files |
+| `git status` shows files in `.harness-tmp/` | Nothing to send. They are leftovers — a values file a stopped run never used, or the log of a long build that failed (the agent runs long builds in the background through `tools/longrun.py`). Don't commit them; delete them if you like |
 | Commit the phase you just got | Commit it yourself, using the suggested message from the report. The agent runs no git |
 | Tell it where the work went | `P-3 is on branch phase/P-3` or `P-3's PR is <url>` |
 | You tested it and it works | `accept P-3` — or `accept P-3, P-4` — or `search works` |

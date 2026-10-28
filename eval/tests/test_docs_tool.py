@@ -198,22 +198,66 @@ class DocsToolTest(unittest.TestCase):
         self.assertIn("feature show", res.stdout)
         self.assertIn("plan complete", res.stdout)
 
-    def test_both_tools_create_the_self_ignoring_values_folder(self):
+    def test_both_tools_create_the_values_folder_without_a_gitignore(self):
+        # GitLab Duo's file tools refuse a git-ignored path, so the folder no longer ignores
+        # itself; the .gitignore of "*" older versions wrote is removed, any other kept.
+        folder = self.dir / ".harness-tmp"
+        ignore = folder / ".gitignore"
         for tool in (TOOL, STATE_TOOL):
             with self.subTest(tool=tool.name):
-                ignore = self.dir / ".harness-tmp" / ".gitignore"
-                if ignore.exists():
-                    ignore.unlink()
-                    ignore.parent.rmdir()
-                self.run_tool("summary" if tool == STATE_TOOL else "plan", ok=tool == STATE_TOOL,
-                              tool=tool)
-                self.assertEqual(ignore.read_text(encoding="ascii"), "*\n")
+                if folder.exists():
+                    folder.rmdir()
+                args = ("summary",) if tool == STATE_TOOL else ("plan", "check")
+                self.run_tool(*args, ok=tool == STATE_TOOL, tool=tool)
+                self.assertTrue(folder.is_dir())
+                self.assertFalse(ignore.exists())
+                ignore.write_bytes(b"*\n")
+                res = self.run_tool(*args, ok=tool == STATE_TOOL, tool=tool)
+                self.assertFalse(ignore.exists(), "the old .gitignore was not removed")
+                self.assertIn("removed", res.stderr)
 
-    def test_values_folder_keeps_existing_files(self):
+    def test_values_folder_keeps_a_gitignore_someone_changed(self):
         (self.dir / ".harness-tmp").mkdir()
         (self.dir / ".harness-tmp" / ".gitignore").write_text("*\n# mine\n", encoding="ascii")
         self.run_tool(ok=False)
         self.assertIn("# mine", (self.dir / ".harness-tmp" / ".gitignore").read_text())
+
+    def test_a_values_file_is_deleted_once_read_whatever_the_outcome(self):
+        self.imported()
+        values = self.dir / ".harness-tmp" / "values.json"
+        # success: several new rows from one file
+        res = self.run_tool("feature", "add", self.payload([{"id": "FR-20", "feature": "a"},
+                                                             {"id": "FR-21", "feature": "b"}]))
+        self.assertEqual(res.stdout, "added FR-20\nadded FR-21\n")  # the note is on stderr
+        self.assertIn("removed", res.stderr)
+        self.assertFalse(values.exists())
+        # success: one row's fields from a file after its id
+        self.run_tool("feature", "set", "FR-20", self.payload({"feature": "a, renamed"}))
+        self.assertEqual(self.row("FR-20")["feature"], "a, renamed")
+        self.assertFalse(values.exists())
+        # a rule refusal, a malformed file and a plan replace that matches nothing
+        self.plan.write_text(PLAN, encoding="utf-8")
+        (self.dir / ".harness-tmp" / "bad.json").write_text("{not json", encoding="utf-8")
+        for name, args in (("refusal.json", ("feature", "set", self.payload(
+                               [{"id": "FR-20", "tested": "passed"}], name="refusal.json"))),
+                           ("bad.json", ("feature", "set", "@" + str(self.dir / ".harness-tmp"
+                                                                     / "bad.json"))),
+                           ("replace.json", ("plan", "replace", self.payload(
+                               [{"old": "no such text anywhere", "new": "x"}],
+                               name="replace.json")))):
+            with self.subTest(name):
+                path = self.dir / ".harness-tmp" / name
+                self.assertTrue(path.exists())
+                self.assertIn("removed", self.refused(*args))
+                self.assertFalse(path.exists(), f"{name}: values file left behind")
+
+    def test_a_values_file_outside_the_folder_is_kept(self):
+        self.imported()
+        outside = self.dir / "rows.json"
+        outside.write_text(json.dumps([{"id": "FR-20", "feature": "a"}]), encoding="utf-8")
+        res = self.run_tool("feature", "add", "@" + str(outside))
+        self.assertTrue(outside.exists())
+        self.assertNotIn("removed", res.stderr)
 
     # --- import -------------------------------------------------------------------------------
 

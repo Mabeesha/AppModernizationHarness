@@ -547,7 +547,22 @@ larger edits. The rest is how **you** run it:
    `python <stage folder>/tools/codemap.py <legacy app> --out ./out/LEGACY_CODE_MAP_<App>.md`
 7. **Leave `.harness-tmp/` alone.** The tools create this folder in your project for the small
    files the agent hands them (it used to have to squeeze them into long shell commands, which
-   often failed). It keeps itself out of git. Delete it between runs if you like; it comes back.
+   often failed), and for the output of long builds (tip 8). Git does **not** ignore it, on
+   purpose: GitLab Duo's file tools refuse to read or write a git-ignored path. It stays almost
+   empty anyway — a tool deletes each file it was handed once it has read it, and a build's log
+   once the build passes. So a file you see there in `git status` is a leftover: a run stopped
+   before using it, or the log of a build that failed. Don't commit it; delete it if you like.
+   Don't add the folder to your `.gitignore` either — the agent could no longer write there.
+8. **Long builds run in the background.** Agent platforms cut a command off after a time limit
+   — on GitLab Duo often 120 seconds, sometimes 30. A full build with tests and coverage
+   (`mvn verify`, `ng test`) can take longer. The agent then runs it through a small script,
+   `tools/longrun.py`: it starts the build in the background, then checks on it in steps that
+   each end inside the limit. Each check is one more billed call, so a 6-minute build costs
+   about four calls instead of one. If your platform stops background programs, so that even
+   this cannot finish, the agent reports that check as not run and asks you to run it.
+   **Ask your Duo admin whether the command time limit can be raised** — that is the cheaper
+   fix. You can use the script yourself too:
+   `python <stage folder>/tools/longrun.py` with no command prints how.
 
 ---
 
@@ -790,6 +805,23 @@ says so in its report.
 command instead of a chain that failed when the agent's command tool ran `cmd`). Nothing to
 migrate: copy in the new stage folder and rebuild `AGENTS.md` (steps 3–4) so both mention it;
 your `state.json` is unchanged.
+
+### Upgrading to a version with `longrun.py` and values files the agent can write
+
+Two changes, nothing to migrate by hand. Copy in the new stage folder and rebuild `AGENTS.md`
+(steps 3–4) so both mention them; your `state.json` is unchanged.
+
+- **`.harness-tmp/` is no longer ignored by git.** The older tools put a `.gitignore` in that
+  folder holding only `*`. GitLab Duo's file tools refuse a git-ignored path, so the agent could
+  not write its values files there. The next time `state.py` or `docs.py` runs, it deletes that
+  `.gitignore` and prints one line saying so. It only deletes it if it holds exactly `*`. If you
+  changed that file, it is left alone and the folder stays ignored — delete it yourself, or
+  remove its `*` line. From now on each tool deletes a values file once it has read it, so the
+  folder stays nearly empty. Old values files left there from before are not deleted — delete
+  them yourself; `git status` now shows them.
+- **`tools/longrun.py` is new.** It runs a long build or test suite in the background, so a
+  command time limit no longer cuts it off (`§Keeping the Request Bill Down`, tip 8). It needs
+  nothing set up.
 
 ### Windows: install PowerShell 7 (`pwsh`)
 
@@ -1039,7 +1071,7 @@ After the final phase is delivered:
 | `PLAN_<App>.md` — remaining phases | Stage 3 | say what you want; the agent re-slices | **Stage 4 Step 0c re-slices remaining phases with your approval**; statuses and test-guide fixes |
 | `features.json` (the ledger) | Stage 3, through `tools/docs.py` | **no hand-editing** — say "accept P-2" / "search works" | Stage 4 updates rows in place through `tools/docs.py`; rows **never deleted**, ledger **never regenerated** |
 | `FEATURE_STATUS.md` | `tools/docs.py`, from `features.json` | no — read it; a hand edit stops the agent's next ledger write | rewritten by the tool on every ledger write |
-| `.harness-tmp/` | the tools | no — delete it between runs if you like | the agent's values files for the tools; ignored by git |
+| `.harness-tmp/` | the tools | no — a file in it that `git status` shows is a leftover; never commit it, delete it if you like | the agent's values files (deleted by the tool once read) and long-build logs from `tools/longrun.py` (deleted when the build passes); **not** ignored by git, so the agent's file tools can write there |
 | `HOW_TO_RUN.md` (one file) | Stage 4 | no | only when building/running/configuring the app changes |
 | `state.json` phases[] | Stage 3 (init) | **no hand-editing** | status (forward only); branch and PRs only when you name them |
 | `state.json` edits[] | Stage 4 | **no hand-editing** | appends each **minor** edit once its checks pass, already `done`; otherwise the same lifecycle as a phase |

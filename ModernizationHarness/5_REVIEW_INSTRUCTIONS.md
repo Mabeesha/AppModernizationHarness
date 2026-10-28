@@ -181,8 +181,9 @@ context mode.
 
 1. **Establish the bar.** Read `PROJECT_CONTEXT`, the requirements, the design, and the plan
    sections in scope. Build the checklist of what *should* be true for the target.
-2. **Run it.** Build the project; run the test suite; note what passes/fails. Exercise the
-   phase's developer test guide where feasible.
+2. **Run it.** Build the project; run the test suite; note what passes/fails — one that may
+   outlast the command time limit through `tools/longrun.py` (`AGENTS.md §Keeping the Request
+   Count Down`). Exercise the phase's developer test guide where feasible.
 3. **Audit the code** against the four areas and the constraints. Cite `path:line`.
 4. **Classify each finding** by severity:
    - **Blocker** — violates a constraint, a security hole, a broken/absent core requirement, or

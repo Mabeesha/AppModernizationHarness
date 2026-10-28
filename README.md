@@ -222,6 +222,13 @@ review its own work.
 **A run stopped halfway** (timeout, crash)? Just `run stage 4` again — it finishes the
 half-built phase first, judged by what is in the files.
 
+**Files in `.harness-tmp/` show up in `git status`?** That folder is the agent's scratch space:
+small files it hands the harness's tools, and the output of long builds, which it runs in the
+background (`tools/longrun.py`) so the platform's time limit for one command does not cut them
+off. Git does not ignore the folder, because the agent's file tools refuse ignored paths. The
+tools delete each file once it is used, so anything you see there is a leftover — don't commit
+it; delete it if you like.
+
 ---
 
 ## Changing the design halfway through

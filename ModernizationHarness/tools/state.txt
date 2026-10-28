@@ -36,10 +36,14 @@ findingsCount); the true/false fields (sharedDataStore, sharedWithLegacy); the l
 takes a JSON object. A wrong type is refused. Quote the whole pair when it has spaces:
 "summary=fixed the export header".
 Nested objects or text with quotes: write a JSON object of fields to a UTF-8 file and pass
-@FILE in place of the pairs. Put the file in .harness-tmp/ under the working-tree root - this
-tool (and docs.py) creates that folder with a .gitignore of "*", so it never reaches git - or
-anywhere outside the repo; deleting it after use is optional. Never pipe JSON in: Windows
-PowerShell 5.1 turns non-ASCII characters into "?" on the way.
+@FILE in place of the pairs. Put the file in .harness-tmp/ under the working-tree root (this
+tool and docs.py create the folder) or anywhere outside the repo. A values file in a folder
+named .harness-tmp is deleted once the command has read it, whatever the outcome - success,
+refusal or a malformed file - and one line on stderr says so; write a new one for the next
+command. A file the command never read (it stopped first) is kept, as is any file elsewhere.
+The folder is not git-ignored (GitLab Duo's file tools refuse ignored paths); the .gitignore of
+"*" older versions wrote there is removed. Never pipe JSON in: Windows PowerShell 5.1 turns
+non-ASCII characters into "?" on the way.
 Output is ASCII; a non-ASCII character prints as an escape such as \\u2014, and both k=v and
 @FILE turn that escape back into the character, so a copied value round-trips. (So k=v text
 cannot hold a literal backslash-u plus four hex digits; use @FILE with "\\\\u" for that.)
@@ -58,6 +62,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
 
 STATUS_ORDER = ["pending", "in progress", "done"]
@@ -86,8 +91,10 @@ ALLOWED = {
     "result": (lambda v: v in ("clean", "findings"), "clean or findings"),
 }
 SKIP_DIRS = {".git", "node_modules", "bin", "obj", "target", "dist", "ModernizationHarness"}
-TMP_DIR = ".harness-tmp"  # values files; ignores itself in git
+TMP_DIR = ".harness-tmp"  # values files; deleted once read
+OLD_IGNORE = (b"*", b"*\n", b"*\r\n")  # the .gitignore older versions wrote in TMP_DIR
 STATE_PATH = None  # the state file this run read; set by main, used by start
+READ_VALUES = []  # values files in TMP_DIR this command read; deleted when it ends
 
 
 def die(msg):
@@ -95,15 +102,54 @@ def die(msg):
 
 
 def ensure_tmp_dir():
-    """Create .harness-tmp/ with a .gitignore of "*" where missing; no git command needed."""
+    """Create .harness-tmp/ where missing. It is not git-ignored - GitLab Duo's file tools refuse
+    an ignored path - so the .gitignore of "*" older versions wrote there is removed; a
+    .gitignore with anything else in it is the developer's and is left alone."""
     try:
         os.makedirs(TMP_DIR, exist_ok=True)
         ignore = os.path.join(TMP_DIR, ".gitignore")
-        if not os.path.exists(ignore):
-            with open(ignore, "w", encoding="ascii", newline="\n") as f:
-                f.write("*\n")
+        if os.path.isfile(ignore):
+            with open(ignore, "rb") as f:
+                old = f.read() in OLD_IGNORE
+            if old:
+                os.remove(ignore)
+                print(f"removed {ignore} (an older harness wrote it; the folder is no longer "
+                      "git-ignored, so the agent's file tools can write there)", file=sys.stderr)
     except OSError:
         pass  # a read-only tree still runs every command
+
+
+def in_tmp_dir(path):
+    """True for a file inside a folder named .harness-tmp, wherever the command runs from."""
+    folders = os.path.normcase(os.path.abspath(path)).split(os.sep)[:-1]
+    return os.path.normcase(TMP_DIR) in folders
+
+
+def read_values_file(path):
+    """The bytes of a values file; one in .harness-tmp/ is deleted when the command ends."""
+    if in_tmp_dir(path) and path not in READ_VALUES:
+        READ_VALUES.append(path)
+    with open(path, "rb") as f:
+        return f.read()
+
+
+def remove_read_values():
+    """Delete the values files this command read from .harness-tmp/, success or not, so the next
+    write there is a new file (a create-only file tool cannot overwrite) and none is left over."""
+    for path in READ_VALUES:
+        for attempt in range(5):
+            try:
+                os.remove(path)
+                print(f"removed {text(path)} (a values file is used once)", file=sys.stderr)
+            except FileNotFoundError:
+                pass
+            except OSError as e:  # on Windows, open in another program - perhaps for a moment
+                if isinstance(e, PermissionError) and attempt < 4:
+                    time.sleep(0.1)
+                    continue
+                print(f"could not remove {text(path)}: {e.strerror}; write the next values file "
+                      "under a new name", file=sys.stderr)
+            break
 
 
 def now():
@@ -204,9 +250,8 @@ def coerce(key, value):
 
 def parse_fields(args):
     if len(args) == 1 and args[0].startswith("@"):
-        try:
-            with open(args[0][1:], "rb") as f:
-                fields = json.loads(f.read())  # bytes: detects UTF-8/16/32 and a BOM itself
+        try:  # bytes: json detects UTF-8/16/32 and a BOM itself
+            fields = json.loads(read_values_file(args[0][1:]))
         except (OSError, ValueError) as e:
             die(f"cannot read {args[0][1:]}: {e}")
         if not isinstance(fields, dict):
@@ -491,6 +536,13 @@ COMMANDS = {"start": cmd_start, "summary": cmd_summary, "get": cmd_get, "new": c
 def main(argv):
     for stream in (sys.stdout, sys.stderr):  # ASCII survives any console encoding
         stream.reconfigure(encoding="ascii", errors="backslashreplace")
+    try:
+        run(argv)
+    finally:  # on a refusal too: sys.exit raises, so this runs before its message is printed
+        remove_read_values()
+
+
+def run(argv):
     ensure_tmp_dir()
     path = None
     if argv[:1] == ["--file"]:
