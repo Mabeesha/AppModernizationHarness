@@ -41,9 +41,10 @@ no chain), `summary` (**start every other run here**), `get <path>`, `new` (entr
 `progress` marks), `add`, `set`, `drop`, `check`. **Run it with no command for
 the full syntax** when a command is refused as malformed. Two things it will not refuse, so get
 them right first time: **field names must be exact** — a misspelled one is stored as a new field,
-not refused — and a value holding quotes or a nested object goes in an `@FILE`: a UTF-8 JSON
-file in **`.harness-tmp/`** at the working-tree root (the tools create it), or outside the repo
-— never piped in. **A values file in `.harness-tmp/` is used once:** the tool deletes it after
+not refused — and a value holding quotes or a nested object goes in a values file, passed
+**in double quotes**, `"@.harness-tmp/<name>.json"` (a bare `@` is a PowerShell `ParserError`): a
+UTF-8 JSON file in **`.harness-tmp/`** at the working-tree root (the tools create it), or
+outside the repo — never piped in. **A values file in `.harness-tmp/` is used once:** the tool deletes it after
 reading it, refused or not, so write a new one for each command (the same name is free again);
 one the command never read stays — if your create tool refuses it, use a new name.
 
@@ -65,12 +66,12 @@ one the command never read stays — if your create tool refuses it, use a new n
 
 **The feature ledger is `features.json`** (beside `state.json`); **`FEATURE_STATUS.md` is a view
 generated from it. Never edit either by hand — use the documents tool,** `python <stage
-folder>/tools/docs.py`, run like the state tool (same `--file`, `k=v`, `@FILE`, output and
+folder>/tools/docs.py`, run like the state tool (same `--file`, `k=v`, `"@FILE"`, output and
 refusal rules; run it with no command for the syntax):
 
 - **Read:** `feature show [P-N | ID …]`; `feature count [P-N]` — built-and-`untested` rows by
   phase, and `failed` ones; `feature check`.
-- **Write:** `feature set <ID> k=v …`, or `feature set @FILE` with `[{"id": …, <fields>}, …]` for
+- **Write:** `feature set <ID> k=v …`, or `feature set "@FILE"` with `[{"id": …, <fields>}, …]` for
   several rows in one call; `feature add` for a new row (always `untested`; in a grouped
   ledger with `group=<title>`, a new group by `feature add-group`). `phases=P-4` appends. No row is ever deleted and no id ever changes. **`tested`: you write only
   `untested`** — `passed` / `failed` need `--developer-said`, passed only on the developer's word
@@ -138,8 +139,11 @@ stage and in ordinary chat:
   points to; search the tree only for what it lacks. It is a pointer — cite the code, never the
   map. Stage 1 writes it (`tools/codemap.py`); other stages and chat only read it. The
   developer may refresh it by rerunning the script; a request to exclude a folder from it is
-  that, or a Stage 1 rerun. No map yet? Search as before — it is optional, so never stop to
-  ask for it.
+  that, or a Stage 1 rerun. No map yet? Search — it is optional, so never stop to ask for it.
+- **Search with your own search tool; where it fails** (GitLab Duo's needs ripgrep), **with
+  `python <stage folder>/tools/search.py`** `files ROOT "GLOB"…` or `text "PATTERN" ROOT
+  [--include "*.ts,*.java"]` — alone, no wrapper (no command: the syntax). Never a shell
+  pipeline or `Get-ChildItem -Recurse`.
 - **Don't re-read what cannot have changed.** Within one run, a file only you have touched need
   not be read again. **Every stage run reads its inputs fresh** — between runs the developer,
   a formatter or a build may have changed any of them, and you cannot see that from memory.
@@ -158,16 +162,19 @@ stage and in ordinary chat:
   100 s; while it answers `still running` (exit 3), run `longrun.py wait <name>` — never a
   shorter `--seconds`; on a 30 s limit add `--seconds 25` to both. Two long checks may run side
   by side: `start a --seconds 0 …`, `start b …`, then `wait` each. Exit 0 passed; exit 1
-  failed (it says where the log is); `lost` (exit 4): do what it prints. `longrun.py stop
-  <name>` ends one. After a timeout, check by content what it
-  changed before re-running anything.
+  failed; `lost` (exit 4): do what it prints. `longrun.py stop <name>` ends one. Its log,
+  `.harness-tmp/<name>.out.txt`, is at the working-tree root, never under `--dir`, and a pass
+  deletes it: add `--grep "REGEX"` for lines you need (coverage totals). After a timeout, check
+  by content what it changed before re-running anything.
 - **Write in as few edits as possible.** Write a new file whole; group changes to one file into
   one edit where the tool allows; and where your tools allow several calls in one step, write
-  several files in that one step — **at most about three files or 400 lines per step**, so one
-  reply never reaches the model's output limit (a cut-off reply loses its writes). A large file
-  goes alone.
+  several files in that one step — **at most one large file, or two small ones (about 250 lines
+  in all), per step**, so one reply never reaches the model's output limit (a cut-off reply
+  loses its writes).
 - **Open a file with your edit tool's own reader before editing it,** where that tool requires
-  it (GitLab Duo's does) — a shell read does not count. A file you wrote this run needs none.
+  it — a shell read does not count; a file you wrote this run needs none. **GitLab Duo:**
+  `read_file`, not `read_files`, before `edit_file`; never `get_repository_file` (it reads the
+  remote); `create_file_with_contents` cannot overwrite — edit, or delete and recreate.
 - **Don't spend a call checking your own write.** A failed write or edit reports itself; re-read
   only when a later step needs the content.
 
@@ -177,7 +184,7 @@ first command of a session goes to `cmd`); either one starts `pwsh`, which then 
 same way, with `&&`, and reads and writes UTF-8. Each trap below costs a failed call:
 
 - **Inside the quotes:** single quotes only, and no `$` or `%` — the outer shell rewrites them
-  (`"... 'status=in progress' ..."`). A command that needs `$` goes in a script file in
+  (`"... 'status=in progress' ..."`), so no `$_` filter (search with `search.py`) or `> $null`. A command that needs `$` goes in a script file in
   `.harness-tmp/`, run with `pwsh -NoProfile -File`; end it with
   `Remove-Item -LiteralPath $PSCommandPath` so it does not linger. A program alone with plain
   arguments (`python ... start`) needs no wrapper. **Every temporary file — values file, script
@@ -186,9 +193,9 @@ same way, with `&&`, and reads and writes UTF-8. Each trap below costs a failed 
   and say so in the report.
 - **Answered `is not recognized as an internal or external command`, or by a tool's usage text
   for a `;` chain:** it ran in `cmd`. Rerun it through `pwsh`; don't switch to `cmd` syntax.
-- Write files with your file or edit tool, never `>` or `Out-File` from Windows PowerShell 5.1
-  (UTF-16). `Select-String` has no `-Recurse`: pipe `Get-ChildItem -Recurse` into it. No
-  `python -c` with quotes inside — write a script file.
+- Write files with your file or edit tool. No `>` redirect (shell syntax; 5.1 writes UTF-16):
+  quiet a command with its own quiet flag or `| Out-Null`. No `python -c` with quotes inside —
+  write a script file.
 
 These never override a rule elsewhere: a stage's checks, stops and reports all still happen —
 they are just done in fewer calls.

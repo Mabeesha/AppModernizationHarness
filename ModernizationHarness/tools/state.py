@@ -9,8 +9,8 @@ Usage: python state.py [--file PATH] <command> ...
   summary                     one-screen overview: stages, phases, edits, marks, counts
   get [PATH]                  print the value at PATH (whole file if omitted)
   new                         changeLog / reviews entries above the progress high-water marks
-  add LIST k=v ... | @FILE    append to changeLog, reviews, edits or phases; id and utc filled in
-  set PATH k=v ... | @FILE    update fields on the object at PATH
+  add LIST k=v ... | "@FILE"  append to changeLog, reviews, edits or phases; id and utc filled in
+  set PATH k=v ... | "@FILE"  update fields on the object at PATH
   drop phases.P-<n>           remove a pending phase (plan refresh only)
   check                       validate the file against the harness rules
 
@@ -36,7 +36,9 @@ findingsCount); the true/false fields (sharedDataStore, sharedWithLegacy); the l
 takes a JSON object. A wrong type is refused. Quote the whole pair when it has spaces:
 "summary=fixed the export header".
 Nested objects or text with quotes: write a JSON object of fields to a UTF-8 file and pass
-@FILE in place of the pairs. Put the file in .harness-tmp/ under the working-tree root (this
+"@FILE" in place of the pairs - in double quotes, always ("@.harness-tmp/p4.json"): PowerShell
+reads a bare leading @ as its own syntax (ParserError), and cmd and bash take the quoted form
+too. Put the file in .harness-tmp/ under the working-tree root (this
 tool and docs.py create the folder) or anywhere outside the repo. A values file in a folder
 named .harness-tmp is deleted once the command has read it, whatever the outcome - success,
 refusal or a malformed file - and one line on stderr says so; write a new one for the next
@@ -45,8 +47,8 @@ The folder is not git-ignored (GitLab Duo's file tools refuse ignored paths); th
 "*" older versions wrote there is removed. Never pipe JSON in: Windows PowerShell 5.1 turns
 non-ASCII characters into "?" on the way.
 Output is ASCII; a non-ASCII character prints as an escape such as \\u2014, and both k=v and
-@FILE turn that escape back into the character, so a copied value round-trips. (So k=v text
-cannot hold a literal backslash-u plus four hex digits; use @FILE with "\\\\u" for that.)
+"@FILE" turn that escape back into the character, so a copied value round-trips. (So k=v text
+cannot hold a literal backslash-u plus four hex digits; use "@FILE" with "\\\\u" for that.)
 Nothing is printed until the write has succeeded.
 Without --file, state.json is found by name under the current directory.
 
@@ -55,6 +57,7 @@ Examples:
   set progress lastProcessedChangeLogId=12 lastProcessedReviewNumber=3
   add changeLog author=developer origin=out-of-band "summary=..." phasesAffected=P-2
   add reviews target=P-3 result=findings blockerCount=1 findingsCount=4   (prints R-<n>)
+  add changeLog "@.harness-tmp/reconcile.json"
 """
 import contextlib
 import io
@@ -173,6 +176,8 @@ def load(path):
             return json.load(f)
     except ValueError as e:
         die(f"{path} is not valid JSON: {e}")
+    except OSError as e:  # a --file that names no file, a folder, a locked file
+        die(f"cannot read {path}: {e}")
 
 
 def save(path, state):
@@ -260,7 +265,7 @@ def parse_fields(args):
         fields = {}
         for arg in args:
             if "=" not in arg:
-                die(f"expected key=value or @FILE, got {arg!r}")
+                die(f"expected key=value or \"@FILE\" (quoted), got {arg!r}")
             key, raw = arg.split("=", 1)
             # \uXXXX is how output shows non-ASCII; decode each run as JSON so a copied value
             # round-trips, including two-code characters such as emoji (😀)

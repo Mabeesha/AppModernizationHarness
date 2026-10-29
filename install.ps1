@@ -5,8 +5,8 @@
 .DESCRIPTION
   Creates .\out\, drops AGENTS.md and out\INTAKE.md from their templates,
   installs the vendored agent skills (Angular, .NET) into .agents\skills\
-  (GitLab Duo Agent Platform layout), and adds the harness entries to .gitignore. Anything it
-  would overwrite is backed up first, under .harness-backups\<timestamp>\.
+  (GitLab Duo Agent Platform layout). Anything it would overwrite is backed up first, under
+  .harness-backups\<timestamp>\. It adds nothing to .gitignore.
 
 .PARAMETER TargetDir
   Where to install. Defaults to the current directory.
@@ -39,9 +39,10 @@ $HarnessDir    = Join-Path $ScriptDir 'ModernizationHarness'
 $SkillsDir     = Join-Path $HarnessDir 'skills'
 $Stamp         = Get-Date -Format 'yyyyMMdd-HHmmss'
 
-# Appended to the target's .gitignore if not already covered.
-$GitignoreHeader  = '# Modernization Harness'
-$GitignoreEntries = @('ModernizationHarness/', 'AGENTS.md', '.agents/')
+# What older versions appended to the target's .gitignore. Nothing is appended any more:
+# GitLab Duo's file tools refuse a git-ignored path, and an agent must be able to read
+# everything the harness tells it to read (DD-32). The installer only warns about them.
+$OldGitignoreEntries = @('ModernizationHarness/', 'AGENTS.md', '.agents/')
 
 $script:Installed  = 0
 $script:BackedUp   = 0
@@ -53,14 +54,6 @@ function Stop-WithError {
   param([string] $Message)
   Write-Host "error: $Message" -ForegroundColor Red
   exit 1
-}
-
-# Write UTF-8 with no BOM; Set-Content in Windows PowerShell 5.1 would add one.
-function Write-TextFile {
-  param([string] $Path, [string] $Text)
-  $dir = Split-Path -Parent $Path
-  if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-  [System.IO.File]::WriteAllText($Path, $Text, (New-Object System.Text.UTF8Encoding $false))
 }
 
 if (-not (Test-Path -LiteralPath $HarnessDir)) {
@@ -145,55 +138,22 @@ function Test-GitignoreEntry {
   return $false
 }
 
-function Update-Gitignore {
+# Never writes; warns about each line an older version appended.
+function Test-OldGitignore {
   $gitignore = Join-Path $TargetDir '.gitignore'
-  $missing = @()
-
-  foreach ($entry in $GitignoreEntries) {
+  $found = $false
+  foreach ($entry in $OldGitignoreEntries) {
     if (Test-GitignoreEntry -Path $gitignore -Entry $entry) {
-      Write-Note "present    $entry"
-    } else {
-      $missing += $entry
+      Write-Note "warning    .gitignore still ignores $entry - delete that line"
+      $found = $true
     }
   }
-
-  if ($missing.Count -eq 0) { return }
-
-  if ($DryRun) {
-    foreach ($entry in $missing) { Write-Note "(dry run) append $entry" }
-    return
-  }
-
-  $nl = [char]10
-  $existing = ''
-  if (Test-Path -LiteralPath $gitignore) {
-    # Match whatever line ending the file already uses.
-    if ([System.IO.File]::ReadAllText($gitignore) -match ([char]13 + [char]10)) {
-      $nl = [string]([char]13) + [char]10
-    }
-    $backup = Join-Path $BackupRoot '.gitignore'
-    $backupDir = Split-Path -Parent $backup
-    if (-not (Test-Path -LiteralPath $backupDir)) {
-      New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
-    }
-    Copy-Item -LiteralPath $gitignore -Destination $backup -Force
-    Write-Note "backed up  .gitignore -> .harness-backups\$Stamp\.gitignore"
-    $script:BackedUp++
-
-    # Keep the file's existing line endings; separate from what came before
-    # without stacking blank lines.
-    $existing = [System.IO.File]::ReadAllText($gitignore)
-    $existing = $existing.TrimEnd([char]10, [char]13) + $nl + $nl
+  if ($found) {
+    Write-Note "           (an older install added it; GitLab Duo's file tools cannot read an"
+    Write-Note "           ignored path - DEVELOPER_GUIDE.md, Upgrading the Harness Mid-Project)"
   } else {
-    Write-Note "created    .gitignore"
+    Write-Note "nothing to add - the harness files stay readable to the agent's file tools"
   }
-
-  $text = $existing + $GitignoreHeader + $nl
-  foreach ($entry in $missing) { $text += $entry + $nl }
-  Write-TextFile $gitignore $text
-
-  foreach ($entry in $missing) { Write-Note "appended   $entry" }
-  $script:Installed++
 }
 
 Write-Host "Installing the Modernization Harness into $TargetDir"
@@ -243,7 +203,7 @@ if (-not $found) { Write-Note 'none vendored - run: .\update-skills.ps1' }
 
 Write-Host ''
 Write-Host '.gitignore'
-Update-Gitignore
+Test-OldGitignore
 
 Write-Host ''
 Write-Host "Done - $script:Installed file(s) written, $script:BackedUp backed up."

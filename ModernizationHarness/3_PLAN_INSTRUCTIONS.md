@@ -95,8 +95,9 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
    To find something in the legacy source, look it up in **`LEGACY_CODE_MAP_<AppName>.md`**
    (documents location; Stage 1 writes it) first, and open only the files it points to
-   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, search as before —
-   it is optional, so never stop to ask for it.
+   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, or it lacks what you
+   need, search — with `tools/search.py` where your own search tool does not work; the map is
+   optional, so never stop to ask for it.
 
 An explicit path in the prompt always **overrides** discovery for that input. Write the documents
 this stage produces to `context.locations.documents`; code goes to `context.locations.targetRepo`.
@@ -283,13 +284,13 @@ and prints the id it allocated — **that printed id is the one the plan uses**,
 before you write the id into the document.
 
 **Then write the ledger** (§Output 2) — one row per requirement ID / design element from the
-Step 1 checklist. On the first run, add every row in **one** call, `feature add @FILE`, with the
+Step 1 checklist. On the first run, add every row in **one** call, `feature add "@FILE"`, with the
 rows as a JSON list in a file in `.harness-tmp/`. Where an older harness left a Markdown-only
 `FEATURE_STATUS.md` and no `features.json`, run `feature import` on it first and never re-add its
-rows. On a refresh you **update rows in place** with `feature set` (several rows in one `@FILE`;
+rows. On a refresh you **update rows in place** with `feature set` (several rows in one `"@FILE"`;
 a new requirement's row by `feature add`) and never regenerate the ledger. **End with `plan check` and `feature check`**, chained: later
 runs edit the plan through the tool (`plan complete` moves a `done` phase to §2; `plan replace
-@FILE` applies exact `{"old": …, "new": …}` pairs, all or none), which finds each phase by the
+"@FILE"` applies exact `{"old": …, "new": …}` pairs, all or none), which finds each phase by the
 template's heading — so a plan it cannot delimit safely is fixed now, not at a hand-off.
 
 On a **refresh**, sync `phases[]` rather than rewriting it: leave `done` and
@@ -362,7 +363,7 @@ earlier one delivered and a phase-level record cannot express that.
 
 The ledger may be grouped under headings (e.g. one per feature area): create each group with
 `feature add-group "<title>"`, in the order the view should show them, and give each row its
-`group`. Each row you add, in the JSON list `feature add @FILE` takes (`tested` is filled as
+`group`. Each row you add, in the JSON list `feature add "@FILE"` takes (`tested` is filled as
 `untested`; `group` is optional):
 
 ```json
@@ -501,7 +502,7 @@ not a reopened one. Plan the retrofit like any other phase:
 ### Bookkeeping
 
 Update `PLAN_<AppName>.md` (§1, §2, §3, §5 as applicable) and re-sync `phases[]` per
-Step 3. **Then re-point the ledger** — `feature set`, every row in one `@FILE`: every row
+Step 3. **Then re-point the ledger** — `feature set`, every row in one `"@FILE"`: every row
 reading `scheduled in P-N` whose phase
 this refresh **dropped or resequenced** must move to the phase that will now deliver it, or to
 `unscheduled` with a reason in §6. A row pointing at a phase that no longer exists is the one

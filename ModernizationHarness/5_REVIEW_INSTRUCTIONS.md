@@ -68,8 +68,9 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    `context.repo.layout` is `split` (you audit the built code in the target repo(s)).
    To find something in the legacy source, look it up in **`LEGACY_CODE_MAP_<AppName>.md`**
    (documents location; Stage 1 writes it) first, and open only the files it points to
-   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, search as before —
-   it is optional, so never stop to ask for it.
+   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, or it lacks what you
+   need, search — with `tools/search.py` where your own search tool does not work; the map is
+   optional, so never stop to ask for it.
 
 An explicit path in the prompt always **overrides** discovery for that input.
 
@@ -181,7 +182,8 @@ context mode.
 
 1. **Establish the bar.** Read `PROJECT_CONTEXT`, the requirements, the design, and the plan
    sections in scope. Build the checklist of what *should* be true for the target.
-2. **Run it.** Build the project; run the test suite; note what passes/fails — one that may
+2. **Run it.** Build the project; run the test suite; note what passes/fails (output that
+   shows an error is a fail, whatever the exit code) — one that may
    outlast the command time limit through `tools/longrun.py` (`AGENTS.md §Keeping the Request
    Count Down`). Exercise the phase's developer test guide where feasible.
 3. **Audit the code** against the four areas and the constraints. Cite `path:line`.

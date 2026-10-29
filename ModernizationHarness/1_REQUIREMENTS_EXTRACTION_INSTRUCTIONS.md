@@ -144,7 +144,8 @@ the documents location. Every later stage looks legacy code up in it before sear
 2. **Survey from the index.** Read §2 whole; read §3 whole if it is short, otherwise search it
    for names instead of searching the source tree. Use it to choose which files to open, and
    open them several at a time (`AGENTS.md §Keeping the Request Count Down`). It is found by
-   pattern, so it can miss a name: search the tree only for what it lacks. **Never cite the map**
+   pattern, so it can miss a name: search the tree only for what it lacks (your search tool, or
+   `tools/search.py` where it does not work). **Never cite the map**
    — cite the code.
 3. **Write §1 *Where Things Live*** once the survey is done, above the generated-marker line: a
    table **Area | Where | What lives there**, one row per checklist item below that the app has

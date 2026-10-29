@@ -86,8 +86,9 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
    To find something in the legacy source, look it up in **`LEGACY_CODE_MAP_<AppName>.md`**
    (documents location; Stage 1 writes it) first, and open only the files it points to
-   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, search as before —
-   it is optional, so never stop to ask for it.
+   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, or it lacks what you
+   need, search — with `tools/search.py` where your own search tool does not work; the map is
+   optional, so never stop to ask for it.
 4. **Reference-implementation samples**, where this phase needs one — from the `path` on the
    matching `context.referenceImplementations[]` entry. Read-only, like the legacy source.
 
@@ -338,7 +339,7 @@ plan §5 to §2 Completed, one line each — the bookkeeping every refresh makes
 `rerunCount` bump. Make the move by hand-off with `python <stage folder>/tools/docs.py plan
 complete P-N "<one line>"` — several pairs in one command; it refuses a phase not `done` and
 prints the headings it removed, so check that they are that phase's — and
-any other plan change this run makes with `plan replace @FILE`: a JSON list of exact `{"old": …,
+any other plan change this run makes with `plan replace "@FILE"`: a JSON list of exact `{"old": …,
 "new": …}` pairs, each old text found once, applied all or none (`plan show P-N` prints one
 phase, `plan check` the headings the tool relies on). The phase this run finishes stays in §5
 until the next run, whose code check reads it there (§Starting From the Right Code) — unless no
@@ -388,7 +389,8 @@ unchanged" (0b, item 5). Work directly in the target repository's working tree �
    may outlast the limit through `tools/longrun.py` — `start`, then `wait` until it has
    finished (still running is not a result); after a timeout, check by content what ran before
    re-running anything (`AGENTS.md §Keeping the Request Count Down`). Exercise the task's "done when" conditions (call the endpoint, render the screen). **A check counts only if it
-   ran and exercised the change.** A syntax-only check does not count, nor does a command that
+   ran, exercised the change, and its output shows no error** — `is not recognized`,
+   `ParserError`, a stack trace: not passed, even with exit code 0. A syntax-only check does not count, nor does a command that
    failed to start — a missing tool, an unrestored package — nor a test run that a compile error
    stopped before any test ran (fix it and rerun). Where only the project's declared
    dependencies are missing, restore them with the project's own tool (`npm ci`,
@@ -413,7 +415,8 @@ test guide where the change surface warrants.
 1. **Run the phase's exit criteria** — the only gate. All must pass. You may only
    mark `done` if they do. Run the criteria that are commands chained, within the command time
    limit as in Step 1, item 4 — a long one through `tools/longrun.py`, which passes only on
-   exit 0 once finished (still running, stopped or lost is not a pass); if a chain stops, name
+   exit 0 once finished (still running, stopped or lost is not a pass) — and, as in Step 1,
+   item 4, a criterion whose output shows an error has not passed, whatever its exit code; if a chain stops, name
    the criterion that failed and those that did not run. **Never tick the plan's exit-criteria or task checkboxes** (`- [ ]`) — status
    lives in `state.json`, and a ticked box is a second record that drifts.
 2. **Walk the developer test guide yourself** end to end; if a step is now wrong, fix it in the
@@ -425,7 +428,7 @@ test guide where the change surface warrants.
    command**; when the walk is done, stop what it started (`longrun.py stop <name>`). A step you cannot carry
    out here (a screen, with no browser tool) is named in the report as not walked — never
    reported as walked.
-3. **Update the feature ledger** — every row this run touched in **one** `feature set @FILE`
+3. **Update the feature ledger** — every row this run touched in **one** `feature set "@FILE"`
    call, a new row by `feature add` — with `group=` when the ledger is grouped
    (`AGENTS.md §The Feature Ledger`). You
    **update rows in place**; you never regenerate it. For this run:
@@ -660,7 +663,7 @@ of whatever is there, like any other work.
 4. **Keep the baseline green.** The app builds and runs at every hand-off; previous phases'
    behavior survives except explicit replacements.
 5. **Verify every task before moving on.** A task isn't done until build compiles, relevant
-   tests pass, and its "done when" conditions are met — by checks that actually ran (Step 1,
+   tests pass, and its "done when" conditions are met — by checks that actually ran with no error in their output (Step 1,
    item 4; a screen with no browser tool and no automated test is named as not run instead).
 6. **Write tests. Update docs. Update state.** Every run leaves all three current.
 7. **Idiomatic, clean code** for the target stack; honor the code-style constraint mechanically.

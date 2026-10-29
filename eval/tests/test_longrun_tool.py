@@ -118,8 +118,10 @@ class LongrunToolTest(unittest.TestCase):
         self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
         self.assertIn("FAILED, exit code 7", res.stdout)
         self.assertIn("Failures: 1", res.stdout)
-        # .out.txt, not .log: many projects' .gitignore has *.log, which Duo's file tool refuses
-        self.assertIn(os.path.join(".harness-tmp", "build.out.txt"), res.stdout)
+        # .out.txt, not .log: many projects' .gitignore has *.log, which Duo's file tool refuses;
+        # named from the working-tree root, with its full path, so no one looks under --dir
+        self.assertIn("full log kept: .harness-tmp/build.out.txt (full path "
+                      f"{self.dir / '.harness-tmp' / 'build.out.txt'})", res.stdout)
         self.assertIn("--lines 200", res.stdout)
         self.assertEqual(self.files(), ["build.out.txt", "build.status"])
         again = self.run_tool("wait", "build", "--seconds", "0")  # the same answer again
@@ -199,6 +201,35 @@ class LongrunToolTest(unittest.TestCase):
         self.assertEqual(self.files(), [])
         # a lost run does not block a new start
         self.assertEqual(self.start("build", "print('ok')").returncode, 0)
+
+    def test_a_lost_run_names_its_raw_output_as_the_latest(self):
+        self.tmp.mkdir()
+        status = self.tmp / "build.status"
+        then = time.time() - 120
+        status.write_text(json.dumps({"command": ["mvn", "verify"], "pid": 4242,
+                                      "started": then}), encoding="utf-8")
+        os.utime(status, (then, then))
+        (self.tmp / "build.out.txt").write_text("early\n", encoding="utf-8")
+        (self.tmp / "build.raw").write_bytes(b"early\nlater\x1b[0m\n")
+        res = self.run_tool("wait", "build", "--seconds", "0", "--grep", "later")
+        self.assertEqual(res.returncode, 4, res.stdout + res.stderr)
+        self.assertIn("later\n", res.stdout)  # the tail and --grep read the raw output
+        self.assertIn("latest output: .harness-tmp/build.raw", res.stdout)
+        self.assertIn("stopped when the runner was lost", res.stdout)
+        self.run_tool("stop", "build")
+        self.assertEqual(self.files(), [])
+
+    def test_list_and_stop_clear_a_leftover_raw_file(self):
+        # A program's child that keeps NAME.raw open stops it being deleted when the run ends.
+        self.tmp.mkdir()
+        (self.tmp / "a.raw").write_bytes(b"x\n")
+        (self.tmp / "b.raw").write_bytes(b"x\n")
+        res = self.run_tool("stop", "a")
+        self.assertIn("removed .harness-tmp/a.raw", res.stdout)
+        self.assertEqual(self.files(), ["b.raw"])
+        res = self.run_tool("list")
+        self.assertIn("removed .harness-tmp/b.raw", res.stdout)
+        self.assertEqual(self.files(), [])
 
     def test_the_build_survives_when_the_start_call_is_cut_off(self):
         # A platform may kill the whole process tree of a command that hit its time limit. The
@@ -313,6 +344,62 @@ class LongrunToolTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
         self.assertIn("end \\xe9\n", res.stdout)  # printed as an ASCII escape of the one character
 
+    def test_the_log_file_is_plain_utf8_text(self):
+        # A file tool that sees control characters calls the log binary and will not read it.
+        code = ("import sys; w = sys.stdout.buffer.write; "
+                "w(b'\\x1b[1m\\x1b[31mERROR\\x1b[0m in app.ts\\n'); "
+                "w(b'Downloading 10%\\rDownloading 100%\\r\\n'); w(b'bell\\x07 nul\\x00 bs\\x08\\n'); "
+                "w(b'\\x1b]0;title\\x07titled\\n'); w('caf\\u00e9\\n'.encode()); "
+                "w('Gr\\u00fc\\u00dfe\\n'.encode('cp1252')); w(b'no newline at the end'); "
+                "sys.stdout.flush(); sys.exit(1)")
+        res = self.start("build", code)
+        self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
+        text = (self.tmp / "build.out.txt").read_bytes().decode("utf-8")  # strict: plain UTF-8
+        self.assertEqual(text.splitlines()[:5], ["ERROR in app.ts", "Downloading 100%",
+                                                 "bell nul bs", "titled", "café"])
+        self.assertTrue(text.endswith("no newline at the end\n"))
+        self.assertIn("Gr", text.splitlines()[5])  # code-page text, turned into UTF-8
+        self.assertFalse(any(ord(c) < 32 and c not in "\t\n" for c in text), repr(text))
+        self.assertEqual(self.files(), ["build.out.txt", "build.status"])  # NAME.raw is gone
+
+    def test_the_program_runs_with_colour_off(self):
+        code = ("import os; print('NO_COLOR=' + os.environ.get('NO_COLOR', '-'), "
+                "'FORCE_COLOR=' + os.environ.get('FORCE_COLOR', '-'), "
+                "'npm=' + os.environ.get('npm_config_color', os.environ.get('NPM_CONFIG_COLOR', '-')),"
+                " 'kept=' + os.environ.get('LONGRUN_TEST', '-'))")
+        env = dict(os.environ, FORCE_COLOR="1", LONGRUN_TEST="yes")
+        self.started.append("env")
+        res = subprocess.run([PY, str(TOOL), "start", "env", "--seconds", "30", "--", PY, "-c",
+                              code], cwd=self.dir, capture_output=True, encoding="ascii",
+                             timeout=120, env=env)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertIn("NO_COLOR=1 FORCE_COLOR=- npm=false kept=yes", res.stdout)
+
+    def test_grep_prints_matching_lines_from_the_whole_log_before_a_pass_deletes_it(self):
+        code = ("print('Statements : 81.2%'); [print('noise', i) for i in range(500)]; "
+                "print('Lines      : 79.9%')")
+        res = self.start("cov", code, "--lines", "3", "--grep", "Statements|Lines")
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertIn("2 lines of .harness-tmp/cov.out.txt match --grep Statements|Lines",
+                      res.stdout)
+        self.assertIn("Statements : 81.2%\n", res.stdout)  # far above the 3-line tail
+        self.assertEqual(self.files(), [])
+        res = self.run_tool("wait", "cov", "--grep", "Lines")  # gone now: the error says why
+        self.assertEqual(res.returncode, 2)
+        self.assertIn("put --grep on the start or wait that sees it end", res.stderr)
+
+    def test_grep_on_wait_and_a_bad_grep(self):
+        res = self.start("t", "import sys; print('Tests: 3 failed'); print('ok'); sys.exit(1)")
+        self.assertEqual(res.returncode, 1)
+        res = self.run_tool("wait", "t", "--grep", "(?i)FAILED")
+        self.assertIn("1 lines of .harness-tmp/t.out.txt match", res.stdout)
+        res = self.run_tool("wait", "t", "--grep", "nothing-like-this")
+        self.assertIn("no line of .harness-tmp/t.out.txt matches", res.stdout)
+        res = self.start("t2", "print('x')", "--grep", "(unclosed")
+        self.assertEqual(res.returncode, 2)
+        self.assertIn("not a valid regular expression", res.stderr)
+        self.assertNotIn("t2.status", self.files())
+
     # --- where it runs ---------------------------------------------------------------------------
 
     def test_dir_runs_the_program_there_and_files_stay_in_the_callers_folder(self):
@@ -321,6 +408,8 @@ class LongrunToolTest(unittest.TestCase):
                          "--dir", "frontend")
         self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
         self.assertIn("in frontend", res.stdout)
+        self.assertIn("log .harness-tmp/ng.out.txt (full path", res.stdout)
+        self.assertIn("never under --dir", res.stdout)
         self.assertFalse((self.dir / "frontend" / ".harness-tmp").exists())
 
     def test_start_works_when_a_shell_dropped_the_separator(self):

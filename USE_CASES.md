@@ -52,7 +52,7 @@ stage runs — which is exactly where drift comes from.
 | **`done`** | Built, and the agent's mechanical checks passed. It is the **final** status — nothing rewinds, and nothing waits on you. |
 | **`FEATURE_STATUS.md`** | The ledger: one row per feature — how to check it, which phase built it, whether *you* have tested it. Only you authorize a `passed`/`failed` mark, and it blocks nothing. The rows are kept in `features.json`, and a script (`tools/docs.py`) rewrites this page from them — read it, don't edit it. |
 | **`state.json`** | The agent's memory: statuses, the change log, review records, and the branches and PRs you tell it about. **You never edit it by hand.** |
-| **`LEGACY_CODE_MAP_<App>.md`** | Where each part of the old code lives. Stage 1 saves it; a script lists every file and what it declares, and the agent adds which files hold each feature. Every later stage looks legacy code up there instead of searching — fewer model calls. |
+| **`LEGACY_CODE_MAP_<App>.md`** | Where each part of the old code lives. Stage 1 saves it; a script lists every file and what it declares, and the agent adds which files hold each feature. Every later stage looks legacy code up there instead of searching — fewer model calls. Where it must still search and the agent's own search tool does not work (GitLab Duo's needs ripgrep), it uses a script, `tools/search.py`. |
 | **Retrofit phase** | A *new* phase that brings already-delivered code up to a changed design. `done` phases are never reopened. |
 | **`AGENTS.md`** | Your copy of `AGENTS_TEMPLATE.md`, in the project root. Loads in *every* session — it governs ordinary chat, not just stage runs. |
 
@@ -72,6 +72,7 @@ behind the scenes, and what is true afterwards. Prompts are copy-paste ready.
 | Starting a brand-new project | Copy `AGENTS.md` and `INTAKE.md` into place, then run Stages 0→3 once each |
 | Build the next planned increment | `run stage 4` |
 | A run stopped halfway (timeout, crash) | `run stage 4` — it finishes the half-built phase first, judged by what is in the files |
+| `git status` shows `ModernizationHarness/`, `AGENTS.md` or `.agents/` as new | Nothing to send. Commit them or leave them — but don't add them to `.gitignore`: GitLab Duo's file tools cannot read an ignored file |
 | `git status` shows files in `.harness-tmp/` | Nothing to send. They are leftovers — a values file a stopped run never used, or the log of a long build that failed (the agent runs long builds in the background through `tools/longrun.py`). Don't commit them; delete them if you like |
 | Commit the phase you just got | Commit it yourself, using the suggested message from the report. The agent runs no git |
 | Tell it where the work went | `P-3 is on branch phase/P-3` or `P-3's PR is <url>` |

@@ -12,8 +12,8 @@ application with a coding agent, **one small testable increment at a time**, wit
 control of scope, quality, or history.
 
 It ships as Markdown files the developer copies into their project and cites in prompts, plus
-four small stdlib-Python tools (the state tool, the legacy code map tool, the documents tool that keeps the feature ledger and the plan's bookkeeping, and the long-command tool that runs a build past the platform's command time limit), vendored agent skills, and install scripts that copy it all
-into place. No runtime or service to maintain.
+five small stdlib-Python tools (the state tool, the legacy code map tool, the documents tool that keeps the feature ledger and the plan's bookkeeping, the long-command tool that runs a build past the platform's command time limit, and the search tool that finds files and text where the agent's own search tool does not work), vendored agent skills, and install scripts that copy it all
+into place — and add nothing to the target's `.gitignore` (R14.1). No runtime or service to maintain.
 
 ## 2. Users & actors
 
@@ -88,7 +88,9 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R4.1** The agent may set a phase `done` only when its **mechanical, falsifiable** exit
   criteria all pass. Subjective criteria ("looks correct") are forbidden. **This is the only
   gate in the pipeline.** A criterion passes only on a check that actually ran and exercised
-  the work — a command that failed to start, or a syntax-only check, is not a pass.
+  the work — a command that failed to start, or a syntax-only check, is not a pass, and nor is
+  a command whose output shows an error (`is not recognized`, `ParserError`, a stack trace),
+  even when it exits 0.
 - **R4.2** Phase and edit status moves **forward only** — `pending` → `in progress` → `done`.
   Nothing rewinds; `done` is terminal. What is built is built.
 - **R4.3** Whether a human has tested the work is recorded **per feature** in the feature
@@ -105,7 +107,8 @@ and anything that modifies the legacy source (read-only in every stage).
   passes only when it finished with exit code 0; one still running, stopped, or lost (its
   process ended without an exit code) has not passed. A check that cannot finish within the
   limit even through the tool is reported as not run, and the developer is asked to run it
-  (R4.1, DD-31).
+  (R4.1, DD-31). Its log is plain UTF-8 text a file tool can open, and the lines of it a run
+  needs (coverage totals) can be printed before a passing run's log is deleted.
 
 ### R5 — Rolling plan
 - **R5.1** The plan covers **remaining work only**; `done` phases drop to a Completed line,
@@ -151,7 +154,8 @@ and anything that modifies the legacy source (read-only in every stage).
   integers) tells each run which entries it has already folded in.
 - **R7.4** The developer never hand-edits `state.json` — they say what happened, the agent
   records it and confirms.
-- **R7.5** A tool's values file (`@FILE`) goes in **`.harness-tmp/`** at the working-tree root,
+- **R7.5** A tool's values file (`@FILE`, always written `"@path"` in double quotes, which every
+  shell passes through) goes in **`.harness-tmp/`** at the working-tree root,
   which the tools create and git does not ignore, so an agent's file tools may write there (a
   path outside the repo still works). **A values file there is deleted once a tool has read it**,
   whatever the outcome, so each write is a new file and none lingers to be committed; a file the
@@ -242,12 +246,25 @@ and anything that modifies the legacy source (read-only in every stage).
   file, and where the documents location sits inside the legacy source it leaves that folder
   out of the map.
 - **R13.3** The map is a **pointer, never evidence**: requirements still cite the code itself
-  (`path:line`). Where the map lacks something, the agent searches as before.
+  (`path:line`). Where the map lacks something, the agent searches as before (R14.2).
 - **R13.4** Every later stage, and ordinary chat, that needs a legacy detail **looks it up in
   the map first** and opens only the files it points to. A missing map changes nothing else:
   the agent searches as before. Without Python, or after a refusal that cannot be fixed,
   Stage 1 writes its section by hand and leaves the generated part out until the script next
   runs. A Stage 1 rerun that changes only the map writes nothing to `state.json`.
+
+### R14 — The agent platform's own tools can do the work
+- **R14.1** Nothing the harness tells an agent to read or write is hidden from the agent
+  platform's file tools. The installers add **no entry to the target's `.gitignore`** — GitLab
+  Duo's file tools refuse every git-ignored path — and an installer that finds the entries older
+  versions added warns, naming each, but never edits the file. The developer deletes them.
+- **R14.2** Files and text are searched with the agent's own search tool where it works, and
+  otherwise with the **search tool** (`tools/search.py`) — one plain command in every shell, no
+  shell pipeline — never with a shell filter that needs `$`. It skips build, package and tool
+  folders and the `.gitignore` entries it supports unless told not to, skips binary files,
+  never follows a linked folder, caps its output and its running time inside the command time
+  limit and says when it did, and never writes. Legacy code is still looked up in the
+  code map first (R13.4).
 
 ---
 
@@ -260,7 +277,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra (plus the re-slice approval, unless it is given in advance — R5.3) |
 | Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and, once the developer commits it, a git commit |
-| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, finds legacy code through the code map (R13), updates the ledger and the plan's bookkeeping through one tool command each (R5.5–R5.6), and runs a command that may outlast the command time limit through the long-command tool rather than letting it time out (R4.5) — while keeping each write, chain and reply small enough not to fail on the platform's output and time limits |
+| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, finds legacy code through the code map (R13), updates the ledger and the plan's bookkeeping through one tool command each (R5.5–R5.6), runs a command that may outlast the command time limit through the long-command tool rather than letting it time out (R4.5), and searches through the search tool where its own does not work, rather than through shell pipelines that fail or time out (R14.2) — while keeping each write, chain and reply small enough not to fail on the platform's output and time limits |
 | Q7 | **No explain-again round trips** — a report the developer cannot follow costs a whole extra request to clarify; R12 makes the first answer self-explanatory |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)

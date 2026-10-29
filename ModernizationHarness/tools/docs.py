@@ -5,8 +5,8 @@ Usage: python docs.py [--file STATE] [--plan PATH] <feature|plan> <command> ...
 
 The feature ledger: features.json is the record; FEATURE_STATUS.md is a view it generates.
   feature show [P-N | E-N | ID ... | group=<title>]   rows a phase/edit touched, named, or in a group
-  feature add ID "feature=..." [k=v ...] | @FILE   new row(s), untested; creates features.json
-  feature set ID k=v ... | ID @FILE | @FILE        update row(s) in place
+  feature add ID "feature=..." [k=v ...] | "@FILE"   new row(s), untested; creates features.json
+  feature set ID k=v ... | ID "@FILE" | "@FILE"    update row(s) in place
   feature set P-N "tested=passed" --developer-said every row reading "built in P-N" except a
                                       failed one; those, and untested rows that list P-N but were
                                       built elsewhere, are named, not changed
@@ -19,7 +19,7 @@ The feature ledger: features.json is the record; FEATURE_STATUS.md is a view it 
 The plan: PLAN_<App>.md stays Markdown.
   plan show P-N ...                   print each phase's section 5 subsection
   plan complete P-N "<summary>" ...   move a done phase out of section 5 into a section 2 line
-  plan replace @FILE                  exact old->new pairs, each old found exactly once; all or none
+  plan replace "@FILE"                exact old->new pairs, each old found exactly once; all or none
   plan check                          the headings this tool relies on are present and parse
 
 The ledger: app, schemaVersion, preamble (lines), groups ([{title, before, after}] - lines
@@ -28,10 +28,11 @@ around each group's table), features (rows). A row: id, feature, howToCheck (lin
 built in P-N), tested (untested | passed YYYY-MM-DD |
 failed YYYY-MM-DD \\u2014 <symptom>), and optionally group (a groups title; group= ungroups).
 The view renders the preamble, the ungrouped rows, then each group as "## <title>", its before
-text, its table and its after text. In k=v, howToCheck takes one line (several: @FILE with a
+text, its table and its after text. In k=v, howToCheck takes one line (several: "@FILE" with a
 JSON list), and phases=P-4,E-2 appends the ids not yet there - ids are never removed.
-@FILE for add: a JSON list of rows; for set: a list of {"id": ..., fields} or one object of
-fields after an ID. A date left out of passed/failed is today's.
+"@FILE" - always in double quotes ("@.harness-tmp/rows.json"): PowerShell reads a bare
+leading @ as its own syntax - for add: a JSON list of rows; for set: a list of
+{"id": ..., fields} or one object of fields after an ID. A date left out of passed/failed is today's.
 Rules, refused: no row is ever deleted; an id never changes; build and tested take only the
 values above; a row is never scheduled in a done phase or built in a pending one; and tested is
 written as passed or failed only with --developer-said - which you pass only when the developer
@@ -56,7 +57,7 @@ not the template's own (Tasks, What is testable, Developer test guide, Exit crit
 does a non-template heading one level down after the last phase's Exit criteria. plan complete
 refuses a phase that is not done in state.json, refuses a removal that would split a code block
 or strand a template heading, and prints the headings it removed; every plan write stops on a
-structure plan check cannot delimit safely, including a code fence never closed. plan replace @FILE holds a JSON list of
+structure plan check cannot delimit safely, including a code fence never closed. plan replace "@FILE" holds a JSON list of
 {"old": ..., "new": ...}.
 
 state.json is found as state.py finds it (--file overrides) and is only read; features.json,
@@ -64,7 +65,7 @@ FEATURE_STATUS.md and PLAN_<project>.md sit beside it (--plan overrides the plan
 Values files go in .harness-tmp/ under the working-tree root, which this tool and state.py
 create; a path outside the repo works too. As in state.py, a values file in a folder named
 .harness-tmp is deleted once the command has read it, whatever the outcome, and one line on
-stderr says so; the folder is not git-ignored. k=v and @FILE turn a
+stderr says so; the folder is not git-ignored. k=v and "@FILE" turn a
 \\u2014-style escape back into its character. Output is ASCII; writes are UTF-8, keep the
 file's line endings, go through a temp file, and nothing is printed until they succeed.
 """
@@ -286,7 +287,7 @@ def parse_pairs(args):
     fields = {}
     for arg in args:
         if "=" not in arg:
-            die(f"expected key=value or @FILE, got {arg!r}")
+            die(f"expected key=value or \"@FILE\" (quoted), got {arg!r}")
         key, raw = arg.split("=", 1)
         raw = unescape(raw)
         if key == "howToCheck":
@@ -546,7 +547,7 @@ def cmd_feature_add(docs, args, flags):
     elif len(args) >= 2:
         rows = [{"id": unescape(args[0]), **parse_pairs(args[1:])}]
     else:
-        die("add needs ID and fields (at least feature=...), or @FILE")
+        die("add needs ID and fields (at least feature=...), or \"@FILE\"")
     ledger, style = load_ledger(docs, create=True)
     have = {r.get("id") for r in ledger["features"]}
     problems, rules, added = [], [], []
@@ -627,7 +628,7 @@ def cmd_feature_set(docs, args, flags):
         else:
             updates = [(sel, fields)]
     else:
-        die("set needs ID (or P-N) and fields, or @FILE")
+        die("set needs ID (or P-N) and fields, or \"@FILE\"")
     problems, rules, changed = [], [], []
     for rid, fields in updates:
         if rid not in by_id:
@@ -1291,7 +1292,7 @@ def cmd_plan_complete(docs, args, flags):
 
 def cmd_plan_replace(docs, args, flags):
     if not is_file_arg(args):
-        die("replace takes @FILE: a JSON list of {\"old\": ..., \"new\": ...}")
+        die("replace takes \"@FILE\": a JSON list of {\"old\": ..., \"new\": ...}")
     pairs = read_values(args[0])
     if isinstance(pairs, dict) and "pairs" in pairs:
         pairs = pairs["pairs"]

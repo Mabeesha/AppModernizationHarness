@@ -60,6 +60,11 @@ Its **first section also records where the stage files live** — `Modernization
 default. That is what lets every prompt in this guide name them bare. Keep the harness
 somewhere else and you change that one line; nothing else moves.
 
+**Don't add `ModernizationHarness/`, `AGENTS.md` or `.agents/` to `.gitignore`** (the
+installers add nothing there). GitLab Duo's file tools refuse to read a git-ignored file, so
+the agent could no longer open its own stage files. They show in `git status` as new files —
+commit them or leave them.
+
 ---
 
 ## The Pipeline at a Glance
@@ -561,8 +566,16 @@ larger edits. The rest is how **you** run it:
    about four calls instead of one. If your platform stops background programs, so that even
    this cannot finish, the agent reports that check as not run and asks you to run it.
    **Ask your Duo admin whether the command time limit can be raised** — that is the cheaper
-   fix. You can use the script yourself too:
+   fix. The build's log is plain text, so the agent's file tools can open it, and the agent can
+   pick the lines it needs (coverage totals) out of it before a passing build's log is deleted
+   (`--grep`), instead of running the build again. You can use the script yourself too:
    `python <stage folder>/tools/longrun.py` with no command prints how.
+9. **No ripgrep? Nothing to do.** GitLab Duo's own search tools (`find_files`, `grep`) need
+   ripgrep. Where it cannot be installed, the agent searches with `tools/search.py`, a small
+   script that lists files and finds text in one command, skipping `node_modules` and other
+   build folders. Without it the agent used shell pipelines, which often failed or timed out —
+   each one a billed call. You can use it yourself too: `python <stage folder>/tools/search.py`
+   with no command prints how.
 
 ---
 
@@ -823,6 +836,35 @@ Two changes, nothing to migrate by hand. Copy in the new stage folder and rebuil
   command time limit no longer cuts it off (`§Keeping the Request Bill Down`, tip 8). It needs
   nothing set up.
 
+### Upgrading to a version with `search.py` and an installer that ignores nothing
+
+Copy in the new stage folder and rebuild `AGENTS.md` (steps 3–4); your `state.json` is
+unchanged. Then **one step by hand: delete the harness lines from your `.gitignore`.** An older
+installer added this block:
+
+```
+# Modernization Harness
+ModernizationHarness/
+AGENTS.md
+.agents/
+```
+
+Delete all four lines. GitLab Duo's file tools refuse to read a git-ignored file, so with them
+the agent cannot open its own stage files or examples ("excluded by .gitignore"). Afterwards
+`git status` shows those folders and `AGENTS.md` as new files — commit them or leave them.
+(Re-running the installer only warns about the lines; it never edits your `.gitignore`.)
+
+What else changed, nothing to do for any of it:
+
+- **`tools/search.py` is new** (§Keeping the Request Bill Down, tip 9).
+- **`tools/longrun.py` logs are plain text** the agent's file tools can open, and `--grep`
+  prints the lines it needs from a build's log.
+- **Values files are passed in double quotes** (`"@.harness-tmp/rows.json"`) — PowerShell
+  refused the bare form.
+- **A check whose output shows an error has not passed**, even when it exits with 0.
+- **The agent writes at most one large file, or two small ones, per step**, so a reply is less
+  likely to be cut off.
+
 ### Windows: install PowerShell 7 (`pwsh`)
 
 The rebuilt `AGENTS.md` tells the agent to run its shell commands on Windows as
@@ -1071,6 +1113,7 @@ After the final phase is delivered:
 | `PLAN_<App>.md` — remaining phases | Stage 3 | say what you want; the agent re-slices | **Stage 4 Step 0c re-slices remaining phases with your approval**; statuses and test-guide fixes |
 | `features.json` (the ledger) | Stage 3, through `tools/docs.py` | **no hand-editing** — say "accept P-2" / "search works" | Stage 4 updates rows in place through `tools/docs.py`; rows **never deleted**, ledger **never regenerated** |
 | `FEATURE_STATUS.md` | `tools/docs.py`, from `features.json` | no — read it; a hand edit stops the agent's next ledger write | rewritten by the tool on every ledger write |
+| The harness itself (`ModernizationHarness/`, `.agents/skills/`) | you / the installer | no — and never git-ignore it, or the agent's file tools cannot read it | **never** — it reads them; `tools/search.py` searches without writing anything |
 | `.harness-tmp/` | the tools | no — a file in it that `git status` shows is a leftover; never commit it, delete it if you like | the agent's values files (deleted by the tool once read) and long-build logs from `tools/longrun.py` (deleted when the build passes); **not** ignored by git, so the agent's file tools can write there |
 | `HOW_TO_RUN.md` (one file) | Stage 4 | no | only when building/running/configuring the app changes |
 | `state.json` phases[] | Stage 3 (init) | **no hand-editing** | status (forward only); branch and PRs only when you name them |

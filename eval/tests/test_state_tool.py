@@ -82,6 +82,13 @@ class StateToolTest(unittest.TestCase):
         out = self.run_tool("get", "context.repo").stdout
         self.assertEqual(json.loads(out), INITIAL["context"]["repo"])
 
+    def test_a_missing_file_is_a_clear_error_not_a_traceback(self):
+        for args in (("summary",), ("start",), ("set", "progress", "rerunCount=1")):
+            with self.subTest(args=args):
+                res = self.run_tool("--file", "no-such-state.json", *args, ok=False)
+                self.assertIn("state.py: cannot read no-such-state.json", res.stderr)
+                self.assertNotIn("Traceback", res.stderr)
+
     def test_get_unknown_path_is_refused(self):
         self.assertIn("no such path", self.refused("get", "context.nope"))
         self.assertIn("no element with id", self.refused("get", "phases.P-9"))
@@ -396,7 +403,7 @@ class StateToolTest(unittest.TestCase):
 
     def test_stdin_input_is_gone(self):
         self.run_tool("add", "phases", "name=A")
-        self.assertIn("key=value or @FILE", self.refused("set", "phases.P-1", "-"))
+        self.assertIn("key=value or \"@FILE\" (quoted)", self.refused("set", "phases.P-1", "-"))
 
     def test_output_is_ascii_and_round_trips(self):
         self.run_tool("add", "phases", "name=A")

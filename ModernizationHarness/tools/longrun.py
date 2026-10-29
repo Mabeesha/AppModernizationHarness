@@ -4,13 +4,15 @@ test suite with coverage - in the background, and wait for it in steps that each
 
 Usage: python longrun.py <command> ...
 
-  start NAME [--dir DIR] [--seconds N] [--lines L] -- PROGRAM [ARG ...]
-                   start PROGRAM in the background, stdout and stderr to
+  start NAME [--dir DIR] [--seconds N] [--lines L] [--grep REGEX] -- PROGRAM [ARG ...]
+                   start PROGRAM in the background, stdout and stderr to the log
                    .harness-tmp/NAME.out.txt, then wait for it as wait does (--seconds 0:
                    return at once)
-  wait NAME [--seconds N] [--lines L]
+  wait NAME [--seconds N] [--lines L] [--grep REGEX]
                    wait up to N seconds (default 100) for NAME to end; print running or
-                   finished, the exit code, the time so far and the last L log lines (default 30)
+                   finished, the exit code, the time so far and the last L log lines (default
+                   30); with --grep, also every line of the whole log REGEX matches (a Python
+                   regular expression as one argument in double quotes: "Statements|Lines")
   stop NAME [--lines L]
                    end NAME and every process it started (a server started for a walk, a
                    build to abandon) - a lost one's program too; print the last L log lines,
@@ -19,7 +21,8 @@ Usage: python longrun.py <command> ...
                    with exit code 0 but was never waited for has its files removed
 
 Exit status of start and wait:
-  0  finished, exit code 0: NAME.out.txt and NAME.status are deleted
+  0  finished, exit code 0: NAME.out.txt and NAME.status are deleted - so ask for what you
+     need from its log (coverage totals) with --grep on the start or wait that sees it end
   1  finished with another exit code: the log is kept and named - read it with your file
      tool, or wait NAME --lines 200 to reprint more of it; the next start NAME replaces it
   3  still running after N seconds: run wait NAME again
@@ -34,7 +37,8 @@ stop and list exit 0, or 2 when malformed.
 
 Options come before --; everything after it is PROGRAM's (a shell that drops the -- is fine).
 NAME is letters, digits, '.', '_' and '-' (build, test-frontend). Run from the working-tree root,
-like the other tools: the files go in .harness-tmp/ under the current directory. PROGRAM runs
+like the other tools: the files go in .harness-tmp/ under the current directory - never under
+DIR - and every message names the log by that path. PROGRAM runs
 in DIR (default: the current directory), directly - no shell, so no &&, |, > or shell quoting:
 one program and its arguments, each passed as is. A name without a folder is found on PATH (on
 Windows also in DIR); ./mvnw is relative to DIR. On Windows a program is the file with a PATHEXT
@@ -43,6 +47,12 @@ it; a .cmd or .bat runs through cmd.exe, which would misread & | < > ^ % or a do
 argument, so those are refused. Two NAMEs may run side by side. stdin is empty: a program
 that asks for input or watches for changes never ends - pass its run-once flag (ng test
 --watch=false).
+PROGRAM runs with colour turned off (NO_COLOR=1, npm_config_color=false, FORCE_COLOR unset),
+and the log is plain UTF-8 text: what PROGRAM writes goes to .harness-tmp/NAME.raw and is
+copied into the log as it comes, colour codes and other control characters removed, a
+progress line's redraws reduced to what stayed on screen, code-page text turned into UTF-8.
+NAME.raw is deleted when PROGRAM ends - or, where a program PROGRAM started still holds it
+open, by the next start, stop or list of that NAME. For a lost run it holds the latest output.
 Keep N inside the platform's command time limit with room to spare: the default 100 fits a
 120 s limit; a 30 s limit needs --seconds 25. Each wait is one call - wait the full N, never
 poll faster. Output is ASCII.
@@ -64,10 +74,18 @@ DEFAULT_LINES = 30
 BEAT = 2.0    # a running NAME's runner touches NAME.status this often
 STALE = 30.0  # untouched this long, with no exit code: the runner is gone
 RECENT = 600.0  # a lost run's program pid is trusted this long after the runner's last touch
-LOG, STATUS = ".out.txt", ".status"  # not .log: many projects' .gitignore has *.log
+LOG, STATUS, RAW = ".out.txt", ".status", ".raw"  # not .log: many .gitignore files hold *.log
 WIN = os.name == "nt"
 CMD_UNSAFE = set('&|<>^%"\r\n')  # cmd.exe would act on these in a .cmd/.bat argument
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+ANSI_BYTES = re.compile(rb"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]")
+CONTROL_BYTES = re.compile(rb"[\x00-\x08\x0b-\x1f\x7f]")  # every control character but tab, LF
+# Colour off for PROGRAM. FORCE_COLOR is removed, not set to 0: Node warns when it and NO_COLOR
+# are both set, and an inherited FORCE_COLOR=1 would win.
+NO_COLOUR = {"NO_COLOR": "1", "npm_config_color": "false"}
+UNSET = {"FORCE_COLOR"} | {k.upper() for k in NO_COLOUR}
+MAX_GREP = 200  # matching lines --grep prints
+PENDING = 65536  # a partial line longer than this keeps only its last progress redraw
 # Windows process flags
 DETACHED_PROCESS = 0x00000008
 CREATE_NEW_PROCESS_GROUP = 0x00000200
@@ -84,6 +102,19 @@ def die(msg):
 def files(name, tmp=TMP_DIR):
     base = os.path.join(tmp, name)
     return base + LOG, base + STATUS
+
+
+def raw_of(name):
+    return os.path.join(TMP_DIR, name) + RAW
+
+
+def shown_log(name):
+    """The log as every message names it: from the working-tree root, forward slashes."""
+    return f"{TMP_DIR}/{name}{LOG}"
+
+
+def full_log(name):
+    return f"{shown_log(name)} (full path {os.path.abspath(files(name)[0])})"
 
 
 def dur(seconds):
@@ -161,37 +192,69 @@ def tail(path, count):
         return []
     if start:  # the window may begin inside a line, or inside a character: start at a line
         raw = raw.split(b"\n", 1)[-1]
-    try:
-        text = raw.decode("utf-8")
-    except UnicodeDecodeError:  # not UTF-8 at all, e.g. an older JVM writing the code page
-        text = raw.decode(locale.getpreferredencoding(False) or "latin-1", errors="replace")
-    lines = ANSI_RE.sub("", text).replace("\r\n", "\n").split("\n")
+    lines = ANSI_RE.sub("", decode(raw)).replace("\r\n", "\n").split("\n")
     if lines and lines[-1] == "":
         lines.pop()
     lines = [ln.rstrip("\r").rsplit("\r", 1)[-1] for ln in lines[-count:]] if count else []
     return [ln if len(ln) <= 400 else ln[:400] + " ..." for ln in lines]
 
 
-def print_tail(log, count, what):
-    lines = tail(log, count)
+def log_to_read(name, raw_first):
+    """The log; with raw_first - a lost or stopped run, whose runner no longer copies it - the
+    program's raw output, while it is still there."""
+    raw = raw_of(name)
+    return raw if raw_first and os.path.exists(raw) else files(name)[0]
+
+
+def print_tail(name, count, what, raw_first=False):
+    lines = tail(log_to_read(name, raw_first), count)
     if lines:
-        print(f"--- {what} {len(lines)} lines of {log} ---")
+        print(f"--- {what} {len(lines)} lines of {shown_log(name)} ---")
         for ln in lines:
             print(ln)
         print("--- end ---")
     elif count:
-        print(f"(nothing in {log} yet)")
+        print(f"(nothing in {shown_log(name)} yet)")
 
 
-def report(name, state, status, age, lines, waited):
+def print_grep(name, rx, raw_first=False):
+    """Every line of the whole log that rx matches, at most MAX_GREP of them."""
+    if rx is None:
+        return
+    try:
+        with open(log_to_read(name, raw_first), "rb") as f:
+            raw = f.read()
+    except OSError:
+        raw = b""
+    text = ANSI_RE.sub("", decode(raw)).replace("\r\n", "\n")
+    hits = [ln if len(ln) <= 400 else ln[:400] + " ..."
+            for ln in (whole.rsplit("\r", 1)[-1] for whole in text.split("\n")) if rx.search(ln)]
+    if not hits:
+        print(f"(no line of {shown_log(name)} matches --grep {rx.pattern})")
+        return
+    more = f"; the first {MAX_GREP} shown" if len(hits) > MAX_GREP else ""
+    print(f"--- {len(hits)} lines of {shown_log(name)} match --grep {rx.pattern}{more} ---")
+    for ln in hits[:MAX_GREP]:
+        print(ln)
+    print("--- end ---")
+
+
+def decode(raw):
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:  # not UTF-8 at all, e.g. an older JVM writing the code page
+        return raw.decode(locale.getpreferredencoding(False) or "latin-1", errors="replace")
+
+
+def report(name, state, status, age, lines, waited, rx=None):
     """Print where NAME stands; return the exit status start and wait share."""
-    log = files(name)[0]
     cmd = shown(status.get("command", ["?"]))
     since = status.get("started", status.get("requested", time.time()))
     if state == "running":
         print(f"{name}: still running after {dur(time.time() - since)} ({cmd}); waited "
               f"{dur(waited)}")
-        print_tail(log, lines, "last")
+        print_tail(name, lines, "last")
+        print_grep(name, rx)
         print(f"run `longrun.py wait {name}` again")
         return 3
     if state == "lost":
@@ -205,39 +268,72 @@ def report(name, state, status, age, lines, waited):
               "ends background programs: run the command directly and say so in the report, "
               "and if even that cannot finish inside the limit, report the check as not run "
               "and ask the developer to run it")
-        print_tail(log, lines, "last")
-        print(f"log kept: {log}; `longrun.py stop {name}` clears it")
+        print_tail(name, lines, "last", raw_first=True)
+        print_grep(name, rx, raw_first=True)
+        if os.path.exists(raw_of(name)):
+            print(f"latest output: {TMP_DIR}/{name}{RAW} (full path "
+                  f"{os.path.abspath(raw_of(name))}) - the log {shown_log(name)} stopped when "
+                  f"the runner was lost; `longrun.py stop {name}` clears both")
+        else:
+            print(f"log kept: {full_log(name)}; `longrun.py stop {name}` clears it")
         return 4
     took = dur(status.get("ended", time.time()) - since)
     code = status.get("exit")
     if code == 0:
         print(f"{name}: finished, exit code 0, after {took} ({cmd})")
-        print_tail(log, lines, "last")
+        print_tail(name, lines, "last")
+        print_grep(name, rx)
         clean_up(name)
         return 0
     print(f"{name}: FAILED, exit code {code}, after {took} ({cmd})")
-    print_tail(log, lines, "last")
-    print(f"full log kept: {log} - read it with your file tool, or `longrun.py wait {name} "
-          f"--lines 200` reprints more; the next start {name} replaces it")
+    print_tail(name, lines, "last")
+    print_grep(name, rx)
+    print(f"full log kept: {full_log(name)} - read it with your file tool, or `longrun.py wait "
+          f"{name} --lines 200` (or --grep) reprints from it; the next start {name} replaces it")
     return 1
 
 
 def clean_up(name):
     log, stat = files(name)
-    gone, kept = remove([log, stat, stat + ".tmp"])
-    print(f"removed {' and '.join(gone) or 'nothing'}"
-          + (f"; could not remove {', '.join(kept)} (still open in another program?) - "
+    gone, kept = remove([log, stat, stat + ".tmp", raw_of(name)])
+    say_removed(gone, kept)
+
+
+def say_removed(gone, kept):
+    def slash(paths):
+        return [p.replace(os.sep, "/") for p in paths]
+    print(f"removed {' and '.join(slash(gone)) or 'nothing'}"
+          + (f"; could not remove {', '.join(slash(kept))} (still open in another program?) - "
              "delete it later" if kept else ""))
 
 
-def wait(name, seconds, lines):
+def clear_leftover_raw(names=None):
+    """Delete each NAME.raw whose run is over - no NAME.status beside it, or one with an exit
+    code: a program's child that kept it open stopped it being deleted when PROGRAM ended."""
+    try:
+        found = [f[:-len(RAW)] for f in os.listdir(TMP_DIR) if f.endswith(RAW)]
+    except OSError:
+        return
+    for name in sorted(found):
+        if names is not None and name not in names:
+            continue
+        status, _ = read_status(files(name)[1])
+        if status is None or "exit" in status:
+            gone, kept = remove([raw_of(name)])
+            if gone or kept:
+                say_removed(gone, kept)
+
+
+def wait(name, seconds, lines, rx=None):
     start = time.monotonic()
     stale_seen = None
     while True:
         state, status, age = state_of(name)
         if state == "none":
             die(f"nothing started under {name} (or it already finished with exit code 0 and "
-                f"its files were removed); `longrun.py list` shows what there is")
+                f"its files were removed - to keep what you need from a passing run's log, put "
+                f"--grep on the start or wait that sees it end); `longrun.py list` shows what "
+                f"there is")
         now = time.monotonic()
         if state == "lost":  # a moment's grace: the machine may have just woken up
             stale_seen = now if stale_seen is None else stale_seen
@@ -248,7 +344,7 @@ def wait(name, seconds, lines):
             if state == "finished" or now - start >= seconds:
                 break
         time.sleep(min(0.5, max(0.05, seconds - (now - start))))
-    return report(name, state, status, age, lines, time.monotonic() - start)
+    return report(name, state, status, age, lines, time.monotonic() - start, rx)
 
 
 def windows_program(path):
@@ -302,13 +398,18 @@ def run_spec(program, args):
 
 
 def take(args, options):
-    """Pull --option VALUE pairs (all integers but --dir) off the front of args."""
+    """Pull --option VALUE pairs (all integers but --dir and --grep) off the front of args."""
     found = {}
     while args and args[0] in options:
         if len(args) < 2:
             die(f"{args[0]} needs a value")
         key, value = args[0], args[1]
-        if key != "--dir":
+        if key == "--grep":
+            try:
+                value = re.compile(value)
+            except re.error as e:
+                die(f"--grep {value!r} is not a valid regular expression ({e}); nothing done")
+        elif key != "--dir":
             if not value.isdigit():
                 die(f"{key} takes a whole number, got {value!r}")
             value = int(value)
@@ -325,7 +426,7 @@ def check_name(args, command):
 
 def cmd_start(args):
     name, args = check_name(args, "start")
-    opts, args = take(args, ("--dir", "--seconds", "--lines"))
+    opts, args = take(args, ("--dir", "--seconds", "--lines", "--grep"))
     argv = args[1:] if args[:1] == ["--"] else args  # a shell that drops the -- still works
     if not argv or argv[0].startswith("-"):
         die("start needs `-- PROGRAM [ARG ...]` after NAME and its options, got "
@@ -346,7 +447,7 @@ def cmd_start(args):
     spec = run_spec(program, argv[1:])
     os.makedirs(TMP_DIR, exist_ok=True)
     log, stat = files(name)
-    _, kept = remove([log, stat, stat + ".tmp"])
+    _, kept = remove([log, stat, stat + ".tmp", raw_of(name)])
     if kept:
         die(f"cannot replace {', '.join(kept)} - open in another program (an earlier {name} "
             f"still running? `longrun.py stop {name}`)? Close it and rerun")
@@ -361,7 +462,8 @@ def cmd_start(args):
     if proc.returncode:
         remove([stat])
         die(f"could not start the background runner (exit {proc.returncode}); nothing started")
-    print(f"{name}: started {shown(argv)} in {workdir}")
+    print(f"{name}: started {shown(argv)} in {workdir}; log {full_log(name)} - under the "
+          "folder longrun.py runs from, never under --dir")
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         status, _ = read_status(stat)
@@ -374,7 +476,8 @@ def cmd_start(args):
     if status and status.get("job") == "stayed":
         print("note: could not leave the command tool's job; if the platform ends the job when "
               "a command returns, the next wait reports lost")
-    return wait(name, opts.get("--seconds", DEFAULT_SECONDS), opts.get("--lines", DEFAULT_LINES))
+    return wait(name, opts.get("--seconds", DEFAULT_SECONDS), opts.get("--lines", DEFAULT_LINES),
+                opts.get("--grep"))
 
 
 def detach(command, cwd):
@@ -404,10 +507,11 @@ def cmd_spawn(args):
 
 def cmd_wait(args):
     name, args = check_name(args, "wait")
-    opts, args = take(args, ("--seconds", "--lines"))
+    opts, args = take(args, ("--seconds", "--lines", "--grep"))
     if args:
-        die(f"wait takes NAME [--seconds N] [--lines L], got {args!r}")
-    return wait(name, opts.get("--seconds", DEFAULT_SECONDS), opts.get("--lines", DEFAULT_LINES))
+        die(f"wait takes NAME [--seconds N] [--lines L] [--grep REGEX], got {args!r}")
+    return wait(name, opts.get("--seconds", DEFAULT_SECONDS), opts.get("--lines", DEFAULT_LINES),
+                opts.get("--grep"))
 
 
 def win_process(pid):
@@ -492,19 +596,20 @@ def cmd_stop(args):
     elif state == "lost":  # its program is gone too: only the files are left
         print(f"{name}: lost, and its program is no longer running - nothing to stop "
               f"({shown(status.get('command', ['?']))})")
-        print_tail(files(name)[0], opts.get("--lines", DEFAULT_LINES), "last")
+        print_tail(name, opts.get("--lines", DEFAULT_LINES), "last", raw_first=True)
         clean_up(name)
         return 0
     elif state != "running":
         print(f"{name}: not running ({'nothing started' if state == 'none' else state}); "
               "nothing to stop")
+        clear_leftover_raw({name})
         return 0
     elif "pid" in status:
         kill_tree(status["pid"])
     since = status.get("started", status.get("requested", time.time()))
     print(f"{name}: stopped after {dur(time.time() - since)} "
           f"({shown(status.get('command', ['?']))})")
-    print_tail(files(name)[0], opts.get("--lines", DEFAULT_LINES), "last")
+    print_tail(name, opts.get("--lines", DEFAULT_LINES), "last", raw_first=True)
     clean_up(name)
     return 0
 
@@ -516,6 +621,7 @@ def cmd_list(args):
                                                 else []) if f.endswith(STATUS))
     if not names:
         print(f"nothing in {TMP_DIR}/")
+    clear_leftover_raw()
     for name in names:
         state, status, age = state_of(name)
         if state == "none":
@@ -526,7 +632,7 @@ def cmd_list(args):
             clean_up(name)
             continue
         if state == "finished":
-            state = f"finished, exit code {status['exit']}; log kept: {files(name)[0]}"
+            state = f"finished, exit code {status['exit']}; log kept: {shown_log(name)}"
         elif state == "lost" and program_running(status, age):
             state = f"lost - its program may still be running: `longrun.py stop {name}`"
         print(f"{name}: {state} ({cmd})")
@@ -540,7 +646,8 @@ def cmd_run(args):
     status, _ = read_status(stat)
     if status is None:  # stopped before it got here
         return 0
-    log = stat[:-len(STATUS)] + LOG
+    base = stat[:-len(STATUS)]
+    log, raw = base + LOG, base + RAW
     if args[1:] == ["stayed"]:
         status["job"] = "stayed"
     lock, done = threading.Lock(), threading.Event()
@@ -553,26 +660,82 @@ def cmd_run(args):
                 except OSError:
                     pass
 
-    with open(log, "wb") as out:
+    with open(raw, "wb") as program_out, open(raw, "rb") as source, open(log, "wb") as out:
+        copy = Cleaner(source, out)
         status.update(pid=os.getpid(), started=time.time())
         write_status(stat, status)
         threading.Thread(target=beat, daemon=True).start()
         try:
-            proc = subprocess.Popen(status["run"], stdin=subprocess.DEVNULL, stdout=out,
-                                    stderr=subprocess.STDOUT, cwd=status["dir"],
+            proc = subprocess.Popen(status["run"], stdin=subprocess.DEVNULL, stdout=program_out,
+                                    stderr=subprocess.STDOUT, cwd=status["dir"], env=quiet_env(),
                                     creationflags=CREATE_NO_WINDOW if WIN else 0)
             with lock:  # so stop can end the program even if this runner is lost
                 status["program_pid"] = proc.pid
                 write_status(stat, status)
-            code = proc.wait()
+            while True:  # copy what it writes into the log as it comes
+                try:
+                    code = proc.wait(timeout=0.5)
+                    break
+                except subprocess.TimeoutExpired:
+                    copy.pump()
         except OSError as e:
-            out.write(f"longrun.py: could not run {status['command'][0]}: {e}\n".encode())
+            program_out.write(f"longrun.py: could not run {status['command'][0]}: {e}\n".encode())
+            program_out.flush()
             code = 127
+        copy.pump(final=True)
+    remove([raw])  # a program it started that still holds it open: clean_up retries later
     done.set()
     with lock:
         status.update(exit=code, ended=time.time())
         write_status(stat, status)
     return 0
+
+
+def quiet_env():
+    """PROGRAM's environment: this one, with colour turned off."""
+    env = {k: v for k, v in os.environ.items() if k.upper() not in UNSET}
+    env.update(NO_COLOUR)
+    return env
+
+
+class Cleaner:
+    """Copies the program's raw output into the log as plain UTF-8 text, line by line."""
+
+    def __init__(self, source, out):
+        self.source, self.out, self.pending = source, out, b""
+
+    def pump(self, final=False):
+        while True:
+            chunk = self.source.read(1 << 20)
+            if not chunk:
+                break
+            self.pending += chunk
+            *lines, self.pending = self.pending.split(b"\n")
+            for line in lines:
+                self.out.write(clean(line) + b"\n")
+        if final and self.pending:
+            self.out.write(clean(self.pending) + b"\n")
+            self.pending = b""
+        elif len(self.pending) > PENDING:
+            if b"\r" in self.pending[:-1]:  # a progress bar redrawn in place: keep the last
+                cut = self.pending.rindex(b"\r", 0, len(self.pending) - 1)
+                self.pending = self.pending[cut + 1:]
+            if len(self.pending) > 16 * PENDING:  # one huge line: write what there is
+                self.out.write(clean(self.pending) + b"\n")
+                self.pending = b""
+        self.out.flush()
+
+
+def clean(line):
+    """One line as plain text: colour codes gone, a redrawn line as it stayed on screen, no
+    other control characters, and UTF-8."""
+    line = ANSI_BYTES.sub(b"", line).rstrip(b"\r")
+    line = CONTROL_BYTES.sub(b"", line.rsplit(b"\r", 1)[-1])
+    try:
+        line.decode("utf-8")
+        return line
+    except UnicodeDecodeError:  # the code page (an older JVM, a Windows tool)
+        return decode(line).encode("utf-8")
 
 
 COMMANDS = {"start": cmd_start, "wait": cmd_wait, "stop": cmd_stop, "list": cmd_list,

@@ -42,11 +42,12 @@ tick them off together. Testing is tracked per feature in `FEATURE_STATUS.md`, n
 .\install.ps1           # Windows
 ```
 
-That creates `./out/`, writes `AGENTS.md` and `out/INTAKE.md` from their templates,
-installs the Angular and .NET agent skills into `.agents/skills/`, and adds `ModernizationHarness/`,
-`AGENTS.md` and `.agents/` to the target's `.gitignore` (creating it if there isn't one —
-entries already covered are left alone, and your existing content is never rewritten, only
-appended to). It is safe to re-run: identical files are left alone, and anything it would
+That creates `./out/`, writes `AGENTS.md` and `out/INTAKE.md` from their templates, and
+installs the Angular and .NET agent skills into `.agents/skills/`. It adds **nothing** to your
+`.gitignore`: GitLab Duo's file tools refuse to read a git-ignored file, so the agent must be
+able to see `ModernizationHarness/`, `AGENTS.md` and `.agents/`. They show in `git status` as
+new files — commit them or leave them. If an older install added them to `.gitignore`, the
+installer warns you; delete those lines. It is safe to re-run: identical files are left alone, and anything it would
 overwrite is moved to `.harness-backups/<timestamp>/` first — so a filled-in `INTAKE.md`
 is never lost.
 
@@ -279,6 +280,11 @@ exactly one extra prompt (plus your yes to the re-slice, unless you pre-approved
   design and plan versions, since documents are amended in place rather than copied to new
   filenames. The agent itself reads no git — it sees changes through the change log, so log any
   hand edit to a document.
+- **Don't git-ignore the harness.** Not `ModernizationHarness/`, `AGENTS.md`, `.agents/` or
+  `.harness-tmp/`: GitLab Duo's file tools cannot read an ignored file, so the agent would lose
+  its own instructions.
+- **No ripgrep on your machine?** GitLab Duo's search tools need it. Nothing to do: the agent
+  then searches with the harness's own script, `tools/search.py`.
 - **Phase numbers stop being sequential.** A retrofit added at P-8 may run before P-6. That's
   deliberate: IDs are permanent so PRs and reviews keep meaning what they said. Read the plan
   for the running order.

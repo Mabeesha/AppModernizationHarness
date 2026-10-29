@@ -79,6 +79,7 @@ Open the `report.md` path for the readable version.
 | Test the legacy code map tool (`ModernizationHarness/tools/codemap.py`) | `uv run tests/test_codemap_tool.py` |
 | Test the ledger and plan tool (`ModernizationHarness/tools/docs.py`) | `uv run tests/test_docs_tool.py` |
 | Test the long-command tool (`ModernizationHarness/tools/longrun.py`) | `uv run tests/test_longrun_tool.py` |
+| Test the search tool (`ModernizationHarness/tools/search.py`) | `uv run tests/test_search_tool.py` |
 | Check every tool's `.txt` mirror matches it (`ModernizationHarness/tools/<name>.txt`) | `uv run tests/test_tool_mirrors.py` — add `--sync` to refresh them |
 
 `--checks` accepts check ids (`B1`) and group letters (`B`), mixed freely. An

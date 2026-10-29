@@ -471,6 +471,36 @@ more than the instructions, so the options that shrink what Stage 4 carries matt
   `eval/tests/test_longrun_tool.py`; `tools/state.py`, `tools/docs.py` and their tests;
   `AGENTS_TEMPLATE.md`; Stages 4 and 5; the guides.
 
+#### Option 22 — A search tool, an installer that ignores nothing, and Duo's tool quirks *(applied 2026-10-28, DD-4, DD-25, DD-30–DD-33, R4.1, R4.5, R7.5, R14)*
+
+- **Why:** a real Duo Stage 4 run (Windows; ripgrep cannot be installed, so Duo's `find_files`
+  and `grep` never work) reported: reads of `ModernizationHarness/` refused because the
+  installer had git-ignored it; `docs.py feature set @.harness-tmp/…` refused by PowerShell
+  (`ParserError`); `$_` pipelines inside `pwsh -Command` rewritten by the outer shell — one
+  printed errors yet exited 0, so a check "passed" without running — and a recursive
+  `Get-ChildItem` that walked into `node_modules` and timed out; a batch read that did not
+  satisfy the edit tool, a remote-file read that 404'd, a cut-off batch of writes; and a
+  `longrun.py` log Duo called binary, a tail that ended before the coverage totals (so the
+  build was run again), and a log looked for under `--dir`.
+- **What:** (1) the installers add nothing to `.gitignore` and warn about the old lines (DD-32).
+  (2) `tools/search.py`: `files ROOT GLOB…` and `text PATTERN ROOT` in one plain command,
+  skipping build folders and simple `.gitignore` patterns (DD-33). (3) `"@FILE"` quoted in every
+  instruction and tool message (DD-30). (4) A check whose output shows an error is not a pass
+  (DD-4). (5) `AGENTS.md`: Duo's file-tool quirks, a lower write cap (one large file or two
+  small, ~250 lines), and `$`-free alternatives in the `pwsh` traps (DD-25). (6) `longrun.py`:
+  colour off, a plain-text log, `--grep`, and the log named from the working-tree root with its
+  full path (DD-31).
+- **Saves:** the failed and timed-out calls above — about a dozen in that one run. Not
+  measured. `AGENTS.md` grew by about 216 tokens (tiktoken, +3.9%), loaded every session.
+- **Risk:** `search.py`'s `.gitignore` reading is partial (no `!` re-includes), so `--all`
+  remains the escape hatch; the harness now shows as untracked in `git status`.
+- **Mid-project:** delete the old `.gitignore` lines by hand
+  (`DEVELOPER_GUIDE.md §Upgrading the Harness Mid-Project`).
+- **Touches (done):** DD-4, DD-25, DD-30, DD-31, DD-32, DD-33, R4.1, R4.5, R7.5, R13.3, R14,
+  Q6; `tools/search.py` (new) and `eval/tests/test_search_tool.py`; `tools/longrun.py`,
+  `tools/state.py`, `tools/docs.py` and their tests; `install.sh`, `install.ps1`;
+  `AGENTS_TEMPLATE.md`; Stages 1–5; the guides.
+
 ### Rejected
 
 | Idea | Why not |

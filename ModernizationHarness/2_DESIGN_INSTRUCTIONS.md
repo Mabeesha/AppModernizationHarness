@@ -54,8 +54,9 @@ required input is **missing or ambiguous** (no match, or two candidates), stop a
    `context.locations.targetRepoFrontend` where `context.repo.layout` is `split`).
    To find something in the legacy source, look it up in **`LEGACY_CODE_MAP_<AppName>.md`**
    (documents location; Stage 1 writes it) first, and open only the files it points to
-   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, search as before —
-   it is optional, so never stop to ask for it.
+   (`AGENTS.md §Keeping the Request Count Down`). If there is no map, or it lacks what you
+   need, search — with `tools/search.py` where your own search tool does not work; the map is
+   optional, so never stop to ask for it.
 4. **Reference-implementation samples**, where `context.referenceImplementations[]` is
    non-empty — from the `path` on each entry. Read-only, like the legacy source.
 

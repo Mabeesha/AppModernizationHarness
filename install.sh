@@ -4,10 +4,9 @@
 #
 #   ./install.sh [--target <dir>] [--update] [--dry-run]
 #
-# Creates ./out/, drops AGENTS.md and out/INTAKE.md from their templates,
-# installs the vendored agent skills (Angular, .NET) into .agents/skills/
-# (GitLab Duo Agent Platform layout), and adds the harness entries to
-# .gitignore. Anything it would overwrite is backed up first.
+# Creates ./out/, drops AGENTS.md and out/INTAKE.md from their templates, and installs the
+# vendored agent skills (Angular, .NET) into .agents/skills/ (GitLab Duo Agent Platform
+# layout). Anything it would overwrite is backed up first. It adds nothing to .gitignore.
 
 set -euo pipefail
 
@@ -15,9 +14,10 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_DIR="$SCRIPT_DIR/ModernizationHarness"
 SKILLS_DIR="$HARNESS_DIR/skills"
 
-# Appended to the target's .gitignore if not already covered.
-GITIGNORE_HEADER="# Modernization Harness"
-GITIGNORE_ENTRIES=("ModernizationHarness/" "AGENTS.md" ".agents/")
+# What older versions appended to the target's .gitignore. Nothing is appended any more:
+# GitLab Duo's file tools refuse a git-ignored path, and an agent must be able to read
+# everything the harness tells it to read (DD-32). The installer only warns about them.
+OLD_GITIGNORE_ENTRIES=("ModernizationHarness/" "AGENTS.md" ".agents/")
 
 TARGET_DIR="$PWD"
 DO_UPDATE=0
@@ -123,50 +123,21 @@ gitignore_has() {
   return 1
 }
 
-update_gitignore() {
-  local gi="$TARGET_DIR/.gitignore" entry
-  local missing=()
-
-  for entry in "${GITIGNORE_ENTRIES[@]}"; do
+# check_gitignore — never writes; warns about each line an older version appended.
+check_gitignore() {
+  local gi="$TARGET_DIR/.gitignore" entry found=0
+  for entry in "${OLD_GITIGNORE_ENTRIES[@]}"; do
     if gitignore_has "$gi" "$entry"; then
-      note "present    $entry"
-    else
-      missing+=("$entry")
+      note "warning    .gitignore still ignores $entry - delete that line"
+      found=1
     fi
   done
-
-  if [ "${#missing[@]}" -eq 0 ]; then return; fi
-
-  if [ "$DRY_RUN" -eq 1 ]; then
-    for entry in "${missing[@]}"; do note "(dry run) append $entry"; done
-    return
-  fi
-
-  local eol='\n'
-  if [ -f "$gi" ]; then
-    # Match whatever line ending the file already uses. (Checked with a case
-    # glob, not grep — Git Bash's grep strips CR before matching.)
-    case "$(head -c 4096 "$gi")" in *$'\r'*) eol='\r\n' ;; esac
-
-    local bak="$BACKUP_ROOT/.gitignore"
-    mkdir -p "$(dirname "$bak")"
-    cp "$gi" "$bak"
-    note "backed up  .gitignore -> .harness-backups/$STAMP/.gitignore"
-    backed_up=$((backed_up + 1))
-    # Separate from whatever came before, without stacking blank lines.
-    [ -z "$(tail -c1 "$gi")" ] || printf "$eol" >> "$gi"
-    [ -z "$(tail -c2 "$gi" | head -c1)" ] || printf "$eol" >> "$gi"
+  if [ "$found" -eq 1 ]; then
+    note "           (an older install added it; GitLab Duo's file tools cannot read an"
+    note "           ignored path - DEVELOPER_GUIDE.md, Upgrading the Harness Mid-Project)"
   else
-    note "created    .gitignore"
+    note "nothing to add - the harness files stay readable to the agent's file tools"
   fi
-
-  {
-    printf "%s$eol" "$GITIGNORE_HEADER"
-    for entry in "${missing[@]}"; do printf "%s$eol" "$entry"; done
-  } >> "$gi"
-
-  for entry in "${missing[@]}"; do note "appended   $entry"; done
-  installed=$((installed + 1))
 }
 
 printf 'Installing the Modernization Harness into %s\n\n' "$TARGET_DIR"
@@ -216,7 +187,7 @@ else
 fi
 
 printf '\n.gitignore\n'
-update_gitignore
+check_gitignore
 
 printf '\nDone — %d file(s) written, %d backed up.\n' "$installed" "$backed_up"
 if [ "$backed_up" -gt 0 ]; then printf 'Backups: %s\n' "$BACKUP_ROOT"; fi
