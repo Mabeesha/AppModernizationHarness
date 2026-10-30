@@ -1,0 +1,71 @@
+# Duo auto-approve helpers
+
+Helpers for **the developer running the harness on GitLab Duo**, not part of the harness itself.
+The installers do not copy this folder into a target project, and no stage tells an agent to use it.
+
+GitLab Duo in VS Code asks you to approve every tool call. On a long Stage 4 run that means
+sitting at the screen clicking **Approve**. `vscode-auto-approve.js` clicks it for you, except
+for commands on a blocked list, which it leaves for you to approve or deny.
+
+## vscode-auto-approve.js
+
+Runs in its own terminal window, outside VS Code. While VS Code is open, it finds the GitLab Duo
+chat panel and approves tool calls. Close VS Code, reopen it or reload the window, and it
+reconnects by itself.
+
+### Setup (once)
+
+1. **Node 22 or later.** No `npm install` is needed. On older Node, run `npm i ws` in this folder.
+2. **Start VS Code with a debugging port.** Right-click the shortcut you start VS Code from
+   (Start menu or taskbar) > **Properties**, and add this to the end of **Target**:
+
+   ```
+   --remote-debugging-port=9333
+   ```
+
+   Close every VS Code window first. A window opened while VS Code is already running keeps
+   whatever the first one started with.
+
+### Run
+
+```powershell
+node support\duo-auto-approve\vscode-auto-approve.js
+```
+
+Leave it running. In its window: `p` pauses or resumes, `Ctrl+C` stops. Every approval and skip
+is shown there and written to `%TEMP%\vscode-auto-approve.log`.
+
+To start it at login: `Win+R` > `shell:startup`, and put a shortcut to that command in the
+folder that opens.
+
+### What it never approves
+
+Deletes (`Remove-Item`, `rm`, `del`, `rd`, `erase`, …), `Format-*`, `Stop-Computer`,
+`Restart-Computer`, `Clear-Content`, and the git commands that lose work or leave the machine:
+`push`, `reset --hard`, `clean`, `checkout -- <file>`, `branch -D`. For those it beeps and waits
+for you.
+
+The list matches text, so it is a seatbelt, not a guarantee: a command that builds a delete
+indirectly (for example inside `pwsh -c "…"`) is not caught. Keep committing often.
+
+### Settings
+
+| Variable | Default | What it does |
+|---|---|---|
+| `VSAA_PORT` | `9333` | Must match the `--remote-debugging-port` in the VS Code shortcut |
+| `VSAA_WEBVIEW` | `gitlab` | Text in the Duo panel's webview address, to pick that panel |
+| `VSAA_BUTTON` | `Approve` | The button text to click |
+| `VSAA_EVERY_MS` | `1500` | How often it checks, in milliseconds |
+
+### If it connects but never approves
+
+Open `http://127.0.0.1:9333/json/list` in a browser while VS Code is open. Find the entry whose
+address starts with `vscode-webview://` for the Duo panel, and set `VSAA_WEBVIEW` to text that is
+in that address and not in the others.
+
+### Cautions
+
+- While VS Code runs with the port, any program on this computer can control VS Code through it.
+  It is reachable only from this computer, not the network. Check that is acceptable where you
+  work.
+- It approves in **every** VS Code window that has the Duo panel open.
