@@ -15,6 +15,9 @@
 //        node C:\tools\duo-aa\vscode-auto-approve.js
 //    To start it at login: put a shortcut to that command in shell:startup.
 //
+// When Duo has stopped ("Connection lost", or a stuck session that turned out to have stopped)
+// it sends "interrupted, continue" - see VSAA_CONTINUE and the limits below.
+//
 // In the script's window:  p = pause/resume,  r = refresh the Duo chat view now,
 //                          d = save a snapshot of the chat screen,  Ctrl+C = stop.
 //
@@ -34,7 +37,12 @@
 //   VSAA_EVERY_MS=1500              how often to check
 //   VSAA_STUCK_MINUTES=0            refresh the chat view after this long unchanged (0 = never;
 //                                   off by default - a reload opens a new chat, not your session)
-//   VSAA_BUSY=working on your request|please wait   text shown while Duo is working
+//   VSAA_BUSY=working on your request|please wait|producing an answer   text while Duo works
+//   VSAA_CONTINUE="interrupted, continue"   message sent when Duo has stopped ("" = never send)
+//   VSAA_INTERRUPTED=connection lost|workflow was interrupted   Duo's interruption message
+//   VSAA_IDLE_MINUTES=0             also continue after this long stopped with no message (0 = off)
+//   VSAA_DONE=\[\[(DONE|NEEDS DEVELOPER)\]\]   end markers that mean "stopped on purpose"
+//   VSAA_MAX_CONTINUES=6            at most this many continue messages per hour
 
 const fs = require('fs');
 const os = require('os');
@@ -52,7 +60,13 @@ const SCHEME = process.env.VSAA_SCHEME || 'vscode-webview://';   // only changed
 const DUO_FRAME = new RegExp(process.env.VSAA_FRAME || 'agentic|duo', 'i');
 // Off by default: a reload opens a new, empty chat, not the session you were in.
 const STUCK_MS = Number(process.env.VSAA_STUCK_MINUTES ?? 0) * 60_000;
-const BUSY = process.env.VSAA_BUSY || 'working on your request|please wait';
+const BUSY = process.env.VSAA_BUSY || 'working on your request|please wait|producing an answer';
+// Sending "continue" when Duo has stopped.
+const CONTINUE_MSG = process.env.VSAA_CONTINUE ?? 'interrupted, continue';
+const INTERRUPTED = new RegExp(process.env.VSAA_INTERRUPTED || 'connection lost|workflow was interrupted', 'i');
+const IDLE_MS = Number(process.env.VSAA_IDLE_MINUTES ?? 0) * 60_000;   // stopped with no message: off
+const DONE = new RegExp(process.env.VSAA_DONE || '\\[\\[(DONE|NEEDS DEVELOPER)\\]\\]', 'i');
+const MAX_CONTINUES = Number(process.env.VSAA_MAX_CONTINUES ?? 6);      // per hour
 
 // Never auto-approved; you approve or deny these yourself.
 const BLOCK = [
@@ -90,6 +104,33 @@ const REOPEN_FN = `(() => {
   return { step: 'waiting' };
 })()`;
 
+// Types a message into the Duo chat box and sends it.
+const CONTINUE_FN = (msg) => `(() => {
+  const docs = [];
+  (function walk(d) {
+    docs.push(d);
+    for (const f of d.querySelectorAll('iframe')) {
+      try { if (f.contentDocument) walk(f.contentDocument); } catch (e) {}
+    }
+  })(document);
+  let box = null, doc = null;
+  for (const d of docs) { const t = d.querySelector('textarea'); if (t && !t.disabled) { box = t; doc = d; break; } }
+  if (!box) return Promise.resolve({ sent: false, why: 'no chat box' });
+  if (box.value.trim()) return Promise.resolve({ sent: false, why: 'there is text in the chat box' });
+  box.focus();
+  const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(box), 'value').set;
+  setter.call(box, ${JSON.stringify(msg)});
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+  return new Promise((done) => setTimeout(() => {
+    const send = [...doc.querySelectorAll('button')].find((b) => !b.disabled &&
+      /send|submit/i.test([b.getAttribute('aria-label'), b.getAttribute('title'), b.dataset.testid, b.type === 'submit' ? 'submit' : '',
+        b.querySelector('svg') && b.querySelector('svg').getAttribute('data-testid')].join(' ')));
+    if (send) { send.click(); done({ sent: true, how: 'send button' }); return; }
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+    done({ sent: true, how: 'Enter key' });
+  }, 400));
+})()`;
+
 const LOG = path.join(os.tmpdir(), 'vscode-auto-approve.log');
 function log(msg) {
   const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -119,10 +160,16 @@ const PAGE_FN = `(() => {
       if (v && v.trim()) typing = true;
     }
   }
-  if (BUSY.test(text)) busy = true;
+  // The last part of the chat, without the fixed footer, to see how the conversation ends.
+  const tail = text.replace(/Chat can autonomously change code[^\\n]*/gi, '').replace(/RECENT CHATS/g, '')
+    .replace(/\\s+/g, ' ').trim().slice(-600);
+  if (BUSY.test(tail.slice(-200))) busy = true;
+  let box = null;
+  for (const d of docs) { box = box || d.querySelector('textarea'); }
+  const idle = !busy && !!box && !box.disabled;
   let h = 0;
   for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
-  const status = { sig: text.length + ':' + h, busy, typing, hasChat: text.length > 0 };
+  const status = { sig: text.length + ':' + h, busy, typing, idle, tail, hasChat: text.length > 0 };
   for (const d of docs) {
     // Never click the same button twice: after a click Duo's button keeps spinning, still
     // "enabled", and clicking it again can confuse it.
@@ -197,6 +244,9 @@ const views = new Map();           // chat frame key -> { sig, changed, refreshe
 let refreshNow = false;            // set by the "r" key
 let dumpNow = false;               // set by the "d" key
 let reopen = null;                 // { until, historyClicks } while reopening the session after a refresh
+let afterRefresh = 0;              // when a refreshed session was reopened (it was "working" before)
+let continues = [];                // times continue messages were sent
+let lastContinueSig = null;        // the chat as it was when we last sent one
 
 async function connect() {
   const res = await fetch(`http://127.0.0.1:${PORT}/json/version`);
@@ -275,12 +325,41 @@ async function reopenSession(contextId, sessionId) {
   catch { return; }
   const v = r && r.result && r.result.value;
   if (!v) return;
-  if (v.step === 'opened') { log(`reopened the latest session: "${v.title}"`); reopen = null; }
+  if (v.step === 'opened') { log(`reopened the latest session: "${v.title}"`); reopen = null; afterRefresh = Date.now(); }
   else if (v.step === 'history-clicked') {
     reopen.historyClicks++;
     reopen.notBefore = Date.now() + 1500;          // give the list time to load
     if (reopen.historyClicks > 5) { log('history list did not appear - open the session yourself'); reopen = null; }
   }
+}
+
+async function maybeContinue(key, v, contextId, sessionId) {
+  if (!CONTINUE_MSG || reopen || !v.idle || v.typing || v.waitingForYou) return;
+  const now = Date.now();
+  const st = views.get(key);
+  if (!st) return;
+  if (lastContinueSig === v.sig) return;                       // nothing changed since the last one
+  if (v.tail.toLowerCase().endsWith(CONTINUE_MSG.toLowerCase())) return;
+  let why = null;
+  const quietFor = now - st.changed;
+  if (INTERRUPTED.test(v.tail.slice(-250)) && quietFor > 10_000) why = 'Duo says the connection was lost';
+  else if (afterRefresh && now - afterRefresh < 60_000 && quietFor > 10_000) why = 'the refreshed session had stopped';
+  else if (IDLE_MS && quietFor > IDLE_MS && !DONE.test(v.tail.slice(-300))) why = `stopped for ${Math.round(quietFor / 60000)} min with no end marker`;
+  if (!why) return;
+  afterRefresh = 0;
+  continues = continues.filter((t) => now - t < 3_600_000);
+  if (continues.length >= MAX_CONTINUES) {
+    if (lastContinueSig !== 'capped') log(`not continuing (${why}): already sent ${MAX_CONTINUES} in the last hour`);
+    lastContinueSig = 'capped'; return;
+  }
+  let r;
+  try { r = await cdp.send('Runtime.evaluate', { expression: CONTINUE_FN(CONTINUE_MSG), returnByValue: true, awaitPromise: true, contextId }, sessionId); }
+  catch (e) { log(`could not send continue: ${e.message}`); return; }
+  const res = r && r.result && r.result.value;
+  if (res && res.sent) {
+    continues.push(now); lastContinueSig = v.sig;
+    log(`SENT "${CONTINUE_MSG}" (${why}) via ${res.how}`);
+  } else log(`not continuing (${why}): ${res ? res.why : 'no answer'}`);
 }
 
 async function maybeRefresh(key, v, contextId, sessionId) {
@@ -362,6 +441,7 @@ async function tick() {
       if (isChatPage && dumpNow) await dumpChat(f, contextId, sessionId);
       if (isChatPage && reopen) { await reopenSession(contextId, sessionId); continue; }
       if (isChatPage && v.hasChat) await maybeRefresh(`${sessionId}/${f.id}`, v, contextId, sessionId);
+      if (isChatPage && v.hasChat && !v.action) await maybeContinue(`${sessionId}/${f.id}`, v, contextId, sessionId);
     }
   }
 

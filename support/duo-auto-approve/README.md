@@ -66,6 +66,30 @@ It is off by default until you have checked with `r` that the right session come
 of the history list is the most recently active session, so if you use Duo in another window at
 the same time, that one may be on top instead.
 
+### When Duo stops
+
+Seeing the send button again only tells you Duo has stopped, not why. It may have been cut
+off, it may have finished, or it may be asking you something (a harness stop-and-ask). So the
+script sends `interrupted, continue` only when the signs point to an interruption:
+
+| Trigger | Default |
+|---|---|
+| Duo's **"Connection lost. The workflow was interrupted."** is the last thing in the chat | on |
+| After a **stuck refresh**, the reopened session has stopped (it showed "working" before, so it was cut off, not finished) | on, with the refresh |
+| Stopped **with no message** for `VSAA_IDLE_MINUTES`, and the agent's last message has no end marker | off |
+
+It never sends when there is text in the chat box or an approval waiting for you, never twice
+without the chat changing in between, and at most `VSAA_MAX_CONTINUES` (6) times an hour.
+
+**Turning on the third trigger.** It needs the agent to say when it stopped on purpose. Add to
+the target project's `AGENTS.md`:
+
+> End every reply that finishes the task with `[[DONE]]`, and every reply that stops to ask the
+> developer something with `[[NEEDS DEVELOPER]]`.
+
+Then set `VSAA_IDLE_MINUTES` (for example `3`). Without the markers, a finished task would be
+told to continue.
+
 ### What it never approves
 
 Deletes (`Remove-Item`, `rm`, `del`, `rd`, `erase`, …), `Format-*`, `Stop-Computer`,
@@ -86,7 +110,12 @@ indirectly (for example inside `pwsh -c "…"`) is not caught. Keep committing o
 | `VSAA_BUTTON` | `Approve` | The button text to click |
 | `VSAA_EVERY_MS` | `1500` | How often it checks, in milliseconds |
 | `VSAA_STUCK_MINUTES` | `0` (off) | Refresh the chat view after this long with no change while Duo is working; `0` = never |
-| `VSAA_BUSY` | `working on your request\|please wait` | Text Duo shows while it is working |
+| `VSAA_BUSY` | `working on your request\|please wait\|producing an answer` | Text Duo shows while it is working |
+| `VSAA_CONTINUE` | `interrupted, continue` | Message sent when Duo has stopped; empty = never send |
+| `VSAA_INTERRUPTED` | `connection lost\|workflow was interrupted` | Duo's interruption message |
+| `VSAA_IDLE_MINUTES` | `0` (off) | Also continue after this long stopped with no end marker |
+| `VSAA_DONE` | `\[\[(DONE\|NEEDS DEVELOPER)\]\]` | End markers meaning "stopped on purpose" |
+| `VSAA_MAX_CONTINUES` | `6` | Continue messages allowed per hour |
 
 ### If it connects but never approves
 
