@@ -184,6 +184,36 @@ const PAGE_FN = `(() => {
       if (v && v.trim()) typing = true;
     }
   }
+  // Working or stopped, read from the icon button beside the chat box: a stop (square) icon
+  // while Duo works, a send (paper plane) icon once it has stopped. Only buttons near the chat
+  // box are looked at, so other "cancel" buttons do not count.
+  let box0 = null;
+  for (const d of docs) { box0 = box0 || d.querySelector('textarea'); }
+  let button = null, buttonInfo = '';
+  if (box0) {
+    let scope = box0;
+    for (let i = 0; i < 5 && scope.parentElement; i++) {
+      scope = scope.parentElement;
+      for (const b of scope.querySelectorAll('button')) {
+        if (/approve|deny/i.test(b.innerText)) continue;
+        const svg = b.querySelector('svg'), use = b.querySelector('use');
+        const label = [b.getAttribute('aria-label'), b.getAttribute('title'), b.dataset.testid,
+          svg && svg.getAttribute('data-testid'), use && (use.getAttribute('href') || use.getAttribute('xlink:href'))].join(' ');
+        if (/stop|cancel|abort/i.test(label)) { button = 'working'; buttonInfo = label.trim(); break; }
+        if (/send|submit|paper-airplane/i.test(label)) { button = 'stopped'; buttonInfo = label.trim(); break; }
+      }
+      if (button) break;
+    }
+  }
+  // An Approve button already clicked (by the script, or showing a spinner) that is still there.
+  let approveSpinning = false;
+  for (const d of docs) {
+    for (const b of d.querySelectorAll('button')) {
+      if (b.innerText.trim() !== ${JSON.stringify(BUTTON)}) continue;
+      if (b.dataset.vsaaClicked || b.getAttribute('aria-busy') === 'true' ||
+          b.querySelector('.gl-spinner, [class*="spinner"], [class*="loading"]')) approveSpinning = true;
+    }
+  }
   // The status line means "working"; then it is removed so it never counts as progress.
   if (STATUS.test(text)) busy = true;
   STATUS.lastIndex = 0;
@@ -193,12 +223,13 @@ const PAGE_FN = `(() => {
     .replace(/\\s+/g, ' ').trim().slice(-600);
   let box = null;
   for (const d of docs) { box = box || d.querySelector('textarea'); }
+  if (button) busy = button === 'working';      // the icon wins over the text when it is found
   const idle = !busy && !!box && !box.disabled;
   let h = 0;
   // Numbers are left out, so a ticking timer ("Working... 12s") does not count as a change.
   const plain = text.replace(/[0-9]+/g, '#');
   for (let i = 0; i < plain.length; i++) h = (h * 31 + plain.charCodeAt(i)) | 0;
-  const status = { sig: plain.length + ':' + h, busy, typing, idle, tail, hasChat: text.length > 0 };
+  const status = { sig: plain.length + ':' + h, busy, typing, idle, tail, button, buttonInfo, approveSpinning, hasChat: text.length > 0 };
   for (const d of docs) {
     // Never click the same button twice: after a click Duo's button keeps spinning, still
     // "enabled", and clicking it again can confuse it.
@@ -273,6 +304,7 @@ const views = new Map();           // chat frame key -> { sig, changed, refreshe
 let refreshNow = false;            // set by the "r" key
 let dumpNow = false;               // set by the "d" key
 let reopen = null;                 // { until, historyClicks } while reopening the session after a refresh
+let readFrom = '';                 // how working/stopped is being read, logged when it changes
 let afterRefresh = 0;              // when a refreshed session was reopened (it was "working" before)
 let continues = [];                // times continue messages were sent
 let lastContinueSig = null;        // the chat as it was when we last sent one
@@ -363,7 +395,7 @@ async function reopenSession(contextId, sessionId) {
 }
 
 async function maybeContinue(key, v, contextId, sessionId) {
-  if (!CONTINUE_MSG || reopen || !v.idle || v.typing || v.waitingForYou) return;
+  if (!CONTINUE_MSG || reopen || !v.idle || v.typing || v.waitingForYou || v.approveSpinning) return;
   const now = Date.now();
   const st = views.get(key);
   if (!st) return;
@@ -416,9 +448,10 @@ async function maybeRefresh(key, v, contextId, sessionId) {
   let why = null;
   if (reopen) return;
   if (refreshNow) why = 'you pressed r';
-  else if (STUCK_MS && v.busy && !v.typing && !v.waitingForYou &&
+  else if (STUCK_MS && (v.busy || v.approveSpinning) && !v.typing && !v.waitingForYou &&
            now - st.changed > STUCK_MS && now - st.refreshed > STUCK_MS) {
-    why = `Duo says it is working but nothing changed for ${Math.round((now - st.changed) / 1000)} s`;
+    const what = v.approveSpinning ? 'an approved command is still spinning' : 'Duo says it is working';
+    why = `${what} but nothing changed for ${Math.round((now - st.changed) / 1000)} s`;
   }
   if (!why) return;
   if (v.typing && refreshNow) { log('not refreshing: there is text in the chat box'); return; }
@@ -487,6 +520,10 @@ async function tick() {
       const isChatPage = /^https?:/i.test(f.url) && !(parent && chosen.has(parent.id) && /^https?:/i.test(parent.url));
       if (isChatPage && dumpNow) await dumpChat(f, contextId, sessionId);
       if (isChatPage && reopen) { await reopenSession(contextId, sessionId); continue; }
+      if (isChatPage && v.hasChat) {
+        const how = v.button ? `the stop/send button (${v.buttonInfo})` : 'the chat-box text (no stop/send button found)';
+        if (how !== readFrom) { readFrom = how; log(`reading working/stopped from ${how}`); }
+      }
       if (isChatPage && v.hasChat) await maybeRefresh(`${sessionId}/${f.id}`, v, contextId, sessionId);
       if (isChatPage && v.hasChat && !v.action) await maybeContinue(`${sessionId}/${f.id}`, v, contextId, sessionId);
     }

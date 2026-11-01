@@ -39,6 +39,14 @@ is shown there and written to `%TEMP%\vscode-auto-approve.log`.
 To start it at login: `Win+R` > `shell:startup`, and put a shortcut to that command in the
 folder that opens.
 
+### Working or stopped?
+
+The script reads this the way you do: from the **icon button beside the chat box**. A stop
+(square) icon means Duo is working; a send (paper plane) icon means it has stopped. It prints
+which button it found, for example `reading working/stopped from the stop/send button (Stop
+stop-icon)`. Only if that button cannot be found does it fall back to the text ("GitLab Duo is
+working on your request. Please wait.", or "…is generating / finding / producing an answer").
+
 ### When the chat view gets stuck
 
 Sometimes the chat stops updating, often at an approval, while the agent has moved on.
@@ -57,7 +65,8 @@ fresh **Approve** button and the script approves it, as you would by hand.
 Press `r` to do this at once. To have it happen by itself, set `VSAA_STUCK_MINUTES` (for example
 `3`). It then refreshes when all of these are true:
 
-- Duo shows it is working ("GitLab Duo is working on your request. Please wait.");
+- Duo is working (the stop icon shows), **or** a command you or the script approved is still
+  spinning;
 - nothing in the chat has changed for `VSAA_STUCK_MINUTES`;
 - the chat box is empty, so nothing you are typing is lost;
 - no blocked command is waiting for you to approve or deny.
@@ -94,7 +103,8 @@ It sends `interrupted, continue` when:
 The red "Connection lost" box does not come back after a reload, so the second and third
 triggers are what catch an interruption you only find later.
 
-It never sends when there is text in the chat box or an approval waiting for you, never twice
+It never sends when there is text in the chat box, an approval waiting for you, or an approved
+command still spinning (that is a stuck screen, which the refresh handles), never twice
 without the chat changing in between, never when the agent's last message ends with
 `[[DONE]]` or `[[NEEDS DEVELOPER]]`, and at most `VSAA_MAX_CONTINUES` (6) times an hour.
 
