@@ -69,26 +69,28 @@ the same time, that one may be on top instead.
 ### When Duo stops
 
 Seeing the send button again only tells you Duo has stopped, not why. It may have been cut
-off, it may have finished, or it may be asking you something (a harness stop-and-ask). So the
-script sends `interrupted, continue` only when the signs point to an interruption:
+off, it may have finished, or it may be asking you something (a harness stop-and-ask).
+
+The script tells them apart by **how the chat ends**. The agent always ends a turn with a
+written message: a report or a question. So if the last thing in the chat is a **tool step**
+(a "Run command · Approved" card, "2 actions taken · Read file …", or "Tool run_command
+requires approval…"), the agent was cut off in the middle of its work. If it ends with a
+written message, the agent finished or is asking you, and the script leaves it alone.
+
+It sends `interrupted, continue` when:
 
 | Trigger | Default |
 |---|---|
 | Duo's **"Connection lost. The workflow was interrupted."** is the last thing in the chat | on |
-| After a **stuck refresh**, the reopened session has stopped (it showed "working" before, so it was cut off, not finished) | on, with the refresh |
-| Stopped **with no message** for `VSAA_IDLE_MINUTES`, and the agent's last message has no end marker | off |
+| A session **reopened after a refresh** ends on a tool step | on, with the refresh |
+| The chat has been **stopped on a tool step** for `VSAA_IDLE_MINUTES` | on, 3 minutes |
+
+The red "Connection lost" box does not come back after a reload, so the second and third
+triggers are what catch an interruption you only find later.
 
 It never sends when there is text in the chat box or an approval waiting for you, never twice
-without the chat changing in between, and at most `VSAA_MAX_CONTINUES` (6) times an hour.
-
-**Turning on the third trigger.** It needs the agent to say when it stopped on purpose. Add to
-the target project's `AGENTS.md`:
-
-> End every reply that finishes the task with `[[DONE]]`, and every reply that stops to ask the
-> developer something with `[[NEEDS DEVELOPER]]`.
-
-Then set `VSAA_IDLE_MINUTES` (for example `3`). Without the markers, a finished task would be
-told to continue.
+without the chat changing in between, never when the agent's last message ends with
+`[[DONE]]` or `[[NEEDS DEVELOPER]]`, and at most `VSAA_MAX_CONTINUES` (6) times an hour.
 
 ### What it never approves
 
@@ -113,8 +115,8 @@ indirectly (for example inside `pwsh -c "…"`) is not caught. Keep committing o
 | `VSAA_BUSY` | `working on your request\|please wait\|producing an answer` | Text Duo shows while it is working |
 | `VSAA_CONTINUE` | `interrupted, continue` | Message sent when Duo has stopped; empty = never send |
 | `VSAA_INTERRUPTED` | `connection lost\|workflow was interrupted` | Duo's interruption message |
-| `VSAA_IDLE_MINUTES` | `0` (off) | Also continue after this long stopped with no end marker |
-| `VSAA_DONE` | `\[\[(DONE\|NEEDS DEVELOPER)\]\]` | End markers meaning "stopped on purpose" |
+| `VSAA_IDLE_MINUTES` | `3` | Continue a chat that has stopped on a tool step this long; `0` = off |
+| `VSAA_DONE` | `\[\[(DONE\|NEEDS DEVELOPER)\]\]` | Optional end markers: a last message ending with one is never continued |
 | `VSAA_MAX_CONTINUES` | `6` | Continue messages allowed per hour |
 
 ### If it connects but never approves

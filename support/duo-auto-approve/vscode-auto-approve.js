@@ -40,7 +40,7 @@
 //   VSAA_BUSY=working on your request|please wait|producing an answer   text while Duo works
 //   VSAA_CONTINUE="interrupted, continue"   message sent when Duo has stopped ("" = never send)
 //   VSAA_INTERRUPTED=connection lost|workflow was interrupted   Duo's interruption message
-//   VSAA_IDLE_MINUTES=0             also continue after this long stopped with no message (0 = off)
+//   VSAA_IDLE_MINUTES=3             continue a chat stopped this long on a tool step (0 = off)
 //   VSAA_DONE=\[\[(DONE|NEEDS DEVELOPER)\]\]   end markers that mean "stopped on purpose"
 //   VSAA_MAX_CONTINUES=6            at most this many continue messages per hour
 
@@ -64,7 +64,24 @@ const BUSY = process.env.VSAA_BUSY || 'working on your request|please wait|produ
 // Sending "continue" when Duo has stopped.
 const CONTINUE_MSG = process.env.VSAA_CONTINUE ?? 'interrupted, continue';
 const INTERRUPTED = new RegExp(process.env.VSAA_INTERRUPTED || 'connection lost|workflow was interrupted', 'i');
-const IDLE_MS = Number(process.env.VSAA_IDLE_MINUTES ?? 0) * 60_000;   // stopped with no message: off
+const IDLE_MS = Number(process.env.VSAA_IDLE_MINUTES ?? 3) * 60_000;   // stopped mid-step this long
+// The steps Duo shows for tool calls. Case-sensitive on purpose: these are Duo's own labels
+// ("Run command", "Approved", "2 actions taken", "Read file"), not words inside a message.
+const STEP = /(\d+ actions? taken|Run command|Read files?|Edit file|Create file|Write file|Tool \w+ requires approval\. Please confirm if you want to proceed\.|Approved|Pending|Denied)/g;
+
+// True when the chat ends with a tool step rather than a written message from the agent. The
+// agent always ends a turn with a message (a report or a question), so ending on a step means
+// it was cut off in the middle of its work.
+function endsMidStep(tail) {
+  let end = -1, m;
+  STEP.lastIndex = 0;
+  while ((m = STEP.exec(tail))) end = m.index + m[0].length;
+  if (end < 0) return false;
+  const rest = tail.slice(end);
+  const words = rest.split(/\s+/).filter((w) => /^[A-Za-z][A-Za-z'’,;-]*[.!?:]?$/.test(w));
+  const sentence = /[A-Za-z]{2,}[.!?](\s|$)/.test(rest);
+  return !(words.length >= 1 && sentence);     // a written message after the last step = finished
+}
 const DONE = new RegExp(process.env.VSAA_DONE || '\\[\\[(DONE|NEEDS DEVELOPER)\\]\\]', 'i');
 const MAX_CONTINUES = Number(process.env.VSAA_MAX_CONTINUES ?? 6);      // per hour
 
@@ -342,9 +359,20 @@ async function maybeContinue(key, v, contextId, sessionId) {
   if (v.tail.toLowerCase().endsWith(CONTINUE_MSG.toLowerCase())) return;
   let why = null;
   const quietFor = now - st.changed;
-  if (INTERRUPTED.test(v.tail.slice(-250)) && quietFor > 10_000) why = 'Duo says the connection was lost';
-  else if (afterRefresh && now - afterRefresh < 60_000 && quietFor > 10_000) why = 'the refreshed session had stopped';
-  else if (IDLE_MS && quietFor > IDLE_MS && !DONE.test(v.tail.slice(-300))) why = `stopped for ${Math.round(quietFor / 60000)} min with no end marker`;
+  if (quietFor < 10_000) return;                               // let the screen settle first
+  const midStep = endsMidStep(v.tail);
+  const done = DONE.test(v.tail.slice(-300));
+  if (INTERRUPTED.test(v.tail.slice(-250))) why = 'Duo says the connection was lost';
+  else if (done) return;                                       // the agent marked the end itself
+  else if (afterRefresh && now - afterRefresh < 60_000) {
+    if (midStep) why = 'the reopened session stopped in the middle of a step';
+    else {
+      log('the reopened session ends with a message from Duo - it finished or is asking you; not continuing');
+      afterRefresh = 0; lastContinueSig = v.sig; return;
+    }
+  } else if (IDLE_MS && quietFor > IDLE_MS && midStep) {
+    why = `stopped on a tool step for ${Math.round(quietFor / 1000)} s`;
+  }
   if (!why) return;
   afterRefresh = 0;
   continues = continues.filter((t) => now - t < 3_600_000);
