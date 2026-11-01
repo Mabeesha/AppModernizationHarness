@@ -62,6 +62,12 @@ Press `r` to do this at once. To have it happen by itself, set `VSAA_STUCK_MINUT
 - the chat box is empty, so nothing you are typing is lost;
 - no blocked command is waiting for you to approve or deny.
 
+**How "nothing changed" is measured.** Every check, the script reads all the chat's text and
+turns it into a fingerprint. Only a fingerprint the chat has **not shown in the last 15
+minutes** counts as progress, and numbers are left out of it. So a status line that keeps
+rotating ("thinking…", "finding answers…", "producing an answer…") or a ticking timer does not
+hide a stuck chat, while a new message or tool step always counts.
+
 It is off by default until you have checked with `r` that the right session comes back. The top
 of the history list is the most recently active session, so if you use Duo in another window at
 the same time, that one may be on top instead.

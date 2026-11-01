@@ -185,8 +185,10 @@ const PAGE_FN = `(() => {
   for (const d of docs) { box = box || d.querySelector('textarea'); }
   const idle = !busy && !!box && !box.disabled;
   let h = 0;
-  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
-  const status = { sig: text.length + ':' + h, busy, typing, idle, tail, hasChat: text.length > 0 };
+  // Numbers are left out, so a ticking timer ("Working... 12s") does not count as a change.
+  const plain = text.replace(/[0-9]+/g, '#');
+  for (let i = 0; i < plain.length; i++) h = (h * 31 + plain.charCodeAt(i)) | 0;
+  const status = { sig: plain.length + ':' + h, busy, typing, idle, tail, hasChat: text.length > 0 };
   for (const d of docs) {
     // Never click the same button twice: after a click Duo's button keeps spinning, still
     // "enabled", and clicking it again can confuse it.
@@ -392,8 +394,15 @@ async function maybeContinue(key, v, contextId, sessionId) {
 
 async function maybeRefresh(key, v, contextId, sessionId) {
   const now = Date.now();
+  // Progress = text the chat has not shown in the last 15 minutes. A status line that rotates
+  // ("thinking...", "finding answers...") cycles through the same few screens, so those repeats
+  // do not count; a new message or tool step always makes a screen never seen before.
   let st = views.get(key);
-  if (!st || st.sig !== v.sig) { st = { sig: v.sig, changed: now, refreshed: st ? st.refreshed : 0 }; views.set(key, st); }
+  if (!st) { st = { sig: v.sig, changed: now, refreshed: 0, seen: new Map() }; views.set(key, st); }
+  for (const [sig, t] of st.seen) if (now - t > 15 * 60_000) st.seen.delete(sig);
+  if (!st.seen.has(v.sig)) st.changed = now;
+  st.seen.set(v.sig, now);
+  st.sig = v.sig;
   let why = null;
   if (reopen) return;
   if (refreshNow) why = 'you pressed r';
@@ -403,7 +412,7 @@ async function maybeRefresh(key, v, contextId, sessionId) {
   }
   if (!why) return;
   if (v.typing && refreshNow) { log('not refreshing: there is text in the chat box'); return; }
-  st.refreshed = now; st.changed = now;
+  st.refreshed = now; st.changed = now; st.seen.clear();
   log(`REFRESHED the chat view (${why})`);
   try { await cdp.send('Runtime.evaluate', { expression: 'location.reload()', contextId }, sessionId); } catch {}
   reopen = { until: Date.now() + 60_000, notBefore: Date.now() + 3000, historyClicks: 0 };
