@@ -62,8 +62,10 @@ const PAGE_FN = `(() => {
     }
   })(document);
   for (const d of docs) {
+    // Never click the same button twice: after a click Duo's button keeps spinning, still
+    // "enabled", and clicking it again can confuse it.
     const btn = [...d.querySelectorAll('button')]
-      .find(b => b.innerText.trim() === ${JSON.stringify(BUTTON)} && !b.disabled);
+      .find(b => b.innerText.trim() === ${JSON.stringify(BUTTON)} && !b.disabled && !b.dataset.vsaaClicked);
     if (!btn) continue;
     const card = btn.closest('div:has(pre), div:has(code)') || btn.parentElement;
     const cmd = card ? card.innerText.slice(0, 1000) : '';
@@ -74,6 +76,7 @@ const PAGE_FN = `(() => {
       window.__vsaaSkip = cmd;
       return { action: 'skipped', match: hit[0], cmd };
     }
+    btn.dataset.vsaaClicked = '1';
     btn.click();
     return { action: 'approved', cmd };
   }
@@ -116,10 +119,18 @@ class CDP {
 }
 
 // ---- main loop ------------------------------------------------------------------------------
+// VS Code may run a webview as its own process (a separate "iframe" target) or inside the main
+// window's process (a frame of the "page" target). To cover both, the script attaches to every
+// page and webview target, lists each one's frames, and runs PAGE_FN in the JavaScript context
+// of every frame whose address is a GitLab webview.
 let cdp = null;
 const sessions = new Map();        // targetId -> sessionId
+const contexts = new Map();        // sessionId -> Map(frameId -> contextId)
 let paused = false;
 let waitingNoted = false;
+let lastFound = -1;
+let noneSince = 0;
+let hinted = false;
 
 async function connect() {
   const res = await fetch(`http://127.0.0.1:${PORT}/json/version`);
@@ -127,14 +138,44 @@ async function connect() {
   const c = new CDP(webSocketDebuggerUrl);
   await c.open();
   c.onEvent = (msg) => {
+    const sid = msg.sessionId;
     if (msg.method === 'Target.detachedFromTarget') {
       for (const [t, s] of sessions) if (s === msg.params.sessionId) sessions.delete(t);
+      contexts.delete(msg.params.sessionId);
+    } else if (msg.method === 'Runtime.executionContextCreated' && sid) {
+      const ctx = msg.params.context;
+      const frameId = ctx.auxData && ctx.auxData.frameId;
+      if (frameId && ctx.auxData.isDefault) {
+        if (!contexts.has(sid)) contexts.set(sid, new Map());
+        contexts.get(sid).set(frameId, ctx.id);
+      }
+    } else if (msg.method === 'Runtime.executionContextDestroyed' && sid) {
+      const m = contexts.get(sid);
+      if (m) for (const [f, id] of m) if (id === msg.params.executionContextId) m.delete(f);
+    } else if (msg.method === 'Runtime.executionContextsCleared' && sid) {
+      contexts.set(sid, new Map());
     }
   };
-  sessions.clear();
+  sessions.clear(); contexts.clear();
   cdp = c;
-  waitingNoted = false;
+  waitingNoted = false; lastFound = -1; noneSince = Date.now(); hinted = false;
   log(`connected to VS Code on port ${PORT}`);
+}
+
+async function attach(targetId) {
+  let sessionId = sessions.get(targetId);
+  if (sessionId) return sessionId;
+  ({ sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true }));
+  sessions.set(targetId, sessionId);
+  contexts.set(sessionId, new Map());
+  await cdp.send('Runtime.enable', {}, sessionId);   // reports every frame's context to us
+  return sessionId;
+}
+
+function flatten(tree, out = []) {
+  out.push(tree.frame);
+  for (const c of tree.childFrames || []) flatten(c, out);
+  return out;
 }
 
 async function tick() {
@@ -152,27 +193,50 @@ async function tick() {
   if (paused) return;
 
   const { targetInfos } = await cdp.send('Target.getTargets');
-  const webviews = targetInfos.filter((t) =>
-    ['iframe', 'page', 'webview', 'other'].includes(t.type) &&
-    t.url.startsWith(SCHEME) && WEBVIEW.test(t.url));
+  const targets = targetInfos.filter((t) =>
+    t.type === 'page' || (['iframe', 'webview', 'other'].includes(t.type) && t.url.startsWith(SCHEME)));
 
-  for (const t of webviews) {
-    let sessionId = sessions.get(t.targetId);
-    if (!sessionId) {
+  let found = 0;
+  const seenWebviews = new Set();
+  for (const t of targets) {
+    let sessionId;
+    try { sessionId = await attach(t.targetId); } catch { continue; }
+    let frames;
+    try { frames = flatten((await cdp.send('Page.getFrameTree', {}, sessionId)).frameTree); }
+    catch { sessions.delete(t.targetId); continue; }
+    const ctx = contexts.get(sessionId) || new Map();
+    for (const f of frames) {
+      if (!f.url.startsWith(SCHEME)) continue;
+      seenWebviews.add(f.url.split('?')[0] + ' ' + (f.url.match(/extensionId=[^&]+/) || [''])[0]);
+      if (!WEBVIEW.test(f.url)) continue;
+      // Only the outer webview frame; PAGE_FN walks into its same-origin child frames itself.
+      const parent = f.parentId && frames.find((x) => x.id === f.parentId);
+      if (parent && parent.url.startsWith(SCHEME) && WEBVIEW.test(parent.url)) continue;
+      const contextId = ctx.get(f.id);
+      if (!contextId) continue;         // this frame runs in another target; handled there
+      found++;
+      let r;
       try {
-        ({ sessionId } = await cdp.send('Target.attachToTarget', { targetId: t.targetId, flatten: true }));
-        sessions.set(t.targetId, sessionId);
+        r = await cdp.send('Runtime.evaluate', { expression: PAGE_FN, returnByValue: true, contextId }, sessionId);
       } catch { continue; }
+      const v = r && r.result && r.result.value;
+      if (!v) continue;
+      const first = v.cmd.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 3).join(' | ');
+      if (v.action === 'approved') log(`APPROVED: ${first}`);
+      else { log(`SKIPPED (matched "${v.match}") - approve or deny it yourself: ${first}`); process.stdout.write('\x07'); }
     }
-    let r;
-    try {
-      r = await cdp.send('Runtime.evaluate', { expression: PAGE_FN, returnByValue: true }, sessionId);
-    } catch { sessions.delete(t.targetId); continue; }
-    const v = r && r.result && r.result.value;
-    if (!v) continue;
-    const first = v.cmd.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 3).join(' | ');
-    if (v.action === 'approved') log(`APPROVED: ${first}`);
-    else { log(`SKIPPED (matched "${v.match}") - approve or deny it yourself: ${first}`); process.stdout.write('\x07'); }
+  }
+
+  if (found !== lastFound) {
+    log(found ? `watching ${found} GitLab Duo panel(s)` : 'no GitLab Duo panel found yet - open the Duo chat');
+    lastFound = found;
+    if (found) hinted = false; else noneSince = Date.now();
+  }
+  if (!found && !hinted && Date.now() - noneSince > 10_000) {
+    hinted = true;
+    log(seenWebviews.size
+      ? `webviews seen (set VSAA_WEBVIEW to text from the Duo one):\n  ${[...seenWebviews].join('\n  ')}`
+      : 'no webviews seen at all - is the Duo chat panel open?');
   }
 }
 
