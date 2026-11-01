@@ -118,7 +118,8 @@ indirectly (for example inside `pwsh -c "…"`) is not caught. Keep committing o
 | `VSAA_BUTTON` | `Approve` | The button text to click |
 | `VSAA_EVERY_MS` | `1500` | How often it checks, in milliseconds |
 | `VSAA_STUCK_MINUTES` | `0` (off) | Refresh the chat view after this long with no change while Duo is working; `0` = never |
-| `VSAA_BUSY` | `working on your request\|please wait\|producing an answer` | Text Duo shows while it is working |
+| `VSAA_BUSY` | `working on your request\|please wait` | Chat-box text while Duo is working |
+| `VSAA_STATUS` | `GitLab Duo(?: Agentic Chat)? is [A-Za-z]+ing an? [A-Za-z]+` | Duo's rotating status line ("…is generating / finding / producing an answer"): means working, and is never counted as progress or as a last message |
 | `VSAA_CONTINUE` | `interrupted, continue` | Message sent when Duo has stopped; empty = never send |
 | `VSAA_INTERRUPTED` | `connection lost\|workflow was interrupted` | Duo's interruption message |
 | `VSAA_IDLE_MINUTES` | `3` | Continue a chat that has stopped on a tool step this long; `0` = off |

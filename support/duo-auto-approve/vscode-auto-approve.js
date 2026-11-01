@@ -37,7 +37,8 @@
 //   VSAA_EVERY_MS=1500              how often to check
 //   VSAA_STUCK_MINUTES=0            refresh the chat view after this long unchanged (0 = never;
 //                                   off by default - a reload opens a new chat, not your session)
-//   VSAA_BUSY=working on your request|please wait|producing an answer   text while Duo works
+//   VSAA_BUSY=working on your request|please wait   chat-box text while Duo works
+//   VSAA_STATUS=GitLab Duo(?: Agentic Chat)? is [A-Za-z]+ing an? [A-Za-z]+   Duo's rotating status line
 //   VSAA_CONTINUE="interrupted, continue"   message sent when Duo has stopped ("" = never send)
 //   VSAA_INTERRUPTED=connection lost|workflow was interrupted   Duo's interruption message
 //   VSAA_IDLE_MINUTES=3             continue a chat stopped this long on a tool step (0 = off)
@@ -60,7 +61,12 @@ const SCHEME = process.env.VSAA_SCHEME || 'vscode-webview://';   // only changed
 const DUO_FRAME = new RegExp(process.env.VSAA_FRAME || 'agentic|duo', 'i');
 // Off by default: a reload opens a new, empty chat, not the session you were in.
 const STUCK_MS = Number(process.env.VSAA_STUCK_MINUTES ?? 0) * 60_000;
-const BUSY = process.env.VSAA_BUSY || 'working on your request|please wait|producing an answer';
+const BUSY = process.env.VSAA_BUSY || 'working on your request|please wait';
+// Duo's rotating status line while it works: "GitLab Duo Agentic Chat is generating an answer",
+// "... is finding an answer", "... is producing an answer". It means "working", and it is left
+// out of the fingerprint and the end-of-chat check, so it never counts as progress or as a
+// last message.
+const STATUS = process.env.VSAA_STATUS || 'GitLab Duo(?: Agentic Chat)? is [A-Za-z]+ing an? [A-Za-z]+';
 // Sending "continue" when Duo has stopped.
 const CONTINUE_MSG = process.env.VSAA_CONTINUE ?? 'interrupted, continue';
 const INTERRUPTED = new RegExp(process.env.VSAA_INTERRUPTED || 'connection lost|workflow was interrupted', 'i');
@@ -168,6 +174,7 @@ const PAGE_FN = `(() => {
   })(document);
   // What the chat looks like right now, so the script can tell when it stops changing.
   const BUSY = new RegExp(${JSON.stringify(BUSY)}, 'i');
+  const STATUS = new RegExp(${JSON.stringify(STATUS)}, 'gi');
   let text = '', busy = false, typing = false;
   for (const d of docs) {
     text += d.body ? d.body.innerText : '';
@@ -177,10 +184,13 @@ const PAGE_FN = `(() => {
       if (v && v.trim()) typing = true;
     }
   }
+  // The status line means "working"; then it is removed so it never counts as progress.
+  if (STATUS.test(text)) busy = true;
+  STATUS.lastIndex = 0;
+  text = text.replace(STATUS, '');
   // The last part of the chat, without the fixed footer, to see how the conversation ends.
   const tail = text.replace(/Chat can autonomously change code[^\\n]*/gi, '').replace(/RECENT CHATS/g, '')
     .replace(/\\s+/g, ' ').trim().slice(-600);
-  if (BUSY.test(tail.slice(-200))) busy = true;
   let box = null;
   for (const d of docs) { box = box || d.querySelector('textarea'); }
   const idle = !busy && !!box && !box.disabled;
