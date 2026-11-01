@@ -43,21 +43,28 @@ folder that opens.
 
 Sometimes the chat stops updating, often at an approval, while the agent has moved on.
 Switching to another session and back, or reloading VS Code, shows the real state. The script
-does the same thing by reloading **only the Duo chat frame** (the page the GitLab extension
-serves from `127.0.0.1`). VS Code, the editor and the terminals are not touched, and the agent's
-run is not stopped: the chat screen is only a view of it.
+does the same thing:
 
-When turned on, it refreshes when all of these are true:
+1. it reloads **only the Duo chat frame** (the page the GitLab extension serves from
+   `127.0.0.1`), which shows a new, empty chat;
+2. it clicks the **history (clock) button** at the top right;
+3. it clicks the **top entry** of the history list, the newest session, and logs its title.
+
+VS Code, the editor and the terminals are not touched, and the agent's run is not stopped: the
+chat screen is only a view of it. If an approval is still pending, the reopened session shows a
+fresh **Approve** button and the script approves it, as you would by hand.
+
+Press `r` to do this at once. To have it happen by itself, set `VSAA_STUCK_MINUTES` (for example
+`3`). It then refreshes when all of these are true:
 
 - Duo shows it is working ("GitLab Duo is working on your request. Please wait.");
 - nothing in the chat has changed for `VSAA_STUCK_MINUTES`;
 - the chat box is empty, so nothing you are typing is lost;
 - no blocked command is waiting for you to approve or deny.
 
-**Off by default for now.** A reload opens a new, empty chat, not the session you were in, so
-you have to reopen it from **Recent chats**. Until the script can reopen the session itself,
-the automatic refresh stays off (`VSAA_STUCK_MINUTES=0`). `r` still refreshes at once, if you
-want to try it.
+It is off by default until you have checked with `r` that the right session comes back. The top
+of the history list is the most recently active session, so if you use Duo in another window at
+the same time, that one may be on top instead.
 
 ### What it never approves
 

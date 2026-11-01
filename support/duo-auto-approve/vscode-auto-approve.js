@@ -20,7 +20,8 @@
 //
 // Stuck chat view: the chat screen sometimes stops updating (often at an approval) while the
 // agent has moved on; switching sessions or reloading VS Code shows the real state. The script
-// does the same by reloading only the Duo chat frame (served from 127.0.0.1) - not VS Code,
+// does the same by reloading only the Duo chat frame (served from 127.0.0.1) and reopening the
+// latest session from the history (clock) button - not VS Code,
 // not the editor or terminals. It does this when Duo shows it is working, nothing in the chat
 // has changed for VSAA_STUCK_MINUTES, you are not typing, and no approval is waiting for you.
 // Log: %TEMP%\vscode-auto-approve.log
@@ -60,6 +61,34 @@ const BLOCK = [
   'git\\b[^\\n]*\\bpush\\b', 'git\\b[^\\n]*\\breset\\s+--hard', 'git\\b[^\\n]*\\bclean\\b',
   'git\\b[^\\n]*\\bcheckout\\s+--\\s', 'git\\b[^\\n]*\\bbranch\\s+-D\\b',
 ].join('|');
+
+// After a reload Duo shows a new, empty chat. This reopens the latest session: it clicks the
+// history (clock) button, then the top entry of the history list (newest first).
+const REOPEN_FN = `(() => {
+  const docs = [];
+  (function walk(d) {
+    docs.push(d);
+    for (const f of d.querySelectorAll('iframe')) {
+      try { if (f.contentDocument) walk(f.contentDocument); } catch (e) {}
+    }
+  })(document);
+  for (const d of docs) {
+    const first = d.querySelector('ul.chat-history-list li a.navigation-link, .chat-history-list a');
+    if (first) {
+      const goal = first.querySelector('.workflow-row-goal');
+      const title = (goal && (goal.getAttribute('title') || goal.innerText)) || first.innerText;
+      first.click();
+      return { step: 'opened', title: title.trim().slice(0, 120) };
+    }
+  }
+  for (const d of docs) {
+    const btn = [...d.querySelectorAll('button, [role=button]')].find(b =>
+      /histor/i.test([b.getAttribute('aria-label'), b.getAttribute('title'), b.dataset.testid,
+                      b.querySelector('svg') && b.querySelector('svg').getAttribute('data-testid')].join(' ')));
+    if (btn) { btn.click(); return { step: 'history-clicked' }; }
+  }
+  return { step: 'waiting' };
+})()`;
 
 const LOG = path.join(os.tmpdir(), 'vscode-auto-approve.log');
 function log(msg) {
@@ -167,6 +196,7 @@ let hinted = false;
 const views = new Map();           // chat frame key -> { sig, changed, refreshed }
 let refreshNow = false;            // set by the "r" key
 let dumpNow = false;               // set by the "d" key
+let reopen = null;                 // { until, historyClicks } while reopening the session after a refresh
 
 async function connect() {
   const res = await fetch(`http://127.0.0.1:${PORT}/json/version`);
@@ -234,11 +264,31 @@ async function dumpChat(f, contextId, sessionId) {
   } catch (e) { log(`snapshot failed: ${e.message}`); }
 }
 
+async function reopenSession(contextId, sessionId) {
+  if (Date.now() > reopen.until) {
+    log('could not reopen the session after the refresh - open it from the history (clock) button');
+    reopen = null; return;
+  }
+  if (Date.now() < reopen.notBefore) return;      // let the reloaded page start
+  let r;
+  try { r = await cdp.send('Runtime.evaluate', { expression: REOPEN_FN, returnByValue: true, contextId }, sessionId); }
+  catch { return; }
+  const v = r && r.result && r.result.value;
+  if (!v) return;
+  if (v.step === 'opened') { log(`reopened the latest session: "${v.title}"`); reopen = null; }
+  else if (v.step === 'history-clicked') {
+    reopen.historyClicks++;
+    reopen.notBefore = Date.now() + 1500;          // give the list time to load
+    if (reopen.historyClicks > 5) { log('history list did not appear - open the session yourself'); reopen = null; }
+  }
+}
+
 async function maybeRefresh(key, v, contextId, sessionId) {
   const now = Date.now();
   let st = views.get(key);
   if (!st || st.sig !== v.sig) { st = { sig: v.sig, changed: now, refreshed: st ? st.refreshed : 0 }; views.set(key, st); }
   let why = null;
+  if (reopen) return;
   if (refreshNow) why = 'you pressed r';
   else if (STUCK_MS && v.busy && !v.typing && !v.waitingForYou &&
            now - st.changed > STUCK_MS && now - st.refreshed > STUCK_MS) {
@@ -249,6 +299,7 @@ async function maybeRefresh(key, v, contextId, sessionId) {
   st.refreshed = now; st.changed = now;
   log(`REFRESHED the chat view (${why})`);
   try { await cdp.send('Runtime.evaluate', { expression: 'location.reload()', contextId }, sessionId); } catch {}
+  reopen = { until: Date.now() + 60_000, notBefore: Date.now() + 3000, historyClicks: 0 };
 }
 
 async function tick() {
@@ -309,6 +360,7 @@ async function tick() {
       // The outermost loopback frame is the chat page; reloading it rebuilds only the chat view.
       const isChatPage = /^https?:/i.test(f.url) && !(parent && chosen.has(parent.id) && /^https?:/i.test(parent.url));
       if (isChatPage && dumpNow) await dumpChat(f, contextId, sessionId);
+      if (isChatPage && reopen) { await reopenSession(contextId, sessionId); continue; }
       if (isChatPage && v.hasChat) await maybeRefresh(`${sessionId}/${f.id}`, v, contextId, sessionId);
     }
   }
