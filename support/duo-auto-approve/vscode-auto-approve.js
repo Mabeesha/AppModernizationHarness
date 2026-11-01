@@ -22,6 +22,7 @@
 //   VSAA_PORT=9333                  must match the VS Code shortcut
 //   VSAA_WEBVIEW=gitlab             text in the Duo panel's webview address (extension id)
 //   VSAA_BUTTON=Approve             the button text to click
+//   VSAA_FRAME=agentic|duo          name or address of the frames holding the Duo chat
 //   VSAA_EVERY_MS=1500              how often to check
 
 const fs = require('fs');
@@ -34,6 +35,10 @@ const WEBVIEW = new RegExp(process.env.VSAA_WEBVIEW || 'gitlab', 'i');
 const BUTTON = process.env.VSAA_BUTTON || 'Approve';
 const EVERY_MS = Number(process.env.VSAA_EVERY_MS || 1500);
 const SCHEME = process.env.VSAA_SCHEME || 'vscode-webview://';   // only changed for testing
+// The Duo chat itself is served by the GitLab extension from a local address
+// (http://127.0.0.1:<port>) in frames named "agentic-tabs" / "iframe-chat". A frame whose
+// name or address matches this is searched too.
+const DUO_FRAME = new RegExp(process.env.VSAA_FRAME || 'agentic|duo', 'i');
 
 // Never auto-approved; you approve or deny these yourself.
 const BLOCK = [
@@ -193,8 +198,8 @@ async function tick() {
   if (paused) return;
 
   const { targetInfos } = await cdp.send('Target.getTargets');
-  const targets = targetInfos.filter((t) =>
-    t.type === 'page' || (['iframe', 'webview', 'other'].includes(t.type) && t.url.startsWith(SCHEME)));
+  // Main windows, and frames VS Code runs in a process of their own.
+  const targets = targetInfos.filter((t) => ['page', 'iframe', 'webview'].includes(t.type));
 
   let found = 0;
   const seenWebviews = new Set();
@@ -205,13 +210,20 @@ async function tick() {
     try { frames = flatten((await cdp.send('Page.getFrameTree', {}, sessionId)).frameTree); }
     catch { sessions.delete(t.targetId); continue; }
     const ctx = contexts.get(sessionId) || new Map();
+    const byId = new Map(frames.map((f) => [f.id, f]));
+    const origin = (u) => (u.match(/^[a-z-]+:\/\/[^/?#]*/i) || [u])[0];
+    const isDuo = (f) => (f.url.startsWith(SCHEME) && WEBVIEW.test(f.url)) ||
+      (/^https?:\/\/(127(\.\d+){3}|localhost)[:/]/i.test(f.url) && DUO_FRAME.test(`${f.name || ''} ${f.url}`));
+    const chosen = new Set();
     for (const f of frames) {
-      if (!f.url.startsWith(SCHEME)) continue;
-      seenWebviews.add(f.url.split('?')[0] + ' ' + (f.url.match(/extensionId=[^&]+/) || [''])[0]);
-      if (!WEBVIEW.test(f.url)) continue;
-      // Only the outer webview frame; PAGE_FN walks into its same-origin child frames itself.
-      const parent = f.parentId && frames.find((x) => x.id === f.parentId);
-      if (parent && parent.url.startsWith(SCHEME) && WEBVIEW.test(parent.url)) continue;
+      if (f.url.startsWith(SCHEME)) {
+        seenWebviews.add(f.url.split('?')[0] + ' ' + (f.url.match(/extensionId=[^&]+/) || [''])[0]);
+      }
+      if (!isDuo(f)) continue;
+      // PAGE_FN walks into child frames of the same origin itself, so skip those.
+      const parent = f.parentId && byId.get(f.parentId);
+      if (parent && chosen.has(parent.id) && origin(parent.url) === origin(f.url)) { chosen.add(f.id); continue; }
+      chosen.add(f.id);
       const contextId = ctx.get(f.id);
       if (!contextId) continue;         // this frame runs in another target; handled there
       found++;
@@ -228,7 +240,7 @@ async function tick() {
   }
 
   if (found !== lastFound) {
-    log(found ? `watching ${found} GitLab Duo panel(s)` : 'no GitLab Duo panel found yet - open the Duo chat');
+    log(found ? `watching ${found} GitLab Duo frame(s)` : 'no GitLab Duo panel found yet - open the Duo chat');
     lastFound = found;
     if (found) hinted = false; else noneSince = Date.now();
   }

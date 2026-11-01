@@ -54,14 +54,20 @@ indirectly (for example inside `pwsh -c "…"`) is not caught. Keep committing o
 |---|---|---|
 | `VSAA_PORT` | `9333` | Must match the `--remote-debugging-port` in the VS Code shortcut |
 | `VSAA_WEBVIEW` | `gitlab` | Text in the Duo panel's webview address, to pick that panel |
+| `VSAA_FRAME` | `agentic\|duo` | Name or address of the frames that hold the chat (served from `http://127.0.0.1:<port>`) |
 | `VSAA_BUTTON` | `Approve` | The button text to click |
 | `VSAA_EVERY_MS` | `1500` | How often it checks, in milliseconds |
 
 ### If it connects but never approves
 
-Open `http://127.0.0.1:9333/json/list` in a browser while VS Code is open. Find the entry whose
-address starts with `vscode-webview://` for the Duo panel, and set `VSAA_WEBVIEW` to text that is
-in that address and not in the others.
+The Duo chat sits several frames deep: the VS Code panel (`vscode-webview://…`), then
+`active-frame`, then `agentic-tabs` and `iframe-chat`, which the GitLab extension serves from
+`http://127.0.0.1:<port>`. The script searches every frame whose name or address matches
+`VSAA_FRAME`. It prints `watching N GitLab Duo frame(s)` when it finds them.
+
+To see the frame names: in VS Code run **Developer: Open Webview Developer Tools**, open the
+**Console** tab, and open the context dropdown (it shows `top`). If the chat frames are named
+differently, set `VSAA_FRAME` to a word from their names.
 
 ### Cautions
 
