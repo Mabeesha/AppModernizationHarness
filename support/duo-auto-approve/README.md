@@ -32,11 +32,31 @@ reconnects by itself.
 node support\duo-auto-approve\vscode-auto-approve.js
 ```
 
-Leave it running. In its window: `p` pauses or resumes, `Ctrl+C` stops. Every approval and skip
+Leave it running. In its window: `p` pauses or resumes, `r` refreshes the Duo chat view now,
+`Ctrl+C` stops. Every approval and skip
 is shown there and written to `%TEMP%\vscode-auto-approve.log`.
 
 To start it at login: `Win+R` > `shell:startup`, and put a shortcut to that command in the
 folder that opens.
+
+### When the chat view gets stuck
+
+Sometimes the chat stops updating, often at an approval, while the agent has moved on.
+Switching to another session and back, or reloading VS Code, shows the real state. The script
+does the same thing by reloading **only the Duo chat frame** (the page the GitLab extension
+serves from `127.0.0.1`). VS Code, the editor and the terminals are not touched, and the agent's
+run is not stopped: the chat screen is only a view of it.
+
+It refreshes when all of these are true:
+
+- Duo shows it is working ("GitLab Duo is working on your request. Please wait.");
+- nothing in the chat has changed for `VSAA_STUCK_MINUTES` (default 3);
+- the chat box is empty, so nothing you are typing is lost;
+- no blocked command is waiting for you to approve or deny.
+
+After a refresh, an approval that is still pending shows a fresh **Approve** button, and the
+script approves it, which is the same as doing it by hand after a reload. Press `r` to refresh
+at once; set `VSAA_STUCK_MINUTES=0` to turn the automatic refresh off.
 
 ### What it never approves
 
@@ -57,6 +77,8 @@ indirectly (for example inside `pwsh -c "…"`) is not caught. Keep committing o
 | `VSAA_FRAME` | `agentic\|duo` | Name or address of the frames that hold the chat (served from `http://127.0.0.1:<port>`) |
 | `VSAA_BUTTON` | `Approve` | The button text to click |
 | `VSAA_EVERY_MS` | `1500` | How often it checks, in milliseconds |
+| `VSAA_STUCK_MINUTES` | `3` | Refresh the chat view after this long with no change while Duo is working; `0` = never |
+| `VSAA_BUSY` | `working on your request\|please wait` | Text Duo shows while it is working |
 
 ### If it connects but never approves
 
