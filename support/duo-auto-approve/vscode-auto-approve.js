@@ -15,7 +15,8 @@
 //        node C:\tools\duo-aa\vscode-auto-approve.js
 //    To start it at login: put a shortcut to that command in shell:startup.
 //
-// In the script's window:  p = pause/resume,  r = refresh the Duo chat view now,  Ctrl+C = stop.
+// In the script's window:  p = pause/resume,  r = refresh the Duo chat view now,
+//                          d = save a snapshot of the chat screen,  Ctrl+C = stop.
 //
 // Stuck chat view: the chat screen sometimes stops updating (often at an approval) while the
 // agent has moved on; switching sessions or reloading VS Code shows the real state. The script
@@ -30,7 +31,8 @@
 //   VSAA_BUTTON=Approve             the button text to click
 //   VSAA_FRAME=agentic|duo          name or address of the frames holding the Duo chat
 //   VSAA_EVERY_MS=1500              how often to check
-//   VSAA_STUCK_MINUTES=3            refresh the chat view after this long unchanged (0 = never)
+//   VSAA_STUCK_MINUTES=0            refresh the chat view after this long unchanged (0 = never;
+//                                   off by default - a reload opens a new chat, not your session)
 //   VSAA_BUSY=working on your request|please wait   text shown while Duo is working
 
 const fs = require('fs');
@@ -47,7 +49,8 @@ const SCHEME = process.env.VSAA_SCHEME || 'vscode-webview://';   // only changed
 // (http://127.0.0.1:<port>) in frames named "agentic-tabs" / "iframe-chat". A frame whose
 // name or address matches this is searched too.
 const DUO_FRAME = new RegExp(process.env.VSAA_FRAME || 'agentic|duo', 'i');
-const STUCK_MS = Number(process.env.VSAA_STUCK_MINUTES ?? 3) * 60_000;
+// Off by default: a reload opens a new, empty chat, not the session you were in.
+const STUCK_MS = Number(process.env.VSAA_STUCK_MINUTES ?? 0) * 60_000;
 const BUSY = process.env.VSAA_BUSY || 'working on your request|please wait';
 
 // Never auto-approved; you approve or deny these yourself.
@@ -163,6 +166,7 @@ let noneSince = 0;
 let hinted = false;
 const views = new Map();           // chat frame key -> { sig, changed, refreshed }
 let refreshNow = false;            // set by the "r" key
+let dumpNow = false;               // set by the "d" key
 
 async function connect() {
   const res = await fetch(`http://127.0.0.1:${PORT}/json/version`);
@@ -208,6 +212,26 @@ function flatten(tree, out = []) {
   out.push(tree.frame);
   for (const c of tree.childFrames || []) flatten(c, out);
   return out;
+}
+
+// Saves the chat page and its same-origin frames as HTML, to see how Duo builds its screen.
+async function dumpChat(f, contextId, sessionId) {
+  const expr = `(() => {
+    const out = [];
+    (function walk(d, where) {
+      out.push('<!-- ===== ' + where + ' ' + d.location.href + ' ===== -->\\n' + d.documentElement.outerHTML);
+      d.querySelectorAll('iframe').forEach((fr, i) => {
+        try { if (fr.contentDocument) walk(fr.contentDocument, where + ' > ' + (fr.name || 'iframe' + i)); } catch (e) {}
+      });
+    })(document, 'frame ' + (window.name || ''));
+    return out.join('\\n\\n');
+  })()`;
+  try {
+    const r = await cdp.send('Runtime.evaluate', { expression: expr, returnByValue: true, contextId }, sessionId);
+    const file = path.join(os.tmpdir(), `duo-chat-snapshot-${Date.now()}.html`);
+    fs.writeFileSync(file, `<!-- frame: ${f.name || ''} ${f.url} -->\n` + r.result.value);
+    log(`SNAPSHOT saved: ${file}`);
+  } catch (e) { log(`snapshot failed: ${e.message}`); }
 }
 
 async function maybeRefresh(key, v, contextId, sessionId) {
@@ -284,11 +308,13 @@ async function tick() {
       }
       // The outermost loopback frame is the chat page; reloading it rebuilds only the chat view.
       const isChatPage = /^https?:/i.test(f.url) && !(parent && chosen.has(parent.id) && /^https?:/i.test(parent.url));
+      if (isChatPage && dumpNow) await dumpChat(f, contextId, sessionId);
       if (isChatPage && v.hasChat) await maybeRefresh(`${sessionId}/${f.id}`, v, contextId, sessionId);
     }
   }
 
   if (refreshNow) { refreshNow = false; }
+  if (dumpNow) { dumpNow = false; }
 
   if (found !== lastFound) {
     log(found ? `watching ${found} GitLab Duo frame(s)` : 'no GitLab Duo panel found yet - open the Duo chat');
@@ -315,7 +341,8 @@ if (process.stdin.isTTY) {
     if (k === '\x03') { log('stopped'); process.exit(0); }
     if (k.toLowerCase() === 'p') { paused = !paused; log(paused ? 'PAUSED (p to resume)' : 'RESUMED'); }
     if (k.toLowerCase() === 'r') refreshNow = true;
+    if (k.toLowerCase() === 'd') { dumpNow = true; log('saving a snapshot of the chat screen...'); }
   });
 }
-log(`vscode-auto-approve running. p = pause/resume, r = refresh chat view, Ctrl+C = stop. Log: ${LOG}`);
+log(`vscode-auto-approve running. p = pause/resume, r = refresh chat view, d = snapshot, Ctrl+C = stop. Log: ${LOG}`);
 loop();
