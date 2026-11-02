@@ -56,7 +56,9 @@ does the same thing:
 1. it reloads **only the Duo chat frame** (the page the GitLab extension serves from
    `127.0.0.1`), which shows a new, empty chat;
 2. it clicks the **history (clock) button** at the top right;
-3. it clicks the **top entry** of the history list, the newest session, and logs its title.
+3. it clicks the history entry **for the chat that was on screen**: a session's title is its
+   first message, so it picks the entry whose title appears in that chat's text. If none
+   matches it opens the newest entry, and then never sends anything to it.
 
 VS Code, the editor and the terminals are not touched, and the agent's run is not stopped: the
 chat screen is only a view of it. If an approval is still pending, the reopened session shows a
@@ -77,9 +79,10 @@ minutes** counts as progress, and numbers are left out of it. So a status line t
 rotating ("thinking…", "finding answers…", "producing an answer…") or a ticking timer does not
 hide a stuck chat, while a new message or tool step always counts.
 
-It is off by default until you have checked with `r` that the right session comes back. The top
-of the history list is the most recently active session, so if you use Duo in another window at
-the same time, that one may be on top instead.
+The automatic stuck-screen refresh is off by default (`VSAA_STUCK_MINUTES`); the refresh before
+a continue (below) does not depend on it. Matching relies on the chat showing its first message;
+if a very long chat no longer shows it, no entry matches, and the script tells you rather than
+sending anything.
 
 ### When Duo stops
 
@@ -92,13 +95,29 @@ written message: a report or a question. So if the last thing in the chat is a *
 requires approval…"), the agent was cut off in the middle of its work. If it ends with a
 written message, the agent finished or is asking you, and the script leaves it alone.
 
+**Refresh first, then decide.** A stopped screen can be out of date: the agent may have
+finished, still be working, or be waiting for an approval. So when the chat looks stopped on a
+tool step, or shows "Connection lost", the script first refreshes and reopens the session (see
+above), waits for it to settle (15 s), and decides on the fresh screen:
+
+| The reopened session shows | The script |
+|---|---|
+| stopped (send icon), ending on a tool step | sends `interrupted, continue` |
+| a written message at the end | nothing: it finished or is asking you |
+| working (stop icon) | nothing: the stuck-screen rule takes over |
+| a pending Approve | approves it |
+| a session it could not match to the chat that was on screen | nothing, with a beep and a log line |
+
+Each stopped screen is refreshed only once, so it never loops. Set `VSAA_REFRESH_FIRST=0` to send
+the message at once instead. This works whether or not `VSAA_STUCK_MINUTES` is set.
+
 It sends `interrupted, continue` when:
 
 | Trigger | Default |
 |---|---|
-| Duo's **"Connection lost. The workflow was interrupted."** is the very last thing in the chat (nothing after it) | on |
+| Duo's **"Connection lost. The workflow was interrupted."** is the very last thing in the chat (nothing after it), and the session still ends on a tool step after the refresh | on |
 | A session **reopened after a refresh** ends on a tool step | on, with the refresh |
-| The chat has been **stopped on a tool step** for `VSAA_IDLE_MINUTES` | on, 3 minutes |
+| The chat has been **stopped on a tool step** for `VSAA_IDLE_MINUTES`, and still is after the refresh | on, 3 minutes |
 
 The red "Connection lost" box does not come back after a reload, so the second and third
 triggers are what catch an interruption you only find later.
@@ -144,6 +163,7 @@ indirectly (for example inside `pwsh -c "…"`) is not caught. Keep committing o
 | `VSAA_IDLE_MINUTES` | `3` | Continue a chat that has stopped on a tool step this long; `0` = off |
 | `VSAA_DONE` | `\[\[(DONE\|NEEDS DEVELOPER)\]\]` | Optional end markers: a last message ending with one is never continued |
 | `VSAA_MAX_CONTINUES` | `6` | Continue messages allowed per hour |
+| `VSAA_REFRESH_FIRST` | `1` | Refresh and reopen before deciding to continue; `0` = continue at once |
 
 ### If it connects but never approves
 

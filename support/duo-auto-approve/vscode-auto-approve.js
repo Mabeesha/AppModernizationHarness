@@ -44,6 +44,7 @@
 //   VSAA_IDLE_MINUTES=3             continue a chat stopped this long on a tool step (0 = off)
 //   VSAA_DONE=\[\[(DONE|NEEDS DEVELOPER)\]\]   end markers that mean "stopped on purpose"
 //   VSAA_MAX_CONTINUES=6            at most this many continue messages per hour
+//   VSAA_REFRESH_FIRST=1            refresh and reopen before deciding to continue (0 = continue at once)
 
 const fs = require('fs');
 const os = require('os');
@@ -90,6 +91,10 @@ function endsMidStep(tail) {
 }
 const DONE = new RegExp(process.env.VSAA_DONE || '\\[\\[(DONE|NEEDS DEVELOPER)\\]\\]', 'i');
 const MAX_CONTINUES = Number(process.env.VSAA_MAX_CONTINUES ?? 6);      // per hour
+// Before sending a continue, refresh the chat view and reopen the session, then decide on what
+// the fresh screen shows. A stale screen can look stopped when the agent finished, is still
+// working, or is waiting for an approval.
+const REFRESH_FIRST = process.env.VSAA_REFRESH_FIRST !== '0';
 
 // Never auto-approved; you approve or deny these yourself.
 const BLOCK = [
@@ -101,7 +106,9 @@ const BLOCK = [
 
 // After a reload Duo shows a new, empty chat. This reopens the latest session: it clicks the
 // history (clock) button, then the top entry of the history list (newest first).
-const REOPEN_FN = `(() => {
+// It prefers the session whose title (its first message) appears in the text of the chat that was
+// on screen before the refresh, so the same session comes back even if another one is newer.
+const REOPEN_FN = (head) => `(() => {
   const docs = [];
   (function walk(d) {
     docs.push(d);
@@ -109,14 +116,24 @@ const REOPEN_FN = `(() => {
       try { if (f.contentDocument) walk(f.contentDocument); } catch (e) {}
     }
   })(document);
+  const norm = (t) => (t || '').replace(/[\\u2026]|\\.\\.\\.$/g, '').replace(/\\s+/g, ' ').trim().toLowerCase();
+  const head = norm(${JSON.stringify(head || '')});
   for (const d of docs) {
-    const first = d.querySelector('ul.chat-history-list li a.navigation-link, .chat-history-list a');
-    if (first) {
-      const goal = first.querySelector('.workflow-row-goal');
-      const title = (goal && (goal.getAttribute('title') || goal.innerText)) || first.innerText;
-      first.click();
-      return { step: 'opened', title: title.trim().slice(0, 120) };
+    const links = [...d.querySelectorAll('ul.chat-history-list li a.navigation-link, .chat-history-list a')];
+    if (!links.length) continue;
+    const titleOf = (a) => {
+      const goal = a.querySelector('.workflow-row-goal');
+      return ((goal && (goal.getAttribute('title') || goal.innerText)) || a.innerText).trim();
+    };
+    let pick = null, matched = false;
+    for (const a of links) {
+      const key = norm(titleOf(a)).slice(0, 60);
+      if (key.length >= 4 && head.includes(key)) { pick = a; matched = true; break; }
     }
+    if (!pick) pick = links[0];
+    const title = titleOf(pick);
+    pick.click();
+    return { step: 'opened', title: title.slice(0, 120), matched };
   }
   for (const d of docs) {
     const btn = [...d.querySelectorAll('button, [role=button]')].find(b =>
@@ -257,7 +274,8 @@ const PAGE_FN = `(() => {
   // Numbers are left out, so a ticking timer ("Working... 12s") does not count as a change.
   const plain = text.replace(/[0-9]+/g, '#');
   for (let i = 0; i < plain.length; i++) h = (h * 31 + plain.charCodeAt(i)) | 0;
-  const status = { sig: plain.length + ':' + h, busy, typing, idle, tail, chatFrame: chatDoc.defaultView ? chatDoc.defaultView.name : '', button, buttonInfo, approveSpinning, hasChat: text.length > 0 };
+  const head = text.replace(/\\s+/g, ' ').trim().slice(0, 3000);
+  const status = { sig: plain.length + ':' + h, busy, typing, idle, tail, head, chatFrame: chatDoc.defaultView ? chatDoc.defaultView.name : '', button, buttonInfo, approveSpinning, hasChat: text.length > 0 };
   for (const d of docs) {
     // Never click the same button twice: after a click Duo's button keeps spinning, still
     // "enabled", and clicking it again can confuse it.
@@ -333,7 +351,8 @@ let refreshNow = false;            // set by the "r" key
 let dumpNow = false;               // set by the "d" key
 let reopen = null;                 // { until, historyClicks } while reopening the session after a refresh
 let readFrom = '';                 // how working/stopped is being read, logged when it changes
-let afterRefresh = 0;              // when a refreshed session was reopened (it was "working" before)
+let afterRefresh = null;           // { at, matched, purpose } once a refreshed session is reopened
+const handled = new Map();         // stopped screens already refreshed and judged (fingerprint -> time)
 let continues = [];                // times continue messages were sent
 let lastContinueSig = null;        // the chat as it was when we last sent one
 
@@ -405,20 +424,29 @@ async function dumpChat(f, contextId, sessionId) {
 
 async function reopenSession(contextId, sessionId) {
   if (Date.now() > reopen.until) {
-    log('could not reopen the session after the refresh - open it from the history (clock) button');
+    log('could not reopen the session after the refresh - open it from the history (clock) button; nothing will be sent');
+    process.stdout.write('\x07');
     reopen = null; return;
   }
   if (Date.now() < reopen.notBefore) return;      // let the reloaded page start
   let r;
-  try { r = await cdp.send('Runtime.evaluate', { expression: REOPEN_FN, returnByValue: true, contextId }, sessionId); }
+  try { r = await cdp.send('Runtime.evaluate', { expression: REOPEN_FN(reopen.head), returnByValue: true, contextId }, sessionId); }
   catch { return; }
   const v = r && r.result && r.result.value;
   if (!v) return;
-  if (v.step === 'opened') { log(`reopened the latest session: "${v.title}"`); reopen = null; afterRefresh = Date.now(); }
+  if (v.step === 'opened') {
+    if (v.matched) log(`reopened the session you were in: "${v.title}"`);
+    else {
+      log(`opened the newest session "${v.title}", but could not match it to the chat that was on screen - nothing will be sent to it`);
+      if (reopen.purpose === 'stopped') process.stdout.write('\x07');
+    }
+    afterRefresh = { at: Date.now(), matched: !!v.matched, purpose: reopen.purpose };
+    reopen = null;
+  }
   else if (v.step === 'history-clicked') {
     reopen.historyClicks++;
     reopen.notBefore = Date.now() + 1500;          // give the list time to load
-    if (reopen.historyClicks > 5) { log('history list did not appear - open the session yourself'); reopen = null; }
+    if (reopen.historyClicks > 5) { log('history list did not appear - open the session yourself; nothing will be sent'); process.stdout.write('\x07'); reopen = null; }
   }
 }
 
@@ -442,7 +470,7 @@ async function maybeContinue(key, v, contextId, sessionId) {
   if (lastContinueSig === v.sig) return hold('already sent one and nothing has changed since');
   if (v.tail.toLowerCase().endsWith(CONTINUE_MSG.toLowerCase())) return hold('the last thing in the chat is our own continue message');
   let why = null;
-  if (quietFor < 10_000) return;                               // let the screen settle first
+  if (quietFor < 15_000) return;                               // let the screen settle first
   const midStep = endsMidStep(v.tail);
   const done = DONE.test(v.tail.slice(-300));
   // "Connection lost" counts only when it is the very last thing in the chat: once anything
@@ -454,19 +482,39 @@ async function maybeContinue(key, v, contextId, sessionId) {
     return end >= 0 && v.tail.slice(end).replace(/[^A-Za-z]/g, '').length < 20;
   })();
   if (done) return hold('the agent ended with an end marker');
-  if (lost) why = 'Duo says the connection was lost';
-  else if (afterRefresh && now - afterRefresh < 60_000) {
-    if (midStep) why = 'the reopened session stopped in the middle of a step';
-    else {
+
+  if (afterRefresh && now - afterRefresh.at < 120_000) {
+    // A session just reopened after a refresh: decide on this fresh screen.
+    const ar = afterRefresh;
+    afterRefresh = null;
+    handled.set(v.sig, now);
+    if (!midStep && !lost) {
       log('the reopened session ends with a message from Duo - it finished or is asking you; not continuing');
-      afterRefresh = 0; st.finishedSig = v.sig; return;
+      st.finishedSig = v.sig; return;
     }
-  } else if (IDLE_MS && quietFor > IDLE_MS) {
-    if (midStep) why = `stopped on a tool step for ${Math.round(quietFor / 1000)} s`;
-    else return hold(`the chat ends with a written message ("...${v.tail.slice(-80)}")`);
+    if (!ar.matched) {
+      log('the reopened session stopped mid-step, but it may not be the session you were in - not continuing; check it yourself');
+      process.stdout.write('\x07'); return;
+    }
+    why = 'the reopened session stopped in the middle of a step';
+  } else {
+    let trigger = null;
+    if (lost) trigger = 'Duo says the connection was lost';
+    else if (IDLE_MS && quietFor > IDLE_MS) {
+      if (midStep) trigger = `stopped on a tool step for ${Math.round(quietFor / 1000)} s`;
+      else return hold(`the chat ends with a written message ("...${v.tail.slice(-80)}")`);
+    }
+    if (!trigger) return;
+    if (REFRESH_FIRST) {
+      // Refresh first and decide on the fresh screen; only once per stopped screen.
+      for (const [sig, t] of handled) if (now - t > 3_600_000) handled.delete(sig);
+      if (handled.has(v.sig)) return hold('this screen was already refreshed and checked');
+      handled.set(v.sig, now);
+      await doRefresh(st, v, contextId, sessionId, `${trigger} - refreshing first to see the real state`, 'stopped');
+      return;
+    }
+    why = trigger;
   }
-  if (!why) return;
-  afterRefresh = 0;
   continues = continues.filter((t) => now - t < 3_600_000);
   if (continues.length >= MAX_CONTINUES) {
     if (lastContinueSig !== 'capped') log(`not continuing (${why}): already sent ${MAX_CONTINUES} in the last hour`);
@@ -503,10 +551,17 @@ async function maybeRefresh(key, v, contextId, sessionId) {
   }
   if (!why) return;
   if (v.typing && refreshNow) { log('not refreshing: there is text in the chat box'); return; }
+  await doRefresh(st, v, contextId, sessionId, why, refreshNow ? 'manual' : 'stuck');
+}
+
+// Reloads only the chat page, then reopenSession() brings the session back.
+async function doRefresh(st, v, contextId, sessionId, why, purpose) {
+  const now = Date.now();
   st.refreshed = now; st.changed = now; st.seen.clear();
+  afterRefresh = null;
   log(`REFRESHED the chat view (${why})`);
   try { await cdp.send('Runtime.evaluate', { expression: 'location.reload()', contextId }, sessionId); } catch {}
-  reopen = { until: Date.now() + 60_000, notBefore: Date.now() + 3000, historyClicks: 0 };
+  reopen = { until: Date.now() + 60_000, notBefore: Date.now() + 3000, historyClicks: 0, head: v.head, purpose };
 }
 
 async function tick() {
