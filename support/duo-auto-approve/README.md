@@ -96,12 +96,21 @@ It sends `interrupted, continue` when:
 
 | Trigger | Default |
 |---|---|
-| Duo's **"Connection lost. The workflow was interrupted."** is the last thing in the chat | on |
+| Duo's **"Connection lost. The workflow was interrupted."** is the very last thing in the chat (nothing after it) | on |
 | A session **reopened after a refresh** ends on a tool step | on, with the refresh |
 | The chat has been **stopped on a tool step** for `VSAA_IDLE_MINUTES` | on, 3 minutes |
 
 The red "Connection lost" box does not come back after a reload, so the second and third
 triggers are what catch an interruption you only find later.
+
+The script reads the ending from **the chat itself** (the frame that holds the chat box), not
+from the FLOWS tab or other parts of the panel. After it sends the message, it checks that the
+message really left the chat box; if not, it tries the Enter key, then clears the box and logs
+that it could not send.
+
+**When it holds back, it says why.** Once Duo has been stopped for `VSAA_IDLE_MINUTES`, every
+reason not to continue is logged once, for example `stopped for 180 s, not continuing: the chat
+ends with a written message ("…")`.
 
 It never sends when there is text in the chat box, an approval waiting for you, or an approved
 command still spinning (that is a stuck screen, which the refresh handles), never twice

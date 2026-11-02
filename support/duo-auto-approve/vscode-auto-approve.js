@@ -127,7 +127,7 @@ const REOPEN_FN = `(() => {
   return { step: 'waiting' };
 })()`;
 
-// Types a message into the Duo chat box and sends it.
+// Types a message into the Duo chat box and sends it, then checks that it really left the box.
 const CONTINUE_FN = (msg) => `(() => {
   const docs = [];
   (function walk(d) {
@@ -136,22 +136,48 @@ const CONTINUE_FN = (msg) => `(() => {
       try { if (f.contentDocument) walk(f.contentDocument); } catch (e) {}
     }
   })(document);
-  let box = null, doc = null;
-  for (const d of docs) { const t = d.querySelector('textarea'); if (t && !t.disabled) { box = t; doc = d; break; } }
+  let box = null;
+  for (const d of docs) { const t = d.querySelector('textarea'); if (t && !t.disabled) { box = t; break; } }
   if (!box) return Promise.resolve({ sent: false, why: 'no chat box' });
   if (box.value.trim()) return Promise.resolve({ sent: false, why: 'there is text in the chat box' });
+  const setValue = (v) => {
+    Object.getOwnPropertyDescriptor(Object.getPrototypeOf(box), 'value').set.call(box, v);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  // The send button is the one beside the chat box, found by its own label or icon
+  // ("Send chat message", "chat-prompt-submit-button", "paper-airplane-icon").
+  const findSend = () => {
+    let scope = box;
+    for (let i = 0; i < 5 && scope.parentElement; i++) {
+      scope = scope.parentElement;
+      for (const b of scope.querySelectorAll('button')) {
+        if (b.disabled || /approve|deny/i.test(b.innerText)) continue;
+        const svg = b.querySelector('svg'), use = b.querySelector('use');
+        const label = [b.getAttribute('aria-label'), b.getAttribute('title'), b.dataset.testid,
+          svg && svg.getAttribute('data-testid'), use && (use.getAttribute('href') || use.getAttribute('xlink:href'))].join(' ');
+        if (/send|submit|paper-airplane/i.test(label)) return b;
+      }
+    }
+    return null;
+  };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   box.focus();
-  const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(box), 'value').set;
-  setter.call(box, ${JSON.stringify(msg)});
-  box.dispatchEvent(new Event('input', { bubbles: true }));
-  return new Promise((done) => setTimeout(() => {
-    const send = [...doc.querySelectorAll('button')].find((b) => !b.disabled &&
-      /send|submit/i.test([b.getAttribute('aria-label'), b.getAttribute('title'), b.dataset.testid, b.type === 'submit' ? 'submit' : '',
-        b.querySelector('svg') && b.querySelector('svg').getAttribute('data-testid')].join(' ')));
-    if (send) { send.click(); done({ sent: true, how: 'send button' }); return; }
+  setValue(${JSON.stringify(msg)});
+  return (async () => {
+    await wait(400);
+    const send = findSend();
+    let how = 'Enter key';
+    if (send) { send.click(); how = 'send button'; }
+    else box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+    await wait(1500);
+    if (box.value.trim() !== ${JSON.stringify(msg)}) return { sent: true, how };
+    // Still in the box: try the Enter key once more, then give up and clear the box.
     box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-    done({ sent: true, how: 'Enter key' });
-  }, 400));
+    await wait(1500);
+    if (box.value.trim() !== ${JSON.stringify(msg)}) return { sent: true, how: how + ', then Enter key' };
+    setValue('');
+    return { sent: false, why: 'the message stayed in the chat box (' + (send ? 'send button clicked' : 'no send button found') + ', Enter pressed); box cleared' };
+  })();
 })()`;
 
 const LOG = path.join(os.tmpdir(), 'vscode-auto-approve.log');
@@ -176,13 +202,15 @@ const PAGE_FN = `(() => {
   const BUSY = new RegExp(${JSON.stringify(BUSY)}, 'i');
   const STATUS = new RegExp(${JSON.stringify(STATUS)}, 'gi');
   let text = '', busy = false, typing = false;
-  for (const d of docs) {
-    text += d.body ? d.body.innerText : '';
-    for (const t of d.querySelectorAll('textarea, input[type=text], [contenteditable=true]')) {
-      const v = t.value !== undefined ? t.value : t.innerText;
-      if (BUSY.test(t.placeholder || t.getAttribute('aria-placeholder') || '')) busy = true;
-      if (v && v.trim()) typing = true;
-    }
+  // The chat itself is the frame that holds the chat box. Other frames in the panel (the
+  // FLOWS tab, "iframe-flow") are left out, so their text is never read as the chat's ending.
+  const chatDoc = docs.find((d) => d.querySelector('textarea')) || docs[0];
+  text = chatDoc.body ? chatDoc.body.innerText : '';
+  // Only the chat box counts: text in the history search or the FLOWS tab is not "you typing".
+  const chatBox = chatDoc.querySelector('textarea');
+  if (chatBox) {
+    if (BUSY.test(chatBox.placeholder || chatBox.getAttribute('aria-placeholder') || '')) busy = true;
+    if (chatBox.value && chatBox.value.trim()) typing = true;
   }
   // Working or stopped, read from the icon button beside the chat box: a stop (square) icon
   // while Duo works, a send (paper plane) icon once it has stopped. Only buttons near the chat
@@ -229,7 +257,7 @@ const PAGE_FN = `(() => {
   // Numbers are left out, so a ticking timer ("Working... 12s") does not count as a change.
   const plain = text.replace(/[0-9]+/g, '#');
   for (let i = 0; i < plain.length; i++) h = (h * 31 + plain.charCodeAt(i)) | 0;
-  const status = { sig: plain.length + ':' + h, busy, typing, idle, tail, button, buttonInfo, approveSpinning, hasChat: text.length > 0 };
+  const status = { sig: plain.length + ':' + h, busy, typing, idle, tail, chatFrame: chatDoc.defaultView ? chatDoc.defaultView.name : '', button, buttonInfo, approveSpinning, hasChat: text.length > 0 };
   for (const d of docs) {
     // Never click the same button twice: after a click Duo's button keeps spinning, still
     // "enabled", and clicking it again can confuse it.
@@ -395,27 +423,47 @@ async function reopenSession(contextId, sessionId) {
 }
 
 async function maybeContinue(key, v, contextId, sessionId) {
-  if (!CONTINUE_MSG || reopen || !v.idle || v.typing || v.waitingForYou || v.approveSpinning) return;
+  if (!CONTINUE_MSG || reopen || !v.idle) return;
   const now = Date.now();
   const st = views.get(key);
   if (!st) return;
-  if (lastContinueSig === v.sig) return;                       // nothing changed since the last one
-  if (v.tail.toLowerCase().endsWith(CONTINUE_MSG.toLowerCase())) return;
-  let why = null;
   const quietFor = now - st.changed;
+  // Once Duo has been stopped for VSAA_IDLE_MINUTES, say why nothing is sent (once per screen).
+  const hold = (reason) => {
+    if (IDLE_MS && quietFor > IDLE_MS && st.heldFor !== v.sig + reason) {
+      st.heldFor = v.sig + reason;
+      log(`stopped for ${Math.round(quietFor / 1000)} s, not continuing: ${reason}`);
+    }
+  };
+  if (v.typing) return hold('there is text in the chat box');
+  if (v.waitingForYou) return hold('a blocked command is waiting for you');
+  if (v.approveSpinning) return hold('an approved command is still spinning (the refresh handles that)');
+  if (st.finishedSig === v.sig) return;                        // already judged finished (logged)
+  if (lastContinueSig === v.sig) return hold('already sent one and nothing has changed since');
+  if (v.tail.toLowerCase().endsWith(CONTINUE_MSG.toLowerCase())) return hold('the last thing in the chat is our own continue message');
+  let why = null;
   if (quietFor < 10_000) return;                               // let the screen settle first
   const midStep = endsMidStep(v.tail);
   const done = DONE.test(v.tail.slice(-300));
-  if (INTERRUPTED.test(v.tail.slice(-250))) why = 'Duo says the connection was lost';
-  else if (done) return;                                       // the agent marked the end itself
+  // "Connection lost" counts only when it is the very last thing in the chat: once anything
+  // follows it (our continue message, the agent's reply), it is an old message.
+  const lost = (() => {
+    const re = new RegExp(INTERRUPTED.source, 'gi');
+    let m, end = -1;
+    while ((m = re.exec(v.tail))) end = m.index + m[0].length;
+    return end >= 0 && v.tail.slice(end).replace(/[^A-Za-z]/g, '').length < 20;
+  })();
+  if (done) return hold('the agent ended with an end marker');
+  if (lost) why = 'Duo says the connection was lost';
   else if (afterRefresh && now - afterRefresh < 60_000) {
     if (midStep) why = 'the reopened session stopped in the middle of a step';
     else {
       log('the reopened session ends with a message from Duo - it finished or is asking you; not continuing');
-      afterRefresh = 0; lastContinueSig = v.sig; return;
+      afterRefresh = 0; st.finishedSig = v.sig; return;
     }
-  } else if (IDLE_MS && quietFor > IDLE_MS && midStep) {
-    why = `stopped on a tool step for ${Math.round(quietFor / 1000)} s`;
+  } else if (IDLE_MS && quietFor > IDLE_MS) {
+    if (midStep) why = `stopped on a tool step for ${Math.round(quietFor / 1000)} s`;
+    else return hold(`the chat ends with a written message ("...${v.tail.slice(-80)}")`);
   }
   if (!why) return;
   afterRefresh = 0;
