@@ -338,6 +338,7 @@ START_DOCS = (
     ("features.json", False,
      "docs.py needs it; a Markdown-only ledger moves over by feature import"),
     ("HOW_TO_RUN.md", False, "no phase has written it yet"),
+    ("BUILD_ASSUMPTIONS_{app}.md", False, "no phase has recorded an assumption yet"),
     ("HIGH_LEVEL_DESIGN_{app}.md", True, ""),
     ("LOW_LEVEL_DESIGN_{app}.md", True, ""),
     ("BUSINESS_REQUIREMENTS_{app}.md", True, ""),

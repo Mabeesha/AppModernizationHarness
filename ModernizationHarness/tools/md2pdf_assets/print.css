@@ -1,0 +1,83 @@
+/* The page style md2pdf.py prints with. Page size, margins, the footer and the content width
+   are added by the script; a --css file is added after this one and wins. */
+:root {
+  --ink: #1f2328;
+  --muted: #57606a;
+  --rule: #d0d7de;
+  --head: #eef1f4;
+  --zebra: #f8f9fa;
+  --accent: #24527a;
+  --code: #f4f6f8;
+}
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: #fff;
+  font: 10.5pt/1.45 "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+#content, .cover, .toc { margin: 0 auto; }
+
+h1, h2, h3, h4, h5, h6 { color: var(--accent); line-height: 1.25; break-after: avoid; page-break-after: avoid; }
+h1 { font-size: 20pt; margin: 0 0 10pt; }
+h2 { font-size: 15pt; margin: 20pt 0 6pt; padding-bottom: 3pt; border-bottom: 1px solid var(--rule); }
+h3 { font-size: 12.5pt; margin: 14pt 0 4pt; }
+h4, h5, h6 { font-size: 11pt; margin: 12pt 0 4pt; }
+p, li { orphans: 3; widows: 3; }
+p { margin: 0 0 7pt; }
+ul, ol { margin: 0 0 7pt; padding-left: 18pt; }
+li { margin: 1.5pt 0; }
+a { color: var(--accent); text-decoration: none; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 12pt 0; }
+blockquote { margin: 8pt 0; padding: 4pt 10pt; border-left: 3pt solid var(--rule); color: var(--muted); }
+blockquote p:last-child { margin-bottom: 0; }
+
+code { font-family: Consolas, "SFMono-Regular", Menlo, monospace; font-size: 9pt; background: var(--code); padding: 0 2pt; border-radius: 2pt; }
+pre {
+  background: var(--code); border: 1px solid var(--rule); border-radius: 3pt; padding: 6pt 8pt;
+  white-space: pre-wrap; overflow-wrap: anywhere; font-size: 8.5pt; line-height: 1.35;
+  break-inside: avoid;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* Tables: a repeating header row, rows never split, long text wraps inside its cell. */
+.table-wrap { margin: 8pt 0 10pt; }
+table { border-collapse: collapse; width: 100%; font-size: 9pt; line-height: 1.35; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; page-break-inside: avoid; }
+th, td { border: 1px solid var(--rule); padding: 3pt 5pt; vertical-align: top; text-align: left; overflow-wrap: break-word; }
+th code, td code { overflow-wrap: anywhere; }
+th.nowrap, td.nowrap { white-space: nowrap; } /* a column whose every value is short: IDs, dates */
+th { background: var(--head); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--zebra); }
+table.many-columns { font-size: 8pt; }
+table.many-columns th, table.many-columns td { padding: 2pt 4pt; }
+
+/* Diagrams and images: scaled to the page, never split, kept with their caption. */
+.diagram { text-align: center; margin: 10pt 0; break-inside: avoid; page-break-inside: avoid; }
+/* mermaid sizes each diagram itself (width 100%, max-width its natural width): never enlarged */
+.diagram svg { height: auto; max-height: 225mm; }
+img { max-width: 100%; height: auto; max-height: 225mm; }
+figure.keep { margin: 10pt 0; break-inside: avoid; page-break-inside: avoid; }
+figure.keep > .diagram { margin: 0; }
+.caption { text-align: center; color: var(--muted); font-size: 9pt; margin: 3pt 0 0; }
+.diagram-error { color: #b42318; border-color: #b42318; background: #fef3f2; }
+
+/* Cover page and contents. */
+.cover { display: flex; flex-direction: column; justify-content: center; break-after: page; page-break-after: always; }
+.cover .doc-title { font-size: 26pt; font-weight: 600; color: var(--accent); margin: 0 0 8pt; line-height: 1.2; }
+.cover .doc-status { font-size: 12pt; color: var(--muted); margin: 0 0 28pt; }
+.cover table { width: auto; align-self: flex-start; font-size: 10.5pt; }
+.cover table tr th, .cover table tr td { border: 0; border-bottom: 1px solid var(--rule); padding: 4pt 24pt 4pt 0; background: none; }
+.cover th { color: var(--muted); font-weight: 500; }
+.toc { break-after: page; page-break-after: always; }
+.toc h2 { border: 0; }
+.toc ol { list-style: none; padding: 0; margin: 0; }
+.toc li { margin: 3pt 0; }
+.toc a { color: var(--ink); }
+
+.watermark {
+  position: fixed; top: 42%; left: 0; right: 0; text-align: center; z-index: 0;
+  font-size: 110pt; font-weight: 700; letter-spacing: 8pt; color: rgba(180, 35, 24, 0.07);
+  transform: rotate(-30deg); pointer-events: none;
+}

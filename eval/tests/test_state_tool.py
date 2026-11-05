@@ -115,7 +115,7 @@ class StateToolTest(unittest.TestCase):
     # --- start: one command that begins a Stage 4 run ----------------------------------------
 
     DOCS = ["PROJECT_CONTEXT.md", "PLAN_Demo.md", "FEATURE_STATUS.md", "features.json",
-            "HOW_TO_RUN.md", "HIGH_LEVEL_DESIGN_Demo.md", "LOW_LEVEL_DESIGN_Demo.md",
+            "HOW_TO_RUN.md", "BUILD_ASSUMPTIONS_Demo.md", "HIGH_LEVEL_DESIGN_Demo.md", "LOW_LEVEL_DESIGN_Demo.md",
             "BUSINESS_REQUIREMENTS_Demo.md", "FUNCTIONAL_REQUIREMENTS_Demo.md",
             "TECHNICAL_REQUIREMENTS_Demo.md", "LEGACY_CODE_MAP_Demo.md"]
 
@@ -153,7 +153,8 @@ class StateToolTest(unittest.TestCase):
         docs = self.doc_lines(s)
         self.assertEqual(list(docs), self.DOCS)
         for name, line in docs.items():
-            optional = name in ("features.json", "HOW_TO_RUN.md", "LEGACY_CODE_MAP_Demo.md")
+            optional = name in ("features.json", "HOW_TO_RUN.md", "BUILD_ASSUMPTIONS_Demo.md",
+                                "LEGACY_CODE_MAP_Demo.md")
             self.assertTrue(line.startswith(("optional" if optional else "required") + " missing "),
                             line)
 

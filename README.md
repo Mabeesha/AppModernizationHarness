@@ -24,6 +24,9 @@ reference, not a verified answer key).
                         └── next phase ◄── you commit (optional) ────┘
                                     ├─► you test whenever you like
                                     └─► [5] review (separate chat, optional)
+
+ build done ─► [6] client pack ─► clean BRD / FRD / TRD / HLD / LLD + PDFs for the client,
+                                   + run-it-locally and deployment-guide documents
 ```
 
 Stages **0–3 run once each**, in order. Then **4 loops** — one phase at a time, until it's
@@ -92,7 +95,7 @@ project conventions. If an upstream skill would land on a directory it doesn't o
 updater stops before changing anything. To take different .NET plugins, edit
 `DOTNET_PLUGINS` at the top of both `update-skills.sh` and `update-skills.ps1`.
 
-The six numbered stage files stay in `ModernizationHarness/` — you never copy those.
+The seven numbered stage files stay in `ModernizationHarness/` — you never copy those.
 Moving a project that is already part-way through onto a newer harness version? See
 `DEVELOPER_GUIDE.md §Upgrading the Harness Mid-Project` — don't re-run the installer for that.
 
@@ -222,6 +225,22 @@ review its own work.
 
 **A run stopped halfway** (timeout, crash)? Just `run stage 4` again — it finishes the
 half-built phase first, judged by what is in the files.
+
+**Done building? Make the client's documents.**
+
+```
+run stage 6 — app: <App>
+```
+
+The five documents in `out/` talk about the harness and carry stale open questions. Stage 6 makes
+clean copies in `out/artifacts/` (`<App>_BRD.md` … `<App>_LLD.md`): no harness references, every
+open question settled with evidence or listed for the client, then printed to PDF with the
+Chrome or Edge you already have. It asks you once, reviews in a separate chat
+(`run stage 6 review — app: <App>`, at most three rounds), and leaves your originals untouched.
+The same run also writes `<App>_RUN_LOCALLY.md` (cleaned from `HOW_TO_RUN.md`) and
+`<App>_DEPLOYMENT_GUIDE.md` (configuration, secrets by name only, build, deploy, checks) —
+Markdown only, written so a capable stranger can follow them.
+To print any Markdown file yourself: `python ModernizationHarness/tools/md2pdf.py FILE.md`.
 
 **Files in `.harness-tmp/` show up in `git status`?** That folder is the agent's scratch space:
 small files it hands the harness's tools, and the output of long builds, which it runs in the

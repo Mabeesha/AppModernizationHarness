@@ -35,11 +35,13 @@ listing reads as the running order:
 | `3_PLAN_INSTRUCTIONS.md` | 3 | Design → phased plan (**remaining work only**) + `state.json phases[]` + the feature ledger (`features.json`, shown as `FEATURE_STATUS.md`) |
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | 4 | **Run once per phase**, in a loop, until done |
 | `5_REVIEW_INSTRUCTIONS.md` | 5 | Independent audit; findings loop back to stage 4 |
+| `6_CLIENT_PACK_INSTRUCTIONS.md` | 6 | **After the build:** clean copies of the five documents for the client, open questions settled, printed to PDF — plus a run-it-locally document and a deployment guide |
 
 Stages 0–2 run **once each, in order** (and are rerun when something changes). Stages **3, 4 and
 5 then run in a loop** — refresh the plan, implement a phase, test it, review it, repeat — so
 the numbering marks position in the pipeline, not a one-way path. **Stage 3 is not a one-shot:**
-the plan covers only remaining work and is re-checked at the start of most Stage 4 runs.
+the plan covers only remaining work and is re-checked at the start of most Stage 4 runs. **Stage
+6 runs once the build is done**, to make the documents you hand to the client.
 
 ### Setup — do this once, before Stage 0
 
@@ -92,12 +94,18 @@ commit them or leave them.
       │  YOU commit & (when  │◄─────────────┘  findings → state.json changeLog[]
       │  you like) test      │
       └─────────────────────┘   … repeat until FEATURE_STATUS.md is fully delivered
+      │
+      ▼
+ [6] Client Pack ───────► artifacts/<App>_BRD.md … _LLD.md  + PDFs   (for the client)
+                          artifacts/<App>_RUN_LOCALLY.md, _DEPLOYMENT_GUIDE.md
+                          CLIENT_PACK_NOTES.md                        (its working record)
 ```
 
 Stages 0–2 are each **one agent run** producing documents. Stage 3 produces the plan and is then
 **re-entered from Stage 4's Step 0c** whenever the remaining phases need re-slicing. Stage 4 is a
 **loop** — one run per phase (or per minor edit), with you in between. Stage 5 (**Review**) runs
-independently against any delivered work, and its findings loop back into Stage 4.
+independently against any delivered work, and its findings loop back into Stage 4. Stage 6
+(**Client Pack**) runs after the build: it only reads what the other stages wrote.
 
 **Nothing in this loop blocks on you.** You can run four phases before testing any of them. The
 only gate anywhere is a phase's own exit criteria, which the agent must pass before it may call
@@ -150,7 +158,7 @@ already-applied by the `progress` high-water mark, not by diffing.
 
 There is no hardcoded "reuse the DB / use AD / Google Java Style" anymore. In Stage 0 **you
 declare the constraints that apply to your project**, each with a stable ID — and, critically,
-each with its **per-stage obligations**: what Requirements, Design, Plan, Implement, and Review
+each with its **per-stage obligations**: what Requirements, Design, Plan, Implement, Review and Hand-over
 must actually *do* to honor it.
 
 That obligations list is the **single place constraint-specific rules live**. The stage
@@ -312,6 +320,70 @@ it used to hold only ever fired for someone who chose to run a review in the fir
 its findings already survived without it, through the change log. With no hard gates left in the
 pipeline, this stage is your main independent check: run it on every phase that carries risk,
 and on the whole build at milestones (see §Keeping the Request Bill Down).
+
+### Stage 6 — Client Pack  · `6_CLIENT_PACK_INSTRUCTIONS.md`
+The five documents in `out/` were written for the next agent, not for your client: they mention
+`PROJECT_CONTEXT`, intake questions, phase IDs and `state.json`, carry raw `OPEN QUESTION:` /
+`ASSUMPTION:` markers, link into the legacy source, and their open questions went stale as the
+build answered them. Stage 6 makes **clean copies** for the client in `out/artifacts/` —
+`<App>_BRD.md`, `_FRD`, `_TRD`, `_HLD`, `_LLD` — and prints them to PDF. The originals stay as they
+are.
+
+How a run goes — say `run stage 6 — app: <App>`, and again after each step below; the agent picks
+up where the pack stands, from its notes:
+
+1. **It checks the build is finished** — every phase done, a whole-build review after the last
+   change, no design change since the last design update. Anything short of that and the pack
+   is marked **Draft** (a watermark on every PDF page).
+2. **It lists every open question and assumption** — in the five documents, `PROJECT_CONTEXT`, the
+   plan, the intake answers, every review, and `BUILD_ASSUMPTIONS_<App>.md`, where the build now
+   writes down each assumption it makes (Stage 4, Step 2 item 4b). A script does the hunting
+   (`tools/clientdocs.py scan`) into `out/CLIENT_PACK_NOTES.md`, its private notes.
+3. **It settles each one, with evidence**: *Decided* (you decided it), *Chosen in design*,
+   *Adopted in build* (the code does it, nobody decided), *Confirmed* or *Corrected* (an assumption
+   turned out true or false), *Not applicable*, *Still open*, or *Conflict* (two sources disagree).
+   No proof means *Still open* — it never guesses. The client's copy lists the design choices and
+   the build's assumptions under "please confirm".
+4. **It asks you once**: every Conflict (these never reach the client), anything it could not
+   settle that you might answer, and the client's name for the cover page. Your answers are kept
+   in its notes; it offers to put the ones later work needs in the change log too.
+5. **It copies, then edits** — a script copies each document mechanically (links to plain text,
+   the revision history becomes a document-control table, the reference-sample section of the
+   LLD is dropped), and every other change is an exact replacement. Nothing is rewritten from
+   scratch, so nothing is silently lost; a check proves no requirement ID or section went
+   missing and no harness reference is left.
+6. **A separate session reviews it** — open a new chat and say `run stage 6 review — app: <App>`.
+   PASS means no blocker and no major finding. **At most three rounds per version**; if the third
+   still finds problems, you choose: `accept the client pack as it is` (only when nothing serious
+   is left) or `run stage 6 — app: <App>, new version`.
+7. **It prints the PDFs** with `tools/md2pdf.py` — through the Chrome or Edge already on your
+   machine, offline: a cover page, a contents page, page numbers, tables with a repeating header
+   row, diagrams drawn sharp and kept with their captions. You can run it yourself on any
+   Markdown file: `python <stage folder>/tools/md2pdf.py FILE.md` (no arguments prints how).
+
+**The requirements documents describe the old app** — that is what Stage 1 extracted. The pack
+keeps them as the **requirements baseline** the new system was built to, with a short section in
+each on how the delivered system meets it.
+
+**Two more documents, for the people who run and deploy it** — Markdown only, never printed,
+written for a capable stranger (someone skilled who knows nothing of your project or team):
+
+- **`<App>_RUN_LOCALLY.md`** — copied from `HOW_TO_RUN.md` and cleaned: no harness words, your
+  machine's paths turned into `<placeholders>`, and a short smoke test in place of the pointer to
+  the feature ledger. Every command of the original stays, and the agent runs the ones its edits
+  changed. One that fails or cannot run here is labelled *Not verified* and reported — the
+  document is finished anyway.
+- **`<App>_DEPLOYMENT_GUIDE.md`** — there is no single source, so a script writes fixed sections
+  (what you deploy, environments, before you start, configuration, secrets, build, database,
+  deploy, check it worked, logging, go-live and rollback, open items), with the configuration and
+  secrets tables filled from LLD §7. The agent fills the rest from facts the harness already holds
+  — your intake answers on deployment, environments, CI/CD and how secrets are delivered, the HLD
+  and the LLD — checked against the code, and asks you once about anything missing (the
+  production address, the vault's name). **Secrets are named, never valued** — the check enforces
+  it in every document. A step it could not try reads *Not verified in a deployed environment*.
+  If the code and LLD §7 disagree about a configuration key, you fix whichever is wrong first.
+  For this, Stage 2 now writes LLD §7 as one table: key, shape, default, secret, set at build or
+  run time, differs per environment.
 
 ---
 
@@ -576,6 +648,11 @@ larger edits. The rest is how **you** run it:
    build folders. Without it the agent used shell pipelines, which often failed or timed out —
    each one a billed call. You can use it yourself too: `python <stage folder>/tools/search.py`
    with no command prints how.
+10. **The client pack is mostly scripts.** Stage 6's hunting (every open question, every harness
+   reference) and its checking are done by `tools/clientdocs.py`, and the PDFs by
+   `tools/md2pdf.py` — neither calls the model. Expect about 30–35 billed calls for the writer's
+   first pass with the run document and the deployment guide, and 13–20 for each review round;
+   that is why the rounds are capped at three.
 
 ---
 
@@ -596,7 +673,7 @@ stage rerun — and look below for a subsection about that version.
 ### 1. Find your stage folder
 
 The installer never copies the stage files. Your project's `AGENTS.md` names where they live, in
-its first section ("The six numbered stage files live in …"). That path is your **stage
+its first section ("The seven numbered stage files live in …"). That path is your **stage
 folder**:
 
 | Case | `AGENTS.md` points to… | What to do |
@@ -835,6 +912,21 @@ Two changes, nothing to migrate by hand. Copy in the new stage folder and rebuil
 - **`tools/longrun.py` is new.** It runs a long build or test suite in the background, so a
   command time limit no longer cuts it off (`§Keeping the Request Bill Down`, tip 8). It needs
   nothing set up.
+
+### Upgrading to a version with the client pack (Stage 6)
+
+Copy in the new stage folder and rebuild `AGENTS.md` (steps 3–4) — the copy brings
+`6_CLIENT_PACK_INSTRUCTIONS.md`, `tools/clientdocs.py`, `tools/md2pdf.py` and the
+`tools/md2pdf_assets/` folder the PDF script needs. Your `state.json` is unchanged. Constraints
+written before it have no *Hand-over* obligation, so they do not change Stage 6; rerun Stage 0 if one
+should (a data-reuse or connection-identities constraint usually should), then
+`run stage 6 — app: <App>, new version` so the pack honours it. Phases built
+before the upgrade wrote no `BUILD_ASSUMPTIONS_<App>.md`; Stage 4 creates it at the first hand-off
+that has an assumption to record, and Stage 6 asks you for any earlier ones you remember.
+A pack made before the run document and the deployment guide existed gets them in a new version
+(`run stage 6 — app: <App>, new version`): only the copies whose source changed are made again,
+so earlier edits stay. Rerun Stage 2 if you want LLD §7 as the new table — until then the
+deployment guide's tables are pre-filled from the names in §7, and the key check is skipped.
 
 ### Upgrading to a version with `search.py` and an installer that ignores nothing
 
@@ -1097,6 +1189,18 @@ After the final phase is delivered:
 > run stage 5 on the **whole build**
 > Codebase is this repo. Emphasize security and requirements coverage. Write the report to `./out/`.
 
+### Example E — The documents for the client
+
+After the whole-build review:
+
+> run stage 6 — app: EmployeeSearch. The client is Acme Ltd; we are the Platform Team.
+
+The agent scans, settles what the evidence settles, and stops once with its questions. You
+answer; `run stage 6 — app: EmployeeSearch` again, and it writes and checks the copies. In a new
+chat, `run stage 6 review — app: EmployeeSearch`; back in the first, `run stage 6 — app:
+EmployeeSearch` fixes what the round found, or — after a PASS — marks the pack Final and prints
+`out/artifacts/pdf/EmployeeSearch_BRD.pdf` … `_LLD.pdf`.
+
 ---
 
 ## Quick Reference — Who Writes What
@@ -1123,6 +1227,9 @@ After the final phase is delivered:
 | `state.json` progress | Stage 0 (init) | no | Stage 4 advances the high-water mark |
 | Application code | Stage 4 | hotfixes → log them | yes (in the working tree; you commit) |
 | Review reports | Stage 5 | no | yes |
+| `BUILD_ASSUMPTIONS_<App>.md` | Stage 4 | no | Stage 4 adds a row per assumption or open question at hand-off; rows **never changed or removed** |
+| `artifacts/<App>_BRD.md` … `_LLD.md`, `_RUN_LOCALLY.md`, `_DEPLOYMENT_GUIDE.md` + `artifacts/pdf/` | Stage 6, through `tools/clientdocs.py` (`skeleton` for the guide) and `tools/md2pdf.py` | no — to change one, rerun Stage 6, or the stage that owns the original and then a new pack version | Stage 6 only: `copy` once per version, then `replace` and `set`; nothing else reads them |
+| `CLIENT_PACK_NOTES.md` | Stage 6 (`clientdocs.py scan`) | no — answer the agent's questions instead | Stage 6: items, exemptions and your answers; the review log by the Stage 6 reviewer only |
 
 *(If you hotfix code or edit a design doc by hand, add a `changeLog` entry so the next run knows
 the baseline moved.)*

@@ -96,7 +96,8 @@ every real finding is a mismatch between two entries in this map, so build it ca
   record every field path it defines, including those introduced in inline snippets in field
   notes rather than in the main template block.
 - **Identifier conventions** — the ID shapes the set uses (`C1`, `P-2`, `FR-3`, `DD-1`,
-  `Step 0c`, obligation keys such as `requirements | design | plan | implement | review`) and
+  `Step 0c`, obligation keys such as `requirements | design | plan | implement | review |
+  hand-over`) and
   where each is defined.
 - **Stage I/O** — for each stage: declared inputs, declared outputs, and its Definition of
   Done, if it has one.

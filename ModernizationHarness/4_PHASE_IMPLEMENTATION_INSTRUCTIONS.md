@@ -62,6 +62,8 @@ each increment is small, reviewable and separately testable.
    records what the target takes from each sample and what it does not. Open the sample itself
    only for detail §3c leaves out, and never to re-decide what §3c settled.
 8. **The codebase built so far** — the working baseline: extend it, keep it green.
+9. **`BUILD_ASSUMPTIONS_<AppName>.md`**, where it exists — the build's own assumptions and open
+   questions, one row each; you add to it at hand-off (Step 2, item 4b) and never change a row.
 
 When sources conflict, apply the authority ladder: a **constraint in `PROJECT_CONTEXT §4`
 always wins** — if honoring it breaks a design contract, that is a blocker, not a choice. For
@@ -108,7 +110,7 @@ this stage produces to `context.locations.documents`; code goes to `context.loca
    above. A documents location *not found from here* means you are not at the working-tree
    root: run it from there.
 2. **Documents, in one step**, from the paths `start` printed — the plan, `FEATURE_STATUS.md`,
-   `HOW_TO_RUN.md` where it exists, the HLD and LLD, the three requirements files and
+   `HOW_TO_RUN.md` and `BUILD_ASSUMPTIONS_<AppName>.md` where they exist, the HLD and LLD, the three requirements files and
    `PROJECT_CONTEXT.md` — with your file tool, several files in one step where it allows, or one
    shell command for your shell.
 
@@ -446,7 +448,8 @@ test guide where the change surface warrants.
      without `--developer-said`.
 
 4. **Update `HOW_TO_RUN.md` only if it is now wrong.** One file for the whole project, in the
-   documents location. It describes **how to build, run and configure the app as it stands**,
+   documents location; the first phase that makes the app runnable creates it —
+   you write `HOW_TO_RUN.md` then, from this outline, and keep it current after. It describes **how to build, run and configure the app as it stands**,
    not what to test:
 
    ```markdown
@@ -467,6 +470,27 @@ test guide where the change surface warrants.
      step. Most phases change nothing here.
    - It holds no per-feature checks. Those live in `FEATURE_STATUS.md`, next to the column the
      developer ticks.
+
+4b. **Record this run's assumptions and open questions** — you write `BUILD_ASSUMPTIONS_<AppName>.md`
+   in the documents location — one row for each `ASSUMPTION:` or `OPEN QUESTION:` the report
+   (item 7) will put to the developer. Skip it when there are none. It is how they survive past
+   this chat: the client hand-over (Stage 6) reads them when it settles the documents' open
+   questions. Create the file whole when it is missing:
+
+   ```markdown
+   # Build Assumptions & Open Questions — <AppName>
+
+   *What the build assumed or left open, one row per item, as each run's hand-off reported it.
+   Rows are only ever added — never edited or removed; an answer arrives through the change log.*
+
+   | # | Run | Date | Item | Why | Where |
+   |---|---|---|---|---|---|
+   | BA-1 | P-3 | 2026-11-05 | `ASSUMPTION:` Name search matches anywhere in the name | The LLD is silent; the legacy app does the same (`EmployeeDao.cs:40`) | `backend/src/main/java/app/EmployeeRepository.java:42` |
+   ```
+
+   Otherwise add rows at the end of its table, numbering on from the last `BA-<n>`, in one edit;
+   never change or remove a row. *Run* is the phase or edit id; *Item* starts with the marker;
+   *Where* is the code that embodies what was assumed (`—` for an open question).
 5. **Update `state.json`:**
    - Set the phase `status: "done"`. That is the terminal status — there is nothing further to
      set and nothing to wait for. Whether a human has tested the work lives in
@@ -536,7 +560,8 @@ config value, a label, a log line, an obvious bug fix. Anything larger is a doc 
 by a phase (§When a Change Touches a Contract); do not stretch this category to avoid that.
 
 The shape is the same as a phase, minus phase-status transitions: make the change with
-tests/docs/state updated, verify, update the ledger, prepare the commit hand-off, report, stop.
+tests/docs/state updated, verify, update the ledger, record any assumptions (Step 2, item 4b, with
+the edit's `E-<n>` as its *Run*), prepare the commit hand-off, report, stop.
 
 **The documents on an edit run.** In the feature ledger — one `feature set` call — edit in
 place the `howToCheck` of any row whose behavior this edit changed, add `E-<n>` to its `phases`,
@@ -809,7 +834,8 @@ no plan test guide of its own and does not displace the current phase.
       checkbox ticked.
 - [ ] **The two counts are in the report** — features awaiting testing, and open review
       findings — asked for or not.
-- [ ] Open questions and assumptions reported, not silently resolved.
+- [ ] Open questions and assumptions reported, not silently resolved — and each added as a row
+      to `BUILD_ASSUMPTIONS_<AppName>.md` (Step 2, item 4b), no earlier row changed.
 - [ ] Every message to the developer, including the closing report, follows `AGENTS.md §Writing for the Developer`.
 
 ---

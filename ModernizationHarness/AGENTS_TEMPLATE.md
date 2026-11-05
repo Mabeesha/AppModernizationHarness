@@ -1,6 +1,6 @@
 ## Running a stage
 
-The six numbered stage files live in **`ModernizationHarness/`**, relative to the root of this
+The seven numbered stage files live in **`ModernizationHarness/`**, relative to the root of this
 working tree. *Keeping them somewhere else? Change that path here, once — it is the only place
 it is written down.*
 
@@ -15,11 +15,14 @@ outright; neither form is more official. **Load that file and follow it:**
 | "stage 3", "plan", "replan" | `3_PLAN_INSTRUCTIONS.md` |
 | "stage 4", "next phase", "build P-4", "implement" | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` |
 | "stage 5", "review", "audit" | `5_REVIEW_INSTRUCTIONS.md` |
+| "stage 6", "client pack", "hand-over documents", "documents for the client" | `6_CLIENT_PACK_INSTRUCTIONS.md` |
 
 - **Everything after the stage name is that stage's Additional Instructions** ("rerun stage 2 —
   use a modular monolith"). Reruns are normal; the stage file's §Rerunning says what to do.
 - **Stage 4 with no target** → the next planned phase. **Stage 5 with no target** → ask whether
-  they mean a phase, a minor edit, or the whole build; don't pick one.
+  they mean a phase, a minor edit, or the whole build; don't pick one. **"Stage 6 review"** (or
+  "review the client pack") → Stage 6's §Review, in a session that wrote none of the pack — not
+  Stage 5.
 - **Stage 0 on a first run** needs the intake path, the legacy app path, an app name, and where
   to write. Every later stage reads `context.locations` from `state.json` — **never make the
   developer retype a path it already holds.**
@@ -223,7 +226,10 @@ front of the edit.
   documents it owns, and Stage 4 owns the **forward plan**: at Step 0c it may add, remove,
   reorder, split, and merge the **remaining** phases (with the developer's approval) and updates
   statuses, tasks, and test guides — but changes design or requirements only by a purely
-  clarifying fix.
+  clarifying fix. The documents in `<documents>/artifacts/` — the client copies, the run document and the
+  deployment guide — are Stage 6's: changed only in a Stage 6 run, through
+  `tools/clientdocs.py replace` and `set`, never by hand; `BUILD_ASSUMPTIONS_<AppName>.md`
+  is Stage 4's, and its rows are only ever added to.
 
 ---
 

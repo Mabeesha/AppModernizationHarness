@@ -133,6 +133,13 @@ what each later stage must actually *do* to honor it.
 > **Marking "no obligation":** an empty string (`""`) or an omitted key means *this constraint
 > does not affect that stage* — it is a deliberate "nothing to do", never an unmet obligation.
 > Agents must not treat it as a gap to fill or a task to invent.
+>
+> **The hand-over stage too.** *Hand-over* is the obligation for Stage 6, the hand-over pack —
+> the client's copies of the documents, the run-it-locally document and the deployment guide.
+> State one where a constraint changes what those documents must say, show or leave out: a
+> data-reuse constraint's guide states the database is used as it is and never changed; a
+> connection-identities constraint's guide names each account and where its secret lives; a
+> confidentiality rule names the data no client document may show.
 
 Common constraint *archetypes* to consider (include only those that apply — a green-field
 target may have none of these; a DB-reuse migration will have the first):
@@ -140,7 +147,9 @@ target may have none of these; a DB-reuse migration will have the first):
 - **Data / database reuse** — e.g. "Reuse the existing database as-is; no schema redesign
   or data migration; ORM validates against the live schema." If chosen, the data model
   must later be captured **exactly** (verbatim table/column names). If the target instead
-  gets a fresh schema, say so — it changes how requirements capture the data model.
+  gets a fresh schema, say so — it changes how requirements capture the data model. Its
+  *Hand-over* obligation: the deployment guide states that the database is used as it is and
+  that nothing deployed may change its schema.
 - **Data migration** — where Q7 is a new schema, Q8 says how existing data moves into it.
   Record who builds it, one-time vs. repeated, the verification method, and the handling of
   records that fail to migrate. Where this pipeline builds it, obligations should require:
@@ -182,7 +191,8 @@ target may have none of these; a DB-reuse migration will have the first):
   is stated) and no credential in source; *Review* — a connection that authenticates
   differently from the statement, or code or configuration that uses more permission than the
   table records (e.g. schema generation enabled where read/write is stated), is a
-  **Blocker**.
+  **Blocker**; *Hand-over* — the deployment guide names each connection's account and
+  authentication method, and where its secret lives, never the secret.
 - **Authentication / authorization** (Q11) — e.g. "Keep real AD-based auth" vs. "auth seam +
   dev stub, real IdP deferred." Capture the *authorization model* in portable terms (roles →
   groups/claims) regardless, plus where the legacy app defines it (source, database tables,
@@ -520,6 +530,7 @@ actionable downstream:
   - *Plan:* what the phasing must guarantee (e.g. an early validation step).
   - *Implement:* what must hold in the running app.
   - *Review:* what compliance to check.
+  - *Hand-over:* what the hand-over pack must state, show or leave out because of C1.
 - Repeat for C2, C3, … These obligations are the **single place** constraint-specific rules
   live; every later stage reads them by ID rather than re-deriving them.
 

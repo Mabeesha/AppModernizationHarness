@@ -255,10 +255,13 @@ matches exactly.
 ## 4. Validation Rules                  (field- and rule-level, tied to FR IDs)
 ## 5. Auth Seam                         (interface, identity/claims contract, stub behavior)
 ## 6. Error & Response Conventions
-## 7. Configuration Keys                (names & shapes — no secrets; must include the API
-                                        base URL the frontend uses, the CORS allowed origins
-                                        under `separate-origins`, and every value that differs
-                                        between local and the deployment target)
+## 7. Configuration Keys                (one table — Key | Shape | Default | Secret? (Yes /
+                                        No) | Set at (build / run time) | Differs per
+                                        environment — with no secret value: a secret's
+                                        Default is `—`; must include
+                                        the API base URL the frontend uses, the CORS allowed
+                                        origins under `separate-origins`, and every value that
+                                        differs between local and the deployment target)
 ## 8. Traceability                      (design element → requirement ID)
 ```
 
@@ -387,7 +390,8 @@ because everything downstream will be built to whatever you choose here.
       `separate-origins`); the local dev arrangement and ports; config/secrets delivery and
       health checks for the deployment target.
 - [ ] The API base URL and any origin-dependent values appear as **configuration keys in LLD
-      §7**, never as hard-coded hosts.
+      §7**, never as hard-coded hosts; §7 is the one table its template line names (the
+      client hand-over's deployment guide is filled and checked from it).
 - [ ] Every requirement (BR/FR/technical) and every constraint is covered by a design element.
 - [ ] HLD carries rationale for each significant decision; LLD contracts are exact and
       buildable.

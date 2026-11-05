@@ -7,7 +7,7 @@ minutes, [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) explains why it's built this w
 one is different — it walks through the **situations you'll actually hit**, in order of how
 likely you are to hit them, and shows the exact prompt plus what the agent does behind it.
 
-Nothing here is new machinery. It's the same six stage files — plus the `AGENTS.md` sitting in
+Nothing here is new machinery. It's the same seven stage files — plus the `AGENTS.md` sitting in
 your project root — seen from your chair.
 
 ---
@@ -24,7 +24,7 @@ cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
 `INTAKE.md` you fill in once. **`AGENTS.md` is the one that changes how the scenarios below
 behave** — and it's the easiest to skip, because nothing visibly breaks when you do.
 
-Here's why it matters. Every rule in the six stage files applies **only while you are explicitly
+Here's why it matters. Every rule in the seven stage files applies **only while you are explicitly
 running that stage**. The moment you're just chatting — *"accept P-2"*, *"add a department
 filter"*, *"why is this test failing?"* — not one of them is loaded. `AGENTS.md` is the file the
 agent reads in **every** session, and it carries the things that have to hold everywhere:
@@ -84,6 +84,7 @@ behind the scenes, and what is true afterwards. Prompts are copy-paste ready.
 | You're unhappy with a stage's output | Rerun that stage with what you want different |
 | You changed an intake answer | Edit `INTAKE.md`, rerun Stage 0 |
 | You fixed something by hand | Tell the agent — it logs it so the next run isn't surprised |
+| The build is done; the client needs the documents | `run stage 6 — app: <App>` — then `run stage 6 review — app: <App>` **in a fresh session** (Scenario 17b) |
 
 ---
 
@@ -613,6 +614,61 @@ move; **the matrix is the commitment.**
 
 ---
 
+## Scenario 17b · Hand the documents to the client
+
+**Situation:** the build is done and reviewed. The client wants the BRD, FRD, TRD, HLD and LLD as
+PDFs — but the copies in `out/` say "see `PROJECT_CONTEXT §4`", "intake Q20b", "built in P-4",
+and still ask questions the build answered months ago.
+
+```
+run stage 6 — app: EmployeeSearch. The client is Acme Ltd; we are the Platform Team.
+```
+
+**Behind the scenes:**
+
+1. A script lists every `OPEN QUESTION:` and `ASSUMPTION:` — in the five documents, the project
+   context, the plan, the intake answers, every review, and `BUILD_ASSUMPTIONS_EmployeeSearch.md`
+   (where each build run now records what it assumed) — and every harness reference.
+2. The agent settles each one **with evidence**. "Should salary use DECIMAL?" — the LLD chose
+   `DECIMAL(12,2)` and the code maps it so: *Chosen in design*, listed for the client to confirm.
+   "Is the read-only scope intended?" — you answered that in the change log: *Decided*. "Which AD
+   group grants access?" — nothing settles it: *Still open*, asked of the client as open item OI-1.
+   If your decision says one thing and the code another, that is a *Conflict* — it comes to you,
+   never to the client.
+3. It stops **once** with its questions. You answer.
+
+```
+run stage 6 — app: EmployeeSearch
+```
+
+It copies the five documents to `out/artifacts/`, edits the copies, and runs the checks until no
+harness reference, raw marker or broken link is left and no requirement ID went missing. Then,
+**in a new chat**:
+
+```
+run stage 6 review — app: EmployeeSearch
+```
+
+The reviewer checks every claim against its evidence and reads each document as the client
+would. PASS? Back in the first chat, `run stage 6 — app: EmployeeSearch` marks the pack Final and
+prints `out/artifacts/pdf/EmployeeSearch_BRD.pdf` … `_LLD.pdf`. Findings? The same prompt fixes
+them, and you start the next round. After three rounds without a PASS you decide: `accept the
+client pack as it is — app: EmployeeSearch` (only when nothing serious is left), or `run stage 6
+— app: EmployeeSearch, new version`.
+
+**Two more documents come with it**, in `out/artifacts/`, never printed:
+`EmployeeSearch_RUN_LOCALLY.md` — `HOW_TO_RUN.md` cleaned for a newcomer, your `D:\tools\…`
+paths turned into placeholders — and `EmployeeSearch_DEPLOYMENT_GUIDE.md`, built from what you
+answered about deployment at intake, the design and the code. Its secrets table lists
+`db.password` by name, how it reaches the app and who provides it — never the value. If the code
+reads a key the design never listed, the agent asks you which one is wrong before the pack can be
+Final.
+
+**Your originals in `out/` are never touched.** If you want them to match the pack, rerun the
+stage that owns them, then make a new pack version.
+
+---
+
 # Part 6 — Outside the process
 
 ## Scenario 18 · You fixed something by hand
@@ -678,7 +734,7 @@ That's a **constraint**, and constraints are Stage 0's:
 2. Rerun Stage 0 (Scenario 11).
 
 **Behind the scenes:** a new constraint gets a new ID (`C4` — existing IDs are never renumbered)
-carrying its **per-stage obligations**: what Requirements, Design, Plan, Implement and Review
+carrying its **per-stage obligations**: what Requirements, Design, Plan, Implement, Review and Hand-over
 must each *do* about it. That obligations list is the only place constraint-specific rules
 live — which is why adding one needs no edit to any stage file.
 

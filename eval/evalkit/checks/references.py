@@ -47,6 +47,7 @@ FILE_HINT_ALIASES: dict[str, str] = {
 # Generated at runtime by the pipeline, so they legitimately do not exist in the set.
 RUNTIME_ARTIFACTS = {
     "AGENTS.md",
+    "CLIENT_PACK_NOTES.md",
     "FEATURE_STATUS.md",
     "HOW_TO_RUN.md",
     "INTAKE.md",
@@ -60,6 +61,8 @@ RUNTIME_ARTIFACT_PATTERNS = [
     re.compile(r"^(HIGH|LOW)_LEVEL_DESIGN_.*\.md$"),
     re.compile(r"^REVIEW_.*\.md$"),
     re.compile(r"^LEGACY_CODE_MAP_.*\.md$"),
+    re.compile(r"^BUILD_ASSUMPTIONS_.*\.md$"),
+    re.compile(r"^.*_(BRD|FRD|TRD|HLD|LLD|RUN_LOCALLY|DEPLOYMENT_GUIDE)\.md$"),  # Stage 6's pack
 ]
 
 

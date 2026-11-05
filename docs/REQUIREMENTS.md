@@ -1,6 +1,6 @@
 # Requirements — Modernization Harness
 
-*What the harness is required to do, as currently implemented. Reverse-engineered from the six stage
+*What the harness is required to do, as currently implemented. Reverse-engineered from the seven stage
 files, the two templates, and `DEVELOPER_GUIDE.md`.*
 
 ---
@@ -12,7 +12,7 @@ application with a coding agent, **one small testable increment at a time**, wit
 control of scope, quality, or history.
 
 It ships as Markdown files the developer copies into their project and cites in prompts, plus
-five small stdlib-Python tools (the state tool, the legacy code map tool, the documents tool that keeps the feature ledger and the plan's bookkeeping, the long-command tool that runs a build past the platform's command time limit, and the search tool that finds files and text where the agent's own search tool does not work), vendored agent skills, and install scripts that copy it all
+seven small stdlib-Python tools (the state tool, the legacy code map tool, the documents tool that keeps the feature ledger and the plan's bookkeeping, the long-command tool that runs a build past the platform's command time limit, the search tool that finds files and text where the agent's own search tool does not work, and — for the client hand-over pack — the client-documents tool and the Markdown-to-PDF tool), vendored agent skills, and install scripts that copy it all
 into place — and add nothing to the target's `.gitignore` (R14.1). No runtime or service to maintain.
 
 ## 2. Users & actors
@@ -26,7 +26,9 @@ into place — and add nothing to the target's `.gitignore` (R14.1). No runtime 
 ## 3. Scope
 
 **In scope:** intake, requirements extraction, design, phased planning, incremental
-implementation, and independent review — plus the state and paper trail that ties them together.
+implementation, and independent review — plus the state and paper trail that ties them together
+— and, after the build, a hand-over pack of the requirements and design documents for the
+client, in Markdown and PDF.
 
 **Out of scope:** running the legacy app, executing data migration, deployment, load testing,
 and anything that modifies the legacy source (read-only in every stage).
@@ -40,7 +42,8 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R1.2** All project-specific facts (stacks, CI/CD, cutover, repo layout, deployment topology)
   are captured **once**, in Stage 0, and read by every later stage.
 - **R1.3** Project rules are expressed as **constraints with stable IDs** (`C1`, `C2`, …), each
-  carrying **per-stage obligations**. Adding a constraint must require **no edit to any stage file**.
+  carrying **per-stage obligations** — *Requirements*, *Design*, *Plan*, *Implement*, *Review* and
+  *Hand-over* (Stage 6). Adding a constraint must require **no edit to any stage file**.
   The obligations are stored **once**, in `PROJECT_CONTEXT.md §4`; no second copy is kept in
   `state.json`.
 
@@ -78,8 +81,9 @@ and anything that modifies the legacy source (read-only in every stage).
 | 1 Requirements | Business / Functional / Technical requirements, and `LEGACY_CODE_MAP_<App>.md` |
 | 2 Design | HLD + LLD (the LLD is the authoritative contract) |
 | 3 Plan | `PLAN_<App>.md` (remaining work only) + `state.json phases[]` + the feature ledger (`features.json`, shown as `FEATURE_STATUS.md`) |
-| 4 Implement | Code, updated feature-ledger rows, and a hand-off the developer commits from |
+| 4 Implement | Code, updated feature-ledger rows, rows added to `BUILD_ASSUMPTIONS_<App>.md`, and a hand-off the developer commits from |
 | 5 Review | `REVIEW_<Rid>_<App>_<target>.md` + findings in `state.json` |
+| 6 Client pack | `artifacts/<App>_BRD.md`, `_FRD`, `_TRD`, `_HLD`, `_LLD` and their PDFs, `artifacts/<App>_RUN_LOCALLY.md`, `artifacts/<App>_DEPLOYMENT_GUIDE.md`, + `CLIENT_PACK_NOTES.md` — after the build, outside the loop |
 
 - **R3.1** Every stage supports a **rerun with Additional Instructions**. Documents are amended
   in place with a Revision History row; git, which the developer keeps, is the only version history.
@@ -266,6 +270,61 @@ and anything that modifies the legacy source (read-only in every stage).
   limit and says when it did, and never writes. Legacy code is still looked up in the
   code map first (R13.4).
 
+### R15 — A hand-over pack the client can read
+- **R15.1** After the build, **Stage 6** makes a client copy of the five documents — business,
+  functional and technical requirements, high- and low-level design — in
+  `<documents>/artifacts/`, named `<App>_BRD.md`, `<App>_FRD.md`, `<App>_TRD.md`,
+  `<App>_HLD.md`, `<App>_LLD.md` — plus the two operational documents of R15.8 and R15.9. The
+  originals and `state.json` are only read; nothing in the pipeline reads the copies.
+- **R15.2** The copies carry **no harness reference**: no harness file, tool, stage, intake
+  question, phase, task, edit or review ID, no raw `OPEN QUESTION:` / `ASSUMPTION:` / `TODO`
+  marker, no link outside the pack, and no note that they were generated. Constraint IDs stay,
+  defined once in a *Constraints* table in the BRD; requirement and design IDs stay unchanged;
+  legacy-source citations stay as plain text; LLD §3c (Reference Adoption) is dropped.
+- **R15.3** **No content is lost.** The copies are made by copying and then editing, never by
+  rewriting; a check fails when a requirement or design ID, or a numbered heading, of a source
+  is missing from its copy without a recorded reason.
+- **R15.4** Every open question and assumption — in the five documents, `PROJECT_CONTEXT.md`,
+  the plan, `INTAKE_RESOLVED.md`, every review report, and `BUILD_ASSUMPTIONS_<App>.md` — is
+  settled into exactly one outcome with **cited evidence**, or stays open: *Decided* (a human
+  decided), *Chosen in design*, *Adopted in build*, *Confirmed* / *Corrected*, *Not applicable*,
+  *Still open*, or *Conflict*. Items about the legacy app take legacy evidence; items about the
+  new system are checked against the delivered code. A *Conflict* reaches the developer, never
+  the client.
+- **R15.5** The build records its own assumptions and open questions in
+  **`BUILD_ASSUMPTIONS_<App>.md`**, one row per item, only ever added to (Stage 4), so they are
+  on disk when the pack is made.
+- **R15.6** A **separate reviewer session** checks the pack. PASS means no blocker and no major
+  finding. At most **three review rounds per pack version**; after that the developer either
+  accepts the pack as it is (only with both checks clean, no *Conflict* and no blocker) or starts
+  a new version. Only the developer starts a new version.
+- **R15.7** The five client documents are printed to **PDF offline**, through a browser already installed: tables
+  with a repeating header row and unsplit rows, Mermaid diagrams as sharp vector graphics kept
+  with their captions, a cover page, a Document control table, a contents page, page numbers,
+  and a DRAFT watermark while the pack is a draft. A diagram that fails, an image that is
+  missing, or a table wider than the page is reported, never printed silently. The run document
+  and the deployment guide are not printed.
+- **R15.8** A **run-it-locally document**, `<App>_RUN_LOCALLY.md`, is copied from `HOW_TO_RUN.md`
+  and edited like the five: no harness reference, the developer's machine paths replaced by
+  `<placeholders>`, a smoke test a newcomer can follow in place of the pointer to the feature
+  ledger. Every command block of the original stays (a placeholder may stand in for part of a
+  line; the rest is unchanged). The command blocks the edits changed are run once; one that fails or cannot run is
+  labelled and reported, and the document is finished anyway.
+- **R15.9** A **deployment guide**, `<App>_DEPLOYMENT_GUIDE.md`, has fixed sections — what is
+  deployed, environments, prerequisites, configuration, secrets, build, database, deploy steps,
+  checking it worked, logging and monitoring, go-live and rollback, open items. Its configuration
+  and secrets tables agree with the LLD §7 table both ways (a framework setting excepted);
+  every secret is named, with how it reaches the application and who provides it, and never
+  valued — in any document of the pack; every fact has a recorded source; a step not run is
+  labelled as not verified in a deployed environment. Gaps reach the developer in the one
+  question list. LLD §7 is a table — key, shape, default, secret, set at build or run time,
+  differs per environment — so the guide can be filled and checked from it.
+- **R15.10** Both are written for a **capable stranger**: every step spelled out, nothing assumed
+  about the team or its internal tools, each thing to be provided named by the role that
+  provides it.
+- **R15.11** A constraint binds the hand-over pack through its *Hand-over* obligation (R1.3);
+  the reviewer treats one not honoured as a blocker.
+
 ---
 
 ## 5. Quality requirements
@@ -277,7 +336,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra (plus the re-slice approval, unless it is given in advance — R5.3) |
 | Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and, once the developer commits it, a git commit |
-| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, finds legacy code through the code map (R13), updates the ledger and the plan's bookkeeping through one tool command each (R5.5–R5.6), runs a command that may outlast the command time limit through the long-command tool rather than letting it time out (R4.5), and searches through the search tool where its own does not work, rather than through shell pipelines that fail or time out (R14.2) — while keeping each write, chain and reply small enough not to fail on the platform's output and time limits |
+| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, finds legacy code through the code map (R13), updates the ledger and the plan's bookkeeping through one tool command each (R5.5–R5.6), runs a command that may outlast the command time limit through the long-command tool rather than letting it time out (R4.5), and searches through the search tool where its own does not work, rather than through shell pipelines that fail or time out (R14.2), and leaves the hunting and checking of the client pack to the client-documents tool (R15) — while keeping each write, chain and reply small enough not to fail on the platform's output and time limits |
 | Q7 | **No explain-again round trips** — a report the developer cannot follow costs a whole extra request to clarify; R12 makes the first answer self-explanatory |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)

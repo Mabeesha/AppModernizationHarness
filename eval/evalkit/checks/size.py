@@ -72,6 +72,16 @@ STAGE_LOADOUTS: dict[str, dict[str, list[str]]] = {
             "TECHNICAL_REQUIREMENTS_*.md",
         ],
     },
+    "stage-6": {
+        "fixed": ["AGENTS_TEMPLATE.md", "6_CLIENT_PACK_INSTRUCTIONS.md"],
+        "variable": [
+            "PROJECT_CONTEXT.md", "state.json", "PLAN_*.md", "INTAKE_RESOLVED.md",
+            "BUILD_ASSUMPTIONS_*.md", "REVIEW_*.md", "CLIENT_PACK_NOTES.md",
+            "HIGH_LEVEL_DESIGN_*.md", "LOW_LEVEL_DESIGN_*.md",
+            "BUSINESS_REQUIREMENTS_*.md", "FUNCTIONAL_REQUIREMENTS_*.md",
+            "TECHNICAL_REQUIREMENTS_*.md",
+        ],
+    },
 }
 
 

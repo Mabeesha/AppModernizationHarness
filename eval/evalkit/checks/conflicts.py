@@ -24,13 +24,14 @@ OBLIGATION_STAGES: dict[str, str] = {
     "plan": "stage-3",
     "implement": "stage-4",
     "review": "stage-5",
+    "hand-over": "stage-6",
 }
 
 # Stage 0 authors the obligations, so it is never itself an obligation target.
 OBLIGATION_AUTHOR_STAGE = "stage-0"
 
 PROSE_OBLIGATION_RE = re.compile(
-    r"\*(?P<key>Requirements|Design|Plan|Implement|Review)\s*:\*", re.I
+    r"\*(?P<key>Requirements|Design|Plan|Implement|Review|Hand-over)\s*:\*", re.I
 )
 
 
