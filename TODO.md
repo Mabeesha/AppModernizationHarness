@@ -1,15 +1,19 @@
 # TODO
 
 0. Research/Reevaluate
-- [ ] reimplement stages as agents? skills? plugins?
-- [ ] more tools?
 - [ ] research the other harness
 
 1. Harness Improvements
+- [ ] Documentation Agent
+- [ ] QA Agent - gives the test plan
+- [ ] Break stage 1 and 2
+    - [ ] Improve the output of stage 1 and 2
 - [ ] Stage-wise cirtic loop
-- [ ] Request count optimizations
-    - [ ] Simple instructions
-    -  
+- [ ] Consmetics
+    - [ ] rename the harness with something starting with '.'?
+    - [ ] rename 'out' with something better?
+    - [ ] rename instruction sets with Agents? 
+
 
 2. Eval
 
