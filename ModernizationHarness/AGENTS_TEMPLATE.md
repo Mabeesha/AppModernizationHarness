@@ -1,6 +1,6 @@
 ## Running a stage
 
-The seven numbered stage files live in **`ModernizationHarness/`**, relative to the root of this
+The eight numbered stage files live in **`ModernizationHarness/`**, relative to the root of this
 working tree. *Keeping them somewhere else? Change that path here, once — it is the only place
 it is written down.*
 
@@ -16,13 +16,15 @@ outright; neither form is more official. **Load that file and follow it:**
 | "stage 4", "next phase", "build P-4", "implement" | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` |
 | "stage 5", "review", "audit" | `5_REVIEW_INSTRUCTIONS.md` |
 | "stage 6", "client pack", "hand-over documents", "documents for the client" | `6_CLIENT_PACK_INSTRUCTIONS.md` |
+| "stage 7", "QA plan", "test plan", "test tracker" | `7_QA_PLAN_INSTRUCTIONS.md` |
 
 - **Everything after the stage name is that stage's Additional Instructions** ("rerun stage 2 —
   use a modular monolith"). Reruns are normal; the stage file's §Rerunning says what to do.
 - **Stage 4 with no target** → the next planned phase. **Stage 5 with no target** → ask whether
   they mean a phase, a minor edit, or the whole build; don't pick one. **"Stage 6 review"** (or
   "review the client pack") → Stage 6's §Review, in a session that wrote none of the pack — not
-  Stage 5.
+  Stage 5. **"Read through the QA plan"** → Stage 7's §The Read-through, likewise in a new
+  session.
 - **Stage 0 on a first run** needs the intake path, the legacy app path, an app name, and where
   to write. Every later stage reads `context.locations` from `state.json` — **never make the
   developer retype a path it already holds.**
@@ -79,6 +81,9 @@ refusal rules; run it with no command for the syntax):
   ledger with `group=<title>`, a new group by `feature add-group`). `phases=P-4` appends. No row is ever deleted and no id ever changes. **`tested`: you write only
   `untested`** — `passed` / `failed` need `--developer-said`, passed only on the developer's word
   (invariant 5); the tool cannot check it.
+- **The QA tracker is not the ledger.** A tester's *Pass* or *Fail* in Stage 7's Excel tracker
+  changes no ledger row: it reaches `tested` only when the developer reports it, as any other
+  test result.
 
 ---
 
@@ -228,7 +233,8 @@ front of the edit.
   statuses, tasks, and test guides — but changes design or requirements only by a purely
   clarifying fix. The documents in `<documents>/artifacts/` — the client copies, the run document and the
   deployment guide — are Stage 6's: changed only in a Stage 6 run, through
-  `tools/clientdocs.py replace` and `set`, never by hand; `BUILD_ASSUMPTIONS_<AppName>.md`
+  `tools/clientdocs.py replace` and `set`, never by hand; the files in `<documents>/qa/` — the
+  QA record, test plan and trackers — are Stage 7's, written only through `tools/qaplan.py`; `BUILD_ASSUMPTIONS_<AppName>.md`
   is Stage 4's, and its rows are only ever added to.
 
 ---

@@ -7,7 +7,7 @@ minutes, [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) explains why it's built this w
 one is different — it walks through the **situations you'll actually hit**, in order of how
 likely you are to hit them, and shows the exact prompt plus what the agent does behind it.
 
-Nothing here is new machinery. It's the same seven stage files — plus the `AGENTS.md` sitting in
+Nothing here is new machinery. It's the same eight stage files — plus the `AGENTS.md` sitting in
 your project root — seen from your chair.
 
 ---
@@ -24,7 +24,7 @@ cp ModernizationHarness/0_INTAKE_TEMPLATE.md ./out/INTAKE.md  # then fill it in
 `INTAKE.md` you fill in once. **`AGENTS.md` is the one that changes how the scenarios below
 behave** — and it's the easiest to skip, because nothing visibly breaks when you do.
 
-Here's why it matters. Every rule in the seven stage files applies **only while you are explicitly
+Here's why it matters. Every rule in the eight stage files applies **only while you are explicitly
 running that stage**. The moment you're just chatting — *"accept P-2"*, *"add a department
 filter"*, *"why is this test failing?"* — not one of them is loaded. `AGENTS.md` is the file the
 agent reads in **every** session, and it carries the things that have to hold everywhere:
@@ -85,6 +85,7 @@ behind the scenes, and what is true afterwards. Prompts are copy-paste ready.
 | You changed an intake answer | Edit `INTAKE.md`, rerun Stage 0 |
 | You fixed something by hand | Tell the agent — it logs it so the next run isn't surprised |
 | The build is done; the client needs the documents | `run stage 6 — app: <App>` — then `run stage 6 review — app: <App>` **in a fresh session** (Scenario 17b) |
+| A QA tester needs a test plan | `run stage 7 — app: <App>` — any time after Stage 3 (Scenario 17c) |
 
 ---
 
@@ -666,6 +667,51 @@ Final.
 
 **Your originals in `out/` are never touched.** If you want them to match the pack, rerun the
 stage that owns them, then make a new pack version.
+
+## Scenario 17c · Give a QA tester a test plan
+
+**Situation:** phases P-1 to P-4 are built. A tester joins next week. They have never seen the
+plan's developer test guides — which say `GET /api/employees?q=smith → 200` — and need to know
+what to click, what they should see, and where to write down what happened.
+
+```
+run stage 7 — app: EmployeeSearch
+```
+
+**Behind the scenes:**
+
+1. It reads the feature ledger, the requirements, the run instructions and the build's
+   assumptions. Every requirement **built** gets at least one test case; the audit log, still
+   *scheduled in P-6*, goes under *Not in this build*; the performance requirement goes under
+   *Not tested by hand* — "checked by the load-test suite".
+2. It writes the cases a group at a time: a smoke test (the app starts, each role signs in), a
+   happy path for each feature ("Type `smith` in *Surname*, press *Search* — three rows, each
+   Smith"), a negative case for each validation rule (one letter → "Enter at least 2
+   letters"), an access case for each role rule (a *Viewer* cannot export).
+3. A script checks every built requirement is covered and no harness word ("P-4", "stage 7")
+   reached the plan — except the error code `E-102` the app really shows, which the agent
+   records as an allowed exception rather than reword the expected result.
+4. The script writes `out/qa/EmployeeSearch_TEST_PLAN.md` and
+   `out/qa/EmployeeSearch_TEST_TRACKER_v1.xlsx`: one row per case, a *Status* drop-down, the
+   tester's columns, and a summary sheet.
+
+It does not know the test server or the testers' accounts, so it guessed them, marked them *To
+confirm*, and asks you four questions at the end. You answer:
+
+```
+stage 7 answers — app: EmployeeSearch: server is https://es-test.acme.local; accounts qa.clerk and qa.viewer, passwords in the team vault; Edge and Chrome; data is loaded nightly
+```
+
+The plan is updated; the tracker is unchanged (it names roles, not accounts).
+
+**Two phases later**, run `run stage 7 — app: EmployeeSearch` again. The tester has been filling
+in `v1`, so it is left alone: the agent adds cases for the two new features, updates the cases of
+the search feature a minor edit changed, and the script writes `..._TEST_TRACKER_v2.xlsx`. Its
+*Changed since last version?* column says **New** or **Yes** for each case to run again; for the
+rest, the tester copies their `v1` results across.
+
+**Their *Pass* marks stay in the tracker.** The feature ledger's *Tested* column is yours: to put
+a QA result there, say so — `search works, QA passed it`.
 
 ---
 

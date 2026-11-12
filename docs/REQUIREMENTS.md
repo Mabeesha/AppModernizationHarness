@@ -1,6 +1,6 @@
 # Requirements — Modernization Harness
 
-*What the harness is required to do, as currently implemented. Reverse-engineered from the seven stage
+*What the harness is required to do, as currently implemented. Reverse-engineered from the eight stage
 files, the two templates, and `DEVELOPER_GUIDE.md`.*
 
 ---
@@ -12,7 +12,7 @@ application with a coding agent, **one small testable increment at a time**, wit
 control of scope, quality, or history.
 
 It ships as Markdown files the developer copies into their project and cites in prompts, plus
-seven small stdlib-Python tools (the state tool, the legacy code map tool, the documents tool that keeps the feature ledger and the plan's bookkeeping, the long-command tool that runs a build past the platform's command time limit, the search tool that finds files and text where the agent's own search tool does not work, and — for the client hand-over pack — the client-documents tool and the Markdown-to-PDF tool), vendored agent skills, and install scripts that copy it all
+eight small stdlib-Python tools (the state tool, the legacy code map tool, the documents tool that keeps the feature ledger and the plan's bookkeeping, the long-command tool that runs a build past the platform's command time limit, the search tool that finds files and text where the agent's own search tool does not work, — for the client hand-over pack — the client-documents tool and the Markdown-to-PDF tool, and — for the QA test plan — the QA plan tool), vendored agent skills, and install scripts that copy it all
 into place — and add nothing to the target's `.gitignore` (R14.1). No runtime or service to maintain.
 
 ## 2. Users & actors
@@ -22,13 +22,15 @@ into place — and add nothing to the target's `.gitignore` (R14.1). No runtime 
 | **Developer** | Drives the pipeline, does all version control (branches, commits, PRs, merges), and is the *only* one who can record that something was tested |
 | **Build agent** | Any LLM coding agent, running one stage per session |
 | **Review agent** | The same, in a *separate* session, auditing what the build agent produced |
+| **QA tester** | Follows the Stage 7 test plan and records results in its Excel tracker; never touches the pipeline, and their results reach the ledger only through the developer |
 
 ## 3. Scope
 
 **In scope:** intake, requirements extraction, design, phased planning, incremental
 implementation, and independent review — plus the state and paper trail that ties them together
 — and, after the build, a hand-over pack of the requirements and design documents for the
-client, in Markdown and PDF.
+client, in Markdown and PDF; and, whenever the developer wants one, a manual test plan for a QA
+tester with an Excel tracker for their results.
 
 **Out of scope:** running the legacy app, executing data migration, deployment, load testing,
 and anything that modifies the legacy source (read-only in every stage).
@@ -325,6 +327,34 @@ and anything that modifies the legacy source (read-only in every stage).
 - **R15.11** A constraint binds the hand-over pack through its *Hand-over* obligation (R1.3);
   the reviewer treats one not honoured as a blocker.
 
+### R16 — A test plan a QA tester can follow
+- **R16.1** **Stage 7** — optional, outside the build loop, run any time after Stage 3 — writes
+  `<App>_TEST_PLAN.md` and an Excel tracker `<App>_TEST_TRACKER_v<N>.xlsx` in `<documents>/qa/`,
+  both generated from one record, `qa_plan.json`, written only through `tools/qaplan.py`.
+  Nothing in Stages 0–6 reads them.
+- **R16.2** **Every built feature is covered.** Each ledger row built in a phase has at least one
+  test case, or is recorded as *not tested by hand* with a reason; every other row is listed as
+  *not in this build*. The tool checks it, and a case may check only ledger rows.
+- **R16.3** **Written for a tester.** Each case has screen steps (never a developer command), an
+  expected result a person can see, a type and a priority. Validation rules get a negative case,
+  role restrictions an access case, workflows an end-to-end case, and smoke cases come first. A
+  feature with no screen uses the project's hand-testing tool, or is not tested by hand.
+- **R16.4** **No harness reference in the plan** — Stage 6's list (R15.2) plus Stage 7's own
+  names — except an allowed exception recorded with its exact text, where it is, and why. An
+  expected result is never reworded to pass the check.
+- **R16.5** **The tracker** has one row per active case, a *Status* drop-down, columns for the
+  tester, and a summary sheet whose counts update as the tester types; it is written with the
+  standard library alone. **A tracker the tester has saved is never overwritten**: a later change
+  writes the next version, whose *Changed since last version?* column says which cases changed
+  or check a feature rebuilt since — worked out from a copy of the ledger kept with each tracker.
+- **R16.6** What the pipeline cannot know — the test server, testers' accounts, browsers, test
+  data — is a best guess marked *To confirm*, with the questions in the stage's closing message;
+  the run does not stop mid-way to ask. No password is written anywhere.
+- **R16.7** Stage 7 writes nothing else: no pipeline document, no `state.json`, no ledger mark.
+  The tracker is the tester's record; only the developer marks a feature tested (invariant 4).
+- **R16.8** An optional **read-through** in a separate session checks the plan as a tester would
+  and reports to the developer; it changes nothing.
+
 ---
 
 ## 5. Quality requirements
@@ -336,7 +366,7 @@ and anything that modifies the legacy source (read-only in every stage).
 | Q3 | **Falsifiability** — every gate the agent self-checks is objectively checkable |
 | Q4 | **Low prompt cost** — steady state is one prompt per phase; a mid-build design change costs exactly one extra (plus the re-slice approval, unless it is given in advance — R5.3) |
 | Q5 | **Auditability** — every state change traces to a `changeLog[]` entry and, once the developer commits it, a git commit |
-| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, finds legacy code through the code map (R13), updates the ledger and the plan's bookkeeping through one tool command each (R5.5–R5.6), runs a command that may outlast the command time limit through the long-command tool rather than letting it time out (R4.5), and searches through the search tool where its own does not work, rather than through shell pipelines that fail or time out (R14.2), and leaves the hunting and checking of the client pack to the client-documents tool (R15) — while keeping each write, chain and reply small enough not to fail on the platform's output and time limits |
+| Q6 | **Low request count** — agent platforms that bill per model call (e.g. GitLab Duo) charge for every tool-call round trip, not for tokens. Every stage batches independent reads, chains commands where the shell allows, avoids calls whose only purpose is to re-check its own writes, finds legacy code through the code map (R13), updates the ledger and the plan's bookkeeping through one tool command each (R5.5–R5.6), runs a command that may outlast the command time limit through the long-command tool rather than letting it time out (R4.5), and searches through the search tool where its own does not work, rather than through shell pipelines that fail or time out (R14.2), and leaves the hunting and checking of the client pack to the client-documents tool (R15), and the QA plan's coverage and tracker to the QA plan tool (R16) — while keeping each write, chain and reply small enough not to fail on the platform's output and time limits |
 | Q7 | **No explain-again round trips** — a report the developer cannot follow costs a whole extra request to clarify; R12 makes the first answer self-explanatory |
 
 ## 6. Invariants (never violated, in any stage or ad-hoc chat)

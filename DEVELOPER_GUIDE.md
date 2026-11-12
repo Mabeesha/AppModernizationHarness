@@ -99,13 +99,18 @@ commit them or leave them.
  [6] Client Pack ───────► artifacts/<App>_BRD.md … _LLD.md  + PDFs   (for the client)
                           artifacts/<App>_RUN_LOCALLY.md, _DEPLOYMENT_GUIDE.md
                           CLIENT_PACK_NOTES.md                        (its working record)
+
+ [7] QA Test Plan ──────► qa/<App>_TEST_PLAN.md  + qa/<App>_TEST_TRACKER_v1.xlsx  (for a tester)
+     (any time after 3)   qa/qa_plan.json                             (its record)
 ```
 
 Stages 0–2 are each **one agent run** producing documents. Stage 3 produces the plan and is then
 **re-entered from Stage 4's Step 0c** whenever the remaining phases need re-slicing. Stage 4 is a
 **loop** — one run per phase (or per minor edit), with you in between. Stage 5 (**Review**) runs
 independently against any delivered work, and its findings loop back into Stage 4. Stage 6
-(**Client Pack**) runs after the build: it only reads what the other stages wrote.
+(**Client Pack**) runs after the build: it only reads what the other stages wrote. Stage 7
+(**QA Test Plan**) is the same kind of stage — optional, run whenever you want a test plan for
+what is built so far, and it only reads too.
 
 **Nothing in this loop blocks on you.** You can run four phases before testing any of them. The
 only gate anywhere is a phase's own exit criteria, which the agent must pass before it may call
@@ -385,6 +390,53 @@ written for a capable stranger (someone skilled who knows nothing of your projec
   For this, Stage 2 now writes LLD §7 as one table: key, shape, default, secret, set at build or
   run time, differs per environment.
 
+### Stage 7 — QA Test Plan  · `7_QA_PLAN_INSTRUCTIONS.md`
+Your plan's developer test guides are written for you. A **QA tester** needs something else: a
+short plan saying what to test, how, and with which accounts, and a place to record what they ran
+and what happened. Stage 7 writes both, in `out/qa/`:
+
+- **`<App>_TEST_PLAN.md`** — about the round, what is in and out of scope, how to reach the app,
+  the test accounts (names only, never passwords), test data, how to record results, known
+  limits, then the **test cases** grouped like your feature ledger, and a coverage table;
+- **`<App>_TEST_TRACKER_v1.xlsx`** — an Excel file with one row per test case, a *Status* drop-down
+  (*Not run, Pass, Fail, Blocked, Skipped*) that turns green, red or amber, columns for the
+  tester's notes and defect number, and a *Summary* sheet whose counts update as they type.
+
+Say `run stage 7 — app: <App>` any time after Stage 3. How it goes:
+
+1. **The feature ledger is the scope.** Every requirement that is built gets at least one test
+   case, or a written reason why it is *not tested by hand* ("checked by automated tests").
+   Everything not built yet is listed *not in this build*. A script checks this, so "covers all
+   the features" is proved, not promised.
+2. **Cases are written for a person**: screen steps with the app's own labels, an expected
+   result you can see, a type (smoke, positive, negative, access, workflow, non-functional) and a
+   priority. Validation rules get a negative case, role restrictions an access case, workflows
+   an end-to-end case; smoke tests come first.
+3. **It does not stop to ask.** It cannot know where testers will work or with which accounts, so
+   it writes its best guess marked *To confirm* and asks you four short questions at the end.
+   Answer with `stage 7 answers — app: <App>: <your answers>` and it updates the plan.
+4. **A script writes both files** from one record, `out/qa/qa_plan.json` (`tools/qaplan.py`), so
+   the plan and the tracker always list the same tests. The Excel file needs no extra software:
+   the script writes it with plain Python.
+
+**After more is built**, say `run stage 7 — app: <App>` again. It sees which features are new and
+which a later phase or minor edit changed, adds and updates cases, and — once the tester has
+saved the tracker — writes `<App>_TEST_TRACKER_v2.xlsx` beside it. **A tracker the tester has
+saved is never overwritten.** The new one's *Changed since last version?* column says **Yes** or
+**New** for each case to run again; the tester copies the other results across. To send a
+tracker to a tester, **move** it out of `qa/` rather than copy it: until it is saved or moved, the
+next run may replace it under the same name.
+
+**The tracker is the tester's, not the ledger.** A *Pass* in it changes nothing in
+`FEATURE_STATUS.md`; tell the agent ("FR-7 passed QA") when you want a result there, as with
+any test. Want a second opinion first? In a new chat, `read through the QA plan — app: <App>`
+reads it as a tester would and reports — it changes nothing. For a PDF of the plan:
+`python <stage folder>/tools/md2pdf.py out/qa/<App>_TEST_PLAN.md`.
+
+One limit: **no project constraint reaches Stage 7.** Constraints shape each stage through an
+obligation in `PROJECT_CONTEXT.md §4`, and there is none for this stage yet; put such a rule in
+the prompt instead (`run stage 7 — app: <App>. Use the client's term "colleague", not "employee"`).
+
 ---
 
 ## The Build Loop (Stage 4 + 5) — how you live in it
@@ -653,6 +705,10 @@ larger edits. The rest is how **you** run it:
    `tools/md2pdf.py` — neither calls the model. Expect about 30–35 billed calls for the writer's
    first pass with the run document and the deployment guide, and 13–20 for each review round;
    that is why the rounds are capped at three.
+11. **The QA plan is mostly batches.** Stage 7 sends one group of test cases per call, and the
+   script checks coverage and writes the plan and the Excel file. Expect about 30 billed calls
+   for a first plan of a ten-group app, about 10 for each later version, and 3 to record your
+   answers.
 
 ---
 
@@ -957,6 +1013,14 @@ What else changed, nothing to do for any of it:
 - **The agent writes at most one large file, or two small ones, per step**, so a reply is less
   likely to be cut off.
 
+### Upgrading to a version with the QA test plan (Stage 7)
+
+Copy in the new stage folder and rebuild `AGENTS.md` (steps 3–4) — the copy brings
+`7_QA_PLAN_INSTRUCTIONS.md` and `tools/qaplan.py`, and the new `AGENTS.md` knows the words
+"stage 7" and "QA plan". Until you rebuild it, start the stage by naming the file:
+`run ModernizationHarness/7_QA_PLAN_INSTRUCTIONS.md — app: <App>`. Your `state.json` and
+`features.json` are unchanged; the stage writes only in a new `out/qa/` folder.
+
 ### Windows: install PowerShell 7 (`pwsh`)
 
 The rebuilt `AGENTS.md` tells the agent to run its shell commands on Windows as
@@ -1230,6 +1294,8 @@ EmployeeSearch` fixes what the round found, or — after a PASS — marks the pa
 | `BUILD_ASSUMPTIONS_<App>.md` | Stage 4 | no | Stage 4 adds a row per assumption or open question at hand-off; rows **never changed or removed** |
 | `artifacts/<App>_BRD.md` … `_LLD.md`, `_RUN_LOCALLY.md`, `_DEPLOYMENT_GUIDE.md` + `artifacts/pdf/` | Stage 6, through `tools/clientdocs.py` (`skeleton` for the guide) and `tools/md2pdf.py` | no — to change one, rerun Stage 6, or the stage that owns the original and then a new pack version | Stage 6 only: `copy` once per version, then `replace` and `set`; nothing else reads them |
 | `CLIENT_PACK_NOTES.md` | Stage 6 (`clientdocs.py scan`) | no — answer the agent's questions instead | Stage 6: items, exemptions and your answers; the review log by the Stage 6 reviewer only |
+| `qa/qa_plan.json` + `qa/<App>_TEST_PLAN.md` | Stage 7, through `tools/qaplan.py` | no — say what to change; a hand edit to the plan stops the agent's next write until it is carried into the record | Stage 7 only (`apply`, `build`); nothing else reads them |
+| `qa/<App>_TEST_TRACKER_v<N>.xlsx` | Stage 7 (`qaplan.py build`) | **the tester fills it in** | replaced in place only while it is exactly as written; once the tester saves it, or you move it out of `qa/`, never again — a change writes the next version |
 
 *(If you hotfix code or edit a design doc by hand, add a `changeLog` entry so the next run knows
 the baseline moved.)*

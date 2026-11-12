@@ -109,7 +109,7 @@ Extraction is a structured-output call (§7.2). The two controlled vocabularies
 are what make clustering and conflict detection tractable — the extractor is
 constrained to these via schema `enum`, so it cannot invent a subject.
 
-**ACTORS** — `stage-0` … `stage-6`, `any-agent` (rules from `AGENTS.md` that bind
+**ACTORS** — `stage-0` … `stage-7`, `any-agent` (rules from `AGENTS.md` that bind
 every session), `developer` (rules describing what the human does).
 
 **SUBJECTS** — the artifacts and state paths the pipeline acts on:
@@ -165,6 +165,7 @@ a composite, modelled in `checks/size.py::STAGE_LOADOUTS`:
 | 4 | `AGENTS.md` + `4_PHASE_…` + plan + designs + requirements + context + `state.json` |
 | 5 | `AGENTS.md` + `5_REVIEW_…` + all docs + `state.json` |
 | 6 | `AGENTS.md` + `6_CLIENT_PACK_…` + all docs + `INTAKE_RESOLVED.md`, `BUILD_ASSUMPTIONS_<App>.md`, the review reports, `CLIENT_PACK_NOTES.md` + `state.json` |
+| 7 | `AGENTS.md` + `7_QA_PLAN_…` + context + 3 requirements docs + `features.json`, `HOW_TO_RUN.md`, `BUILD_ASSUMPTIONS_<App>.md`, `qa_plan.json` + `state.json` |
 
 Each composite splits in two:
 
