@@ -95,7 +95,7 @@ project conventions. If an upstream skill would land on a directory it doesn't o
 updater stops before changing anything. To take different .NET plugins, edit
 `DOTNET_PLUGINS` at the top of both `update-skills.sh` and `update-skills.ps1`.
 
-The seven numbered stage files stay in `ModernizationHarness/` — you never copy those.
+The eight numbered stage files stay in `ModernizationHarness/` — you never copy those.
 Moving a project that is already part-way through onto a newer harness version? See
 `DEVELOPER_GUIDE.md §Upgrading the Harness Mid-Project` — don't re-run the installer for that.
 
@@ -241,6 +241,19 @@ The same run also writes `<App>_RUN_LOCALLY.md` (cleaned from `HOW_TO_RUN.md`) a
 `<App>_DEPLOYMENT_GUIDE.md` (configuration, secrets by name only, build, deploy, checks) —
 Markdown only, written so a capable stranger can follow them.
 To print any Markdown file yourself: `python ModernizationHarness/tools/md2pdf.py FILE.md`.
+
+**Need a test plan for a QA tester?** Any time after Stage 3:
+
+```
+run stage 7 — app: <App>
+```
+
+It writes `out/qa/<App>_TEST_PLAN.md` — test cases with screen steps and expected results, grouped
+like your feature ledger, every built feature covered or marked *not tested by hand* with a reason
+— and `out/qa/<App>_TEST_TRACKER_v1.xlsx`, an Excel file where the tester records each result
+(a *Status* drop-down, notes, defect numbers, live counts). It guesses the test server and
+accounts, marks them *To confirm*, and asks you at the end. Run it again after more is built: a
+tracker the tester has saved is never overwritten — you get `v2`, with the cases to re-run marked.
 
 **Files in `.harness-tmp/` show up in `git status`?** That folder is the agent's scratch space:
 small files it hands the harness's tools, and the output of long builds, which it runs in the

@@ -6,8 +6,8 @@
 
 ## 1. Design in one paragraph
 
-At run time, the harness is **twelve Markdown files, seven small tools, and a set of vendored agent
-skills** (the install scripts and `examples/` only set it up). Seven
+At run time, the harness is **thirteen Markdown files, eight small tools, and a set of vendored agent
+skills** (the install scripts and `examples/` only set it up). Eight
 files are stage instructions, invoked one unit of work per run; two are templates the developer
 copies into their project; three are the guides. One tool, `tools/state.py`, reads and writes
 `state.json` (DD-18); `tools/codemap.py` writes the legacy code map (DD-27); `tools/docs.py`
@@ -18,7 +18,9 @@ platform's command time limit in the background and waits for it in steps (DD-31
 work (DD-33). Two more serve Stage 6, the client hand-over pack: `tools/clientdocs.py` scans,
 copies, edits and checks the client copies of the five documents, the run document and the
 deployment guide (DD-34), and `tools/md2pdf.py`
-prints Markdown to PDF through the browser already installed (DD-35). The skills in `skills/` are upstream Angular and .NET helpers the
+prints Markdown to PDF through the browser already installed (DD-35). One more serves Stage 7,
+the QA test plan: `tools/qaplan.py` keeps the test cases in `qa_plan.json` and generates from it
+the test plan and an Excel tracker for a QA tester (DD-37). The skills in `skills/` are upstream Angular and .NET helpers the
 installer copies into `.agents/skills/`; `AGENTS.md` invariant 6 overrides any git step in
 them. All coordination
 between sessions happens through **two kinds of artifact on disk** — human-readable Markdown
@@ -39,6 +41,7 @@ chat it shares with the previous run (DD-25) — does one unit of work, writes s
 | `4_PHASE_IMPLEMENTATION_INSTRUCTIONS.md` | stage | Build one phase or one minor edit; hand off; stop |
 | `5_REVIEW_INSTRUCTIONS.md` | stage | Independent audit; findings back into `state.json` |
 | `6_CLIENT_PACK_INSTRUCTIONS.md` | stage | After the build, outside the loop: the hand-over pack in `<documents>/artifacts/` — client copies of the five documents (harness references removed, every open question and assumption settled with evidence), a run-it-locally document copied from `HOW_TO_RUN.md`, and a deployment guide filled into a fixed skeleton — reviewed in at most three rounds, the five printed to PDF (DD-34, DD-35) |
+| `7_QA_PLAN_INSTRUCTIONS.md` | stage | Optional, any time after Stage 3, outside the loop: a manual test plan for a QA tester and an Excel tracker for their results, in `<documents>/qa/`, both generated from `qa_plan.json` — every built ledger row covered or excluded with a reason (DD-37) |
 | `tools/state.py` | tool | Reads and writes `state.json` for every stage after 0 (DD-18) |
 | `tools/codemap.py` | tool | Writes `LEGACY_CODE_MAP_<AppName>.md` from the legacy source, keeping Stage 1's notes on a rerun (DD-27) |
 | `tools/<name>.txt` | copy | A plain-text mirror of each tool, kept identical to it by `eval/tests/test_tool_mirrors.py`; nothing runs or reads it |
@@ -46,6 +49,7 @@ chat it shares with the previous run (DD-25) — does one unit of work, writes s
 | `tools/longrun.py` | tool | Runs a long build or test suite in the background, its output in `.harness-tmp/` as plain text, and waits for it in calls that each end inside the command time limit (DD-31) |
 | `tools/search.py` | tool | Lists files and finds text in them in one plain command, skipping build and package folders — the fallback where the agent's own search tool does not work (DD-33) |
 | `tools/clientdocs.py` | tool | Stage 6's bookkeeping: `scan` lists every open question, assumption and harness reference into `CLIENT_PACK_NOTES.md`; `copy` makes the client copies and the run document with the mechanical rewrites (and, in a new version, re-makes only those whose source changed); `skeleton` writes the deployment guide once, its configuration and secrets tables filled from LLD §7; `replace` applies exact edits to a pack document and refuses any other file; `set` changes the pack's status or cover values; `check` proves the pack clean — no harness reference, no secret value, no lost content or command, the guide's keys in step with LLD §7 (DD-34) |
+| `tools/qaplan.py` | tool | Stage 7's record and files: `status` (coverage, and what changed in the ledger since the last tracker), `apply` (add, edit, retire, exclude, set, allow — one values file, all or none; it gives out the `TC-<n>` ids), `check` (every built ledger row covered or excluded, every case complete, no harness reference in the plan), `build` (the plan, and the tracker — a new version only once the tester has saved the last one) (DD-37) |
 | `tools/md2pdf.py` + `tools/md2pdf_assets/` | tool | Markdown → PDF through the Chrome or Edge already installed, offline, in two passes — render and check, then print a static page — with the bundled `markdown-it` and `mermaid` (DD-35) |
 | `skills/` | vendored skills | Upstream Angular and .NET agent skills, installed into `.agents/skills/`; `AGENTS.md` invariant 6 overrides any git step in them |
 | `DEVELOPER_GUIDE.md` / `README.md` / `USE_CASES.md` | guide | The reasoning / the five-minute start / the situations you'll hit, by example |
@@ -86,6 +90,11 @@ flowchart TD
     ST -.->|read only| S6
     HO -.->|HOW_TO_RUN.md| S6
     S6 --> CP[artifacts/ — client copies + PDFs,<br/>run document, deployment guide;<br/>CLIENT_PACK_NOTES.md]
+    FS -.->|read only| S7[7 · QA test plan<br/>any time after Stage 3]
+    REQ -.-> S7
+    BA -.-> S7
+    HO -.->|HOW_TO_RUN.md| S7
+    S7 --> QA[qa/ — qa_plan.json,<br/>test plan, Excel tracker v1, v2, …]
 ```
 
 **Nothing on this diagram blocks.** The developer's testing and the Review stage both feed the
@@ -93,7 +102,9 @@ loop without holding it: the only gate is a phase's own falsifiable exit criteri
 
 Stages 0–2 run once each (and on rerun). Stages 3–4–5 are the loop. Stage 6 runs once the
 build is done (and again for each new version of the pack); it only reads what the other
-stages wrote, and nothing reads what it writes.
+stages wrote, and nothing reads what it writes. Stage 7 is the same kind of stage: optional,
+run whenever the developer wants a test plan for what is built so far, reading only, read by
+nothing.
 
 ## 4. Key design decisions
 
@@ -122,6 +133,7 @@ stages wrote, and nothing reads what it writes.
 | **DD-34** | **The client hand-over pack is a separate copy, made by Stage 6 after the build.** The five documents go to `<documents>/artifacts/` under client names (`<App>_BRD.md` … `<App>_LLD.md`): copied by `tools/clientdocs.py` with the mechanical rewrites (links to plain text, Revision History → Document control, LLD §3c dropped), then edited through one exact-replace call per document. Every open question and assumption — from the five documents, `PROJECT_CONTEXT`, the plan, `INTAKE_RESOLVED`, every review and `BUILD_ASSUMPTIONS` — is settled with **cited evidence** into one outcome; *Decided* only when a human decided; a disagreement is a *Conflict* shown to the developer, never to the client. Stage 6 **never edits a pipeline document or `state.json`** (one exception: a `changeLog[]` entry recording a developer's answer, only on their yes); its record is `CLIENT_PACK_NOTES.md`. A separate reviewer session checks the pack in **at most three rounds per pack version**; then the developer accepts it as it is or starts a new version. **Two operational documents join the pack:** `<App>_RUN_LOCALLY.md`, copied from `HOW_TO_RUN.md` and edited like the five (every command of the original kept; the commands the edits changed run once, and one that cannot run is labelled, never a reason to stop); and `<App>_DEPLOYMENT_GUIDE.md`, which has no single source, so `clientdocs.py skeleton` writes it once from a fixed template (configuration and secrets tables filled from the LLD §7 table) and the agent fills it from the deployment facts it works out — with their sources — in Step 3b, before the one question list. Secrets are named, never valued; a step not run is labelled *not verified in a deployed environment*; a configuration key the code and LLD §7 disagree on is fixed on whichever side is wrong, then a new version. Both are written for a capable stranger. Constraints reach the stage like any other, through a **`Hand-over` obligation** in `PROJECT_CONTEXT §4` (DD-1). Adding them to an existing pack is a new version, which re-makes only the copies whose source changed; the guide is never re-made | The pipeline's documents are written for the next agent: they name files the client never gets, carry harness IDs and raw markers, and their open questions go stale because nothing reruns Stage 1 to close them. Copying keeps every untouched line (a whole-file rewrite would quietly lose prose no check catches); evidence-or-open keeps "never resolve by guessing" true at hand-over; reading only keeps the pack harmless to the pipeline; a round limit stops a review that does not converge, and versions keep the limit from locking a project |
 | **DD-35** | **PDFs come from the Chromium-family browser already installed (Chrome, Edge, Chromium), in two passes, offline.** `tools/md2pdf.py` builds a page around the bundled `markdown-it` and `mermaid`; pass 1 (`--dump-dom`) renders it, draws every diagram, and reports failed diagrams, missing images and over-wide tables; the script saves that DOM as a **static, self-contained HTML file** (scripts removed, CSS and images inlined); pass 2 prints it with no header or footer from the browser. A browser that exits at once with no output (one mid-update, or handing off to a running copy) is skipped for the next | Python's standard library cannot lay out tables or draw Mermaid; pandoc and LaTeX are not on the developer's machine; `mermaid-cli` downloads its own browser, often blocked. A browser is already there and is what Mermaid is built for. Printing a page with nothing left to run removes the timing race; the static file doubles as a fallback to print by hand where policy blocks headless mode; nothing is fetched at render time, so client content never leaves the machine. Only the five are printed: the run document and the deployment guide stay Markdown |
 | **DD-36** | **The build records its own assumptions and open questions in `BUILD_ASSUMPTIONS_<App>.md`, one row per item, only ever added to.** Stage 4 appends a row for each `ASSUMPTION:` / `OPEN QUESTION:` its hand-off reports; nothing rewrites or rebuilds the file; Stage 6 reads it | Until now these lived only in the chat hand-off, so "the code assumed X" was nowhere on disk when the client pack needed it. The plan's §6 was rejected as the home: Stage 3 rebuilds the plan on every refresh and could drop the rows |
+| **DD-37** | **A QA test plan is an optional Stage 7, outside the loop, that writes into `<documents>/qa/` and reads only.** One record, `qa_plan.json`, holds the test cases, the plan's written sections, the requirements *not tested by hand* (each with a reason), the allowed exceptions to the harness-word check, and one entry per tracker written. `tools/qaplan.py` is its only writer and generates from it both `<App>_TEST_PLAN.md` (whole, with a body hash, so a hand edit is refused until `--force`, as in DD-29) and the Excel tracker `<App>_TEST_TRACKER_v<N>.xlsx`, written with `zipfile` alone — no library. **Coverage is the ledger**: every row `built in` a phase has an active case or an exclusion; every other row is listed *not in this build*; a case's *Checks* ids must be ledger rows. The tool gives out `TC-<n>` ids, never reused; a case is retired, never deleted. **A tracker the tester has saved is never overwritten**: each tracker entry keeps the file's hash and a copy of every ledger row's `build` and `phases`, so `build` replaces an untouched tracker in place and otherwise writes the next version, marking a case *Changed since last version?* when its text changed or a row it checks was rebuilt. The plan reuses `clientdocs.py`'s harness-reference list by import, plus Stage 7's own names; an exception is recorded with its exact text, where it is and why, because an expected result is never reworded to pass a check. What the pipeline cannot know — the test server, testers' accounts, browsers, test data — is a best guess marked *To confirm* (`check` warns), with the questions in the closing message: no stop mid-run. Stage 7 writes no pipeline document, no `state.json` and no ledger mark | A tester needs a different document from a developer's test guide: screen steps, accounts, a place to record results. Building it from the ledger makes "every feature covered" a check, not a promise — the ledger already has a row per requirement id, which a scan of the requirements could not match (their ids come in ranges and appear in history rows). One record feeding both files keeps plan and tracker from disagreeing. Excel, not CSV, for the drop-down, colours and live counts; the standard library, because the developer's machine cannot always install packages. Copying results from an old tracker was rejected: it means reading files Excel saved, the most fragile code there would be — the *Changed?* column does most of that job. A mid-run question stop was rejected for the resume logic it needs. Only the developer marks a feature tested (invariant 5), so QA results stay in the tracker (R16) |
 | **DD-14** | *Replaced by DD-24.* Was: branch from the currently checked-out branch, PR back at it, and never merge unasked | Kept so references to it still resolve |
 | **DD-17** | *Replaced by DD-24.* Was: before branching, detect a branch that is already merged or gone from the remote | With no agent branching there is no spent branch to detect |
 | **DD-15** | **The working tree is the truth; `state.json` is a cache** — presence checked by content, never by git state | The developer may commit, merge or edit outside the harness and need not report it; only the files decide whether the previous phase's work is there (R11.3) |
@@ -209,6 +221,36 @@ text — so import → render → import gives the same JSON.
 - **`tested`** is the developer's (invariant 5): the tool writes `passed` / `failed` only under
   `--developer-said`.
 
+### `qa_plan.json` — the QA record (DD-37)
+
+In `<documents>/qa/`, beside the plan and the trackers it generates. Stage 7 creates it; every
+write goes through `tools/qaplan.py`.
+
+```json
+{ "app": "<AppName>", "schemaVersion": 1, "updated": "YYYY-MM-DD", "nextId": 13,
+  "sections": { "about": "...", "beforeYouStart": "...", "accounts": "...", "testData": "...",
+                "howToRecord": "...", "knownLimits": "..." },
+  "cases": [ { "id": "TC-12", "title": "Export search results to CSV", "checks": ["FR-7"],
+               "type": "Smoke | Positive | Negative | Access | Workflow | Non-functional",
+               "priority": "High | Medium | Low", "before": "signed in as Clerk",
+               "steps": ["Open Orders > Search", "Press Export"], "expect": "orders.csv downloads",
+               "status": "active | retired", "reason": "<why retired>" } ],
+  "excluded": [ { "id": "FR-12", "reason": "checked by automated tests" } ],
+  "allowed":  [ { "text": "E-102", "where": "TC-4 | <section key> | ledger", "reason": "the app's error code" } ],
+  "trackers": [ { "version": 1, "file": "<AppName>_TEST_TRACKER_v1.xlsx", "date": "YYYY-MM-DD",
+                  "sha256": "<the file as written>", "cases": { "TC-12": "<hash of its row>" },
+                  "ledger": { "FR-7": { "build": "built in P-2", "phases": ["P-2"] } } } ] }
+```
+
+- **Ids are the tool's**: `TC-<nextId>`, never reused; a case is retired, never deleted.
+- **`checks`** names ledger rows only, each built; a *Smoke* case may name none.
+- **`allowed[].where`** is a case id, a `sections` key, or `ledger` — text the plan takes from the
+  ledger (a requirement's name, a group's title).
+- **`trackers[]`** only grows. The last entry is what the tester holds: its `sha256` tells an
+  untouched file (replaced in place) from one the tester saved (left alone; the next `build`
+  writes `v<N+1>`), and its `ledger` copy is what *Changed since last version?* and `status`
+  compare against.
+
 ## 6. Control flow of a build run (Stage 4)
 
 ```mermaid
@@ -294,7 +336,8 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
 | R13 legacy code map | DD-27; `tools/codemap.py`; Stage 1 Step 1; the legacy-reading inputs of Stages 2–5; `AGENTS.md §Keeping the Request Count Down` |
 | R14 the platform's own tools | DD-32 (installers ignore nothing); DD-33, `tools/search.py`; `AGENTS.md §Keeping the Request Count Down` (search, the Duo file-tool quirks, the `pwsh` traps); Stages 1–5 §Locating your inputs |
 | R15 client hand-over pack | DD-34, DD-35, DD-36; Stage 6; `tools/clientdocs.py`, `tools/md2pdf.py`; Stage 4 Step 2 item 4b (`BUILD_ASSUMPTIONS_<App>.md`) |
-| Q6 low request count | DD-18 (`state.py start`), DD-25, DD-27, DD-29, DD-30, DD-31, DD-33, DD-34 (scan, copy, one replace per document, check); `AGENTS.md §Keeping the Request Count Down`; Stage 4's batch points (state and inputs at the start, the predecessor check, Step 0's change-log writes, a task's files, verification and exit criteria, the test-guide walk and run-doc commands, hand-off state writes) |
+| R16 QA test plan | DD-37; Stage 7; `tools/qaplan.py`; `qa_plan.json` (§5); the harness-reference list of `tools/clientdocs.py`, imported |
+| Q6 low request count | DD-18 (`state.py start`), DD-25, DD-27, DD-29, DD-30, DD-31, DD-33, DD-34 (scan, copy, one replace per document, check), DD-37 (one `apply` per batch of test cases); `AGENTS.md §Keeping the Request Count Down`; Stage 4's batch points (state and inputs at the start, the predecessor check, Step 0's change-log writes, a task's files, verification and exit criteria, the test-guide walk and run-doc commands, hand-off state writes) |
 
 ## 10. Known trade-offs
 
@@ -340,13 +383,34 @@ human, not a choice the agent makes. Material conflicts are reported, not resolv
 - **PDFs need a Chromium-family browser that runs headless.** Where none is installed, or policy
   blocks headless mode, `tools/md2pdf.py` cannot print; it says so, and its `--check` and the
   static HTML it saves are the fallback (DD-35).
+- **The QA tracker is proved only where Excel is installed.** `tools/qaplan.py` writes the
+  Excel file as XML in a zip; its tests check the zip and the XML everywhere, but only Excel can
+  say it opens cleanly — and Excel repairs a file it cannot read silently, dropping the part it
+  could not read. So one test opens the tracker in Excel through its automation interface and
+  checks every feature survived; it skips where Excel is not installed (DD-37).
+- **`build` sees only the tracker in `qa/`.** It replaces that file in place while it is exactly
+  as written, so a *copy* sent to a tester before then can be replaced under the same name. Stage
+  7's hand-off tells the developer to move the file out of `qa/` to send it, which makes it final
+  (DD-37).
+- **Stage 6's harness-reference list does not name Stage 7.** `tools/qaplan.py` imports
+  `clientdocs.py`'s list and adds `qa_plan.json`, `qaplan.py` and "stage 7" itself, so Stage 6's
+  check would not catch those names in a client document. Low risk: no pipeline document Stage 6
+  copies is written by Stage 7 (DD-37).
+- **No constraint can bind Stage 7.** The `PROJECT_CONTEXT §4` template offers no obligation key
+  for it (DD-1), so a project rule that should shape the QA plan — the client's terminology, a
+  test-environment policy — reaches it only through the prompt's Additional Instructions. Stage 7
+  was added with Stage 0's template unchanged; eval check E4's finding is suppressed in
+  `eval/baseline.json` until a key is added (DD-37).
+- **QA results never reach the ledger by themselves.** The tracker is the tester's record;
+  the ledger's *tested* column is the developer's word (invariant 5). A failure a tester finds
+  reaches the build only when the developer reports it (DD-37).
 - **Non-sequential phase IDs** confuse at first read. Deliberate (DD-5); the plan's summary
   table carries the running order.
 - **The code map can miss names.** `tools/codemap.py` finds declarations by pattern, so an
   unusual one may be absent from the index, and a file of an unknown kind is listed with no
   names at all. The map only says where to look; an agent that cannot find something in it
   searches as before, and nothing is ever cited from the map (DD-27).
-- **Volume.** ~5,300 lines of instruction across the seven stage files and two templates;
+- **Volume.** ~5,800 lines of instruction across the eight stage files and two templates;
   the three guides exist to keep the entry cost low (Q1).
 - **Git-dependent history.** Superseded design and plan versions exist only as commits the
   developer makes, so a project that keeps `./out/` out of git loses that lineage. The Implement
